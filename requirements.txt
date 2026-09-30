@@ -1,0 +1,10 @@
+# Core (analysis, tests, CPU)
+numpy
+scipy
+pytest
+torch
+# Model runs. Each model's remote code may need its own transformers version
+# (e.g. Dream was released with 4.46.x). Run scripts/smoke_test.py per model first;
+# if one version cannot serve all models, use one environment per model.
+transformers
+accelerate
