@@ -12,7 +12,7 @@
 | 统一采样器（k / τ / 块长度 / 顺序 / 轨迹记录 / 串行化） | ✅ 已测：玩具模型上与命题 1 的闭式解一致（误差 < 0.03） |
 | 反事实重放、安慰剂、DVS | ✅ 已测：真实分词器 + 玩具 logits 的端到端用例 |
 | Oracle 骨架约束（§6.2 第 2 种） | ✅ 已测（同上） |
-| LLaDA / Dream / LLaDA2.0 适配器 | ⚠️ **按官方参考代码编写，但还没在真实权重上跑过**（这台机器没有 GPU）。上 GPU 后先跑 `scripts/smoke_test.py` |
+| Dream / LLaDA2.0 适配器（以及保留的 LLaDA-8B 适配器） | ⚠️ **按官方参考代码编写，但还没在真实权重上跑过**（这台机器没有 GPU）。上 GPU 后先跑冒烟测试 |
 | AR 基线（free / skeleton） | ⚠️ 同上，未在真实模型上跑过 |
 | 全文法约束（free 模式下保证语法） | ❌ 未实现，只留了接口（见“已知限制”） |
 
@@ -48,78 +48,38 @@ scripts/                   见下
 tests/
 ```
 
-## 在 GPU 上的执行顺序
+## 在 GPU 上运行（minimal 方案）
 
-### 0. 冒烟测试（每个模型各一次，第一步必须做）
+实验方案已定为 minimal：dLLM 用 Dream-v0-Instruct-7B 和 LLaDA2.0-mini，对应的 AR 对照是 Qwen2.5-7B-Instruct 和 Ling-mini-2.0；数据是 BFCL parallel / parallel_multiple 和 ParaProbe（840 条）。全部步骤都封装在 `scripts/run_minimal.sh`，交给本地 Claude 执行的完整说明见 [`LOCAL_CLAUDE_PROMPT.md`](LOCAL_CLAUDE_PROMPT.md)。
 
-```bash
-python scripts/smoke_test.py --model GSAI-ML/LLaDA-8B-Instruct
-python scripts/smoke_test.py --model Dream-org/Dream-v0-Instruct-7B
-python scripts/smoke_test.py --model inclusionAI/LLaDA2.0-mini
-```
+**环境**：各模型 `config.json` 里记录的 transformers 版本不同，建议建两个环境。
 
-需要看到：
-- LLaDA：`LLaDA reference match: True`（我们的采样器与官方 `generate` 逐 token 一致）
-- LLaDA2.0：`LLaDA2.0 reference match (up to EOS): True`
-- 所有模型：`determinism (resume at step 3): True`（反事实重放的前提；bf16 下如果是 False，要打开 `torch.use_deterministic_algorithms` 或改用 fp32 做归因实验）
+| 环境 | 模型 | transformers |
+|---|---|---|
+| `PY_DREAM` | Dream-7B、Qwen2.5-7B | 4.46.2 |
+| `PY_LLADA2` | LLaDA2.0-mini、Ling-mini-2.0 | 4.57.1 |
 
-各模型的 remote code 可能依赖不同版本的 transformers（例如 Dream 发布时用的是 4.46.x）。如果一个版本跑不通全部模型，就为每个模型单独建一个环境。
-
-### 1. RQ1：错误构成（图 2）
+**按阶段执行**（每个阶段都能断点续跑）：
 
 ```bash
-D=bfcl:parallel,parallel_multiple,live_parallel,live_parallel_multiple,simple_python,multiple
-python scripts/run_dllm.py --model Dream-org/Dream-v0-Instruct-7B --data $D \
-    --mode skeleton --k 1,4 --out results/dream_skel.jsonl
-python scripts/run_ar.py --model Qwen/Qwen2.5-7B-Instruct --data $D \
-    --mode skeleton --out results/qwen_skel.jsonl
-python scripts/summarize.py results/dream_skel.jsonl results/qwen_skel.jsonl --by category --csv results/rq1.csv
+export PY_DREAM=~/envs/dream/bin/python PY_LLADA2=~/envs/llada2/bin/python
+bash scripts/run_minimal.sh setup     # 数据 + CPU 测试
+bash scripts/run_minimal.sh smoke     # 冒烟测试，必须通过才能继续
+bash scripts/run_minimal.sh timing    # 各跑 20 条测速，然后用 estimate_cost.py 重算预算
+CUDA_VISIBLE_DEVICES=0 bash scripts/run_minimal.sh dream &
+CUDA_VISIBLE_DEVICES=1 bash scripts/run_minimal.sh llada2 &   # 需要 80GB 卡
+wait
+bash scripts/run_minimal.sh ar
+bash scripts/run_minimal.sh attr
+bash scripts/run_minimal.sh summary   # 表格写入 results/summary/
 ```
 
-`--mode free` 是不加约束的对照：语法错误会单独记为 `syntax_error`，报告时两种模式都给。
+冒烟测试要看到：
+- LLaDA2.0：`LLaDA2.0 reference match (up to EOS): True`。官方采样器在 temperature=0 时仍然用 `torch.multinomial` 采样，所以冒烟测试会先把它换成贪心再比较；我们的主实验一律用真正的贪心。
+- 所有模型：`determinism (resume at step 3): True`。这是反事实重放的前提；如果是 False，先试 `torch.use_deterministic_algorithms(True)`。
+- Dream：官方调度不是固定 k，没有可逐 token 对齐的参考，只看端到端输出是否像样（JSON 结构、调用数合理）。
 
-### 2. RQ2：剂量–响应（图 3），固定约束、只改并行度
-
-```bash
-M=Dream-org/Dream-v0-Instruct-7B; D=bfcl:parallel,parallel_multiple
-# 每步提交 token 数；confidence = 任意顺序，left_to_right = AR 顺序（§6.4 的关键对照）
-python scripts/run_dllm.py --model $M --data $D --mode skeleton \
-    --k 1,2,4,8,16 --order confidence,left_to_right --out results/dream_k.jsonl
-# 置信度阈值（Fast-dLLM 式，至少提交 1 个）
-python scripts/run_dllm.py --model $M --data $D --mode skeleton \
-    --k 1 --threshold 0.99,0.95,0.9,0.7,0.5 --out results/dream_tau.jsonl
-# 块长度
-python scripts/run_dllm.py --model $M --data $D --mode skeleton \
-    --k 4 --block-length 8,32,none --out results/dream_block.jsonl
-python scripts/summarize.py results/dream_k.jsonl --by category
-```
-
-LLaDA2.0 必须带块（例如 `--block-length 32`），块边界按绝对位置对齐，与官方实现一致。
-
-### 3. RQ3：ParaProbe（图 4）
-
-```bash
-python scripts/prepare_data.py --per-cell 20       # 3,360 条
-python scripts/run_dllm.py --model $M --data probe:data/paraprobe.jsonl --mode skeleton \
-    --k 1,2,4,8 --out results/dream_probe.jsonl
-# 验证命题 1：温度采样、多个种子
-python scripts/run_dllm.py --model $M --data probe:data/paraprobe.jsonl --mode skeleton \
-    --k 8 --temperature 1.0 --seeds 0,1,2 --out results/dream_probe_T1.jsonl
-python scripts/summarize.py results/dream_probe.jsonl --by meta.n --by meta.entities
-```
-
-### 4. 归因（表 1）与 DVS（图 5）
-
-只能用确定性配置（温度 0、顺序不是 random）。`--cfg-tag` 取 summarize 输出里的 `cfg` 列：
-
-```bash
-python scripts/attribute.py --model $M --results results/dream_k.jsonl --data $D \
-    --cfg-tag confidence_k4_tnone_bfull_T0.0 --out results/dream_attr_k4.jsonl
-python scripts/dvs.py --model $M --results results/dream_k.jsonl --data $D \
-    --cfg-tag confidence_k4_tnone_bfull_T0.0 --out results/dream_dvs_k4.jsonl
-```
-
-`attribute.py` 打印每类错误的修复比例、安慰剂的“改坏”比例，以及两者之差（可归因比例）。只在单 token 步中提交的错误单独计数：它们按定义不可能来自同时提交。
+单独运行某一项时，各脚本的用法写在文件开头的 docstring 里（`run_dllm.py`、`run_ar.py`、`attribute.py`、`dvs.py`、`summarize.py`）。LLaDA-8B 的适配器还保留在代码里，但不在 minimal 方案中。
 
 ## 算力估计（A100 小时）
 

@@ -3,7 +3,8 @@
 1. LLaDA-8B:  our Sampler must reproduce the official `generate` (low_confidence,
               temperature 0) token for token, for k = gen_length / steps.
 2. LLaDA2.0:  our Sampler (k=1, threshold, absolute blocks) must reproduce
-              `model.generate(threshold=..., steps=block_length)`.
+              `model.generate(threshold=..., steps=block_length)` once its sampler is
+              made greedy (the official one samples even at temperature 0).
 3. Dream:     no exact reference schedule exists for fixed k, so it only runs one
               BFCL example end to end and prints the output.
 All:          one BFCL parallel example in free and skeleton mode, and a determinism
@@ -76,6 +77,15 @@ def main():
         ours, _ = Sampler(a, cfg).generate(prompt_ids)
         print("LLaDA reference match:", bool((ref.cpu() == ours.cpu()).all()))
     if a.name == "llada2":
+        # The official sampler draws with torch.multinomial even at temperature 0, so for
+        # an exact comparison swap in greedy selection; this checks our block layout,
+        # attention mask and threshold rule, not the official sampling noise.
+        def greedy(logits, temperature=0.0, top_k=0, top_p=1.0):
+            probs = torch.softmax(logits.float().reshape(-1, logits.shape[-1]), -1)
+            p, tok = probs.max(-1)
+            return tok.view(*logits.shape[:-1]), p.view(*logits.shape[:-1])
+
+        a.model._sample_with_temperature_topk_topp = greedy
         G, B, tau = 64, 32, 0.95
         ref = a.model.generate(inputs=prompt_ids[None], gen_length=G, block_length=B, steps=B,
                                threshold=tau, temperature=0.0)

@@ -45,10 +45,18 @@ class Adapter:
 
 
 def _load(model_id, dtype, device):
-    from transformers import AutoModel, AutoTokenizer
+    """Load the class with the LM head.
+
+    LLaDA2.0 maps AutoModel to its headless base model, so prefer AutoModelForCausalLM
+    whenever the config's auto_map provides it (Dream only registers AutoModel).
+    """
+    from transformers import AutoConfig, AutoModel, AutoModelForCausalLM, AutoTokenizer
 
     tok = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
-    model = AutoModel.from_pretrained(model_id, trust_remote_code=True, torch_dtype=dtype)
+    config = AutoConfig.from_pretrained(model_id, trust_remote_code=True)
+    cls = AutoModelForCausalLM if "AutoModelForCausalLM" in (getattr(config, "auto_map", None) or {}) \
+        else AutoModel
+    model = cls.from_pretrained(model_id, trust_remote_code=True, torch_dtype=dtype)
     return tok, model.to(device).eval()
 
 

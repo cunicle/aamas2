@@ -64,7 +64,12 @@ def main():
     records = []
     for path in args.files:
         with open(path) as f:
-            records += [json.loads(line) for line in f if line.strip()]
+            recs = [json.loads(line) for line in f if line.strip()]
+        crashed = [r for r in recs if "error" in r]
+        if crashed:
+            print(f"WARNING {path}: {len(crashed)}/{len(recs)} runs raised an exception, "
+                  f"e.g. {crashed[0]['error'][:200]}")
+        records += recs
     rows = summarize(records, args.by)
     if not rows:
         print("no evaluated records")
