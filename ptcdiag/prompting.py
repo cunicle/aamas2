@@ -26,7 +26,8 @@ SYSTEM_TEMPLATE = (
 
 
 def system_prompt(functions):
-    return SYSTEM_TEMPLATE.format(functions=json.dumps(functions, ensure_ascii=False, indent=2))
+    # compact JSON: 10-25% fewer prompt tokens than indent=2, i.e. proportionally less compute
+    return SYSTEM_TEMPLATE.format(functions=json.dumps(functions, ensure_ascii=False))
 
 
 def build_messages(example):

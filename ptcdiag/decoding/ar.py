@@ -88,10 +88,13 @@ def generate_skeleton(ar, prompt_ids, example, slot_lengths=None):
     out, i, nfe = [], 0, 1
     while i < len(gen_ids):
         if gen_ids[i] != MASK:
-            out.append(gen_ids[i])
-            logits, past = ar.step(torch.tensor([[gen_ids[i]]], device=ar.device), past)
+            j = i
+            while j < len(gen_ids) and gen_ids[j] != MASK:
+                j += 1
+            out.extend(gen_ids[i:j])  # fixed run: one forward pass for the whole chunk
+            logits, past = ar.step(torch.tensor([gen_ids[i:j]], device=ar.device), past)
             nfe += 1
-            i += 1
+            i = j
             continue
         s = slot_at[i]
         closers = ['"'] if s.type in STRING_TYPES else [",", "}"]

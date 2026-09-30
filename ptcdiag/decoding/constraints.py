@@ -21,8 +21,11 @@ from dataclasses import dataclass, field
 import torch
 
 STRING_TYPES = {"string", "any"}
-SLOT_LENGTHS = {"string": 12, "any": 12, "integer": 6, "float": 8, "boolean": 2,
-                "array": 32, "tuple": 32, "dict": 32}
+# Chosen from BFCL parallel-category gold values (Dream tokenizer): covers p99 of strings
+# (11 tokens) and the max of integers (9) and floats (12); arrays/dicts p99 is 40.
+# Too-short slots would truncate values and show up as spurious wrong_value errors.
+SLOT_LENGTHS = {"string": 14, "any": 14, "integer": 10, "float": 12, "boolean": 2,
+                "array": 48, "tuple": 48, "dict": 48}
 
 _INT = re.compile(r"^\s?-?\d+$|^\s?-$")
 _FLOAT = re.compile(r"^\s?[-+]?[\d.eE]+$|^\s?[-+]$")

@@ -23,6 +23,7 @@ pip install -r requirements.txt
 python scripts/prepare_data.py          # 下载 BFCL v4 + 生成 ParaProbe
 python -m pytest tests -q               # 36 个测试；test_pipeline 需要能下载 Dream 分词器
 python scripts/sim_prop1.py             # 命题 1：闭式解 vs 真实采样器
+python scripts/estimate_cost.py          # A100 小时估计（见下）
 ```
 
 ## 目录
@@ -120,19 +121,29 @@ python scripts/dvs.py --model $M --results results/dream_k.jsonl --data $D \
 
 `attribute.py` 打印每类错误的修复比例、安慰剂的“改坏”比例，以及两者之差（可归因比例）。只在单 token 步中提交的错误单独计数：它们按定义不可能来自同时提交。
 
-## 算力粗估
+## 算力估计（A100 小时）
 
-每次运行都是 batch=1、没有 KV cache，一次前向约等于 8B 模型处理一遍“提示 + 画布”（约 1k token）。
+`scripts/estimate_cost.py` 用真实提示和骨架算出每个配置的前向次数；固定 k 的配置是精确值，块按模型各自的规则切分。再乘以每次前向的耗时得到小时数。耗时默认按 FLOPs 在约 40% MFU 下估算（8B 稠密模型每 1k token 约 125 ms），**不是实测值**。冒烟测试跑完后，把实测值代进去重算：
 
-- skeleton 模式只对取值槽加掩码（BFCL 并行题约 60 个掩码位置），k=1 时约 60 次前向，**便宜**。
-- free 模式 256 个生成位置，k=1 时 256 次前向，贵 4 倍左右。
-- 所以主实验（RQ2、RQ3）放在 skeleton 模式，free 模式只跑少数配置作对照。
+```bash
+python scripts/estimate_cost.py --plan minimal
+python scripts/estimate_cost.py --plan full --timing dream=110:20 --timing llada2=45:30   # 实测后
+```
+
+| 方案 | 内容 | 估计 |
+|---|---|---|
+| minimal | Dream + LLaDA2.0-mini；BFCL parallel / parallel_multiple；ParaProbe 840 条；k∈{1,2,4,8,16}、左到右 k=1、τ=0.9；free 对照 1 个配置；k=4 下做归因和 DVS；AR 对照为 Qwen2.5-7B 和 Ling-mini-2.0 | 约 24 h，加 30% 重跑余量后约 **31 A100·h**；2 卡并行约 15 h |
+| full | 在 minimal 基础上增加 LLaDA-8B（轻量版）、live 并行题、ParaProbe 1,680 条、更多 τ 和块长度、左到右 k=4、命题 1 的采样验证、k=8 下的归因、Llama-3.1-8B | 约 48 h，加余量后约 **63 A100·h** |
+
+- 大头是 k=1 的对照（每条约 80–100 次前向）和 ParaProbe；按因子砍 ParaProbe 是最有效的省钱方式。
+- 显存：Dream / LLaDA-8B 用 40GB 卡即可；LLaDA2.0-mini 的 bf16 权重约 32GB，需要 80GB 卡。
+- 前向耗时的不确定性约 ±50%（取决于 attention 实现和 MFU），所以冒烟测试实测速度后一定要重算。
 
 ## 已知限制 / 下一步
 
 1. **全文法约束没做**。free 模式目前不保证语法。计划是把 eth-sri/constrained-diffusion 的“可补全性检查”包装成 `Constraint` 接口：`filter` 屏蔽会导致不可补全的 token；或者在提交后检查、不合法就重采。它自带的生成循环不能直接用，因为我们需要自己控制调度和轨迹。
 2. **Dream 没有能逐 token 对齐的官方参考**：它的官方调度按时间步分配提交数，与固定 k 不同。Dream 的冒烟测试只做端到端检查。
 3. **骨架的分词边界**：骨架文本和取值是分开分词的，与模型自然生成时的分词可能不同（例如 `"Paris` 被拆成 `"` + `Paris`）。dLLM 和 AR 用的是同一套骨架，比较仍然公平，但论文里要说明。
-4. **槽长度固定**（字符串 12、整数 6、数组 32 个 token），多余位置用 EOS 填充，解码时丢弃。超长取值会被截断；如有需要，可通过 `slot_lengths` 调整。
+4. **槽长度固定**（字符串 14、整数 10、浮点数 12、数组/字典 48 个 token），多余位置用 EOS 填充，解码时丢弃。长度按 BFCL 并行题标准答案取值的分布选定：覆盖字符串的 p99，以及整数、浮点数的最大值。约 1% 的超长字符串、数组仍会被截断；需要时可通过 `slot_lengths` 调整。
 5. **效率**：batch=1、没有 KV cache。如果时间不够，可以按提示长度分桶做 batch（LLaDA / Dream 需要 attention mask）。
 6. BFCL 里有少数样例本身无解（标准答案用了 schema 里不存在的参数，或必填参数没有可接受值），`tests/test_taxonomy.py` 里有说明。所有模型同样受影响，不影响相对比较。
