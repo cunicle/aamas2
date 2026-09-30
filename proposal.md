@@ -1,7 +1,7 @@
 # 研究方案：语法正确之后——扩散语言模型并行工具调用的残余错误及其与并行去掩码的因果关系
 
 > 目标会议：**AAMAS 2027**（第 26 届，越南河内，2027-05-03 ~ 05-07），主轨道，主投 **Generative and Agentic AI (GAAI)** 领域
-> 版本：v0.1（2026-09-30）
+> 版本：v0.3（2026-09-30）——删去缓解方法；补全相关工作与新颖性检查；摘要按新颖性检查结果重写
 
 ---
 
@@ -25,19 +25,69 @@
 
 ## 1. 一句话选题与贡献
 
-**一句话**：在约束解码已经保证语法正确的前提下，扩散语言模型（dLLM）并行工具调用中剩下的错误主要是**调用之间的协调错误**（重复、遗漏、参数错绑、“嵌合”取值），这类错误由**同一步同时去掩码的相互依赖 token** 造成。我们通过干预实验和逐实例反事实重放证明这一点，并用一个轻量的结构感知调度来修复它。
+**一句话**：在约束解码已经保证语法正确的前提下，扩散语言模型（dLLM）并行工具调用中剩下的错误主要是**调用之间的协调错误**（重复、遗漏、参数错绑、“嵌合”取值），这类错误由**同一步同时去掩码的相互依赖 token** 造成。我们通过干预实验和逐实例反事实重放来检验这一点。
 
-**预期贡献（写进 Introduction 的 4 条）**：
-1. **问题与分类法**：第一个针对“语法已保证”条件下 dLLM 并行工具调用的**残余错误分类法**，区分单调用错误和跨调用协调错误。
-2. **理论视角（AAMAS 卖点）**：把一步内并行去掩码建模为**同时行动的去中心化团队决策**：每个被掩码位置是一个“智能体”，只看共享上下文、看不到同伴本步的选择，联合动作按边缘分布之积采样。跨调用错误就是经典的**协调失败（miscoordination）**。由此得到可检验的预测，例如 n 个对称调用在一步内同时提交时，得到合法（无重复、无遗漏）分配的概率上界为 n!/nⁿ。
-3. **因果归因方法**：三件套——(a) 剂量–响应干预（只改并行度，其余全固定）；(b) **逐实例反事实重放**（把出错那一步改成逐 token 串行提交，看错误是否消失）；(c) **依赖违背分数 DVS**（同一步提交的 token 对之间的条件依赖强度）。这三者把“并行去掩码导致的错误”与“模型能力不足”“生成顺序”分开。
-4. **缓解**（可选但强烈建议）：**冲突组串行化调度**（同一“协调组”内每步最多提交一个 token），在准确率–NFE（函数评估次数）平面上给出 Pareto 改进。
+**预期贡献（写进 Introduction 的 3 条）**：
+1. **问题与分类法**：第一个**定量的**、按 BFCL 类别拆分的“语法已保证”条件下 dLLM 工具调用**残余错误分类法**，重点是并行调用特有的跨调用协调错误。已有工作只做了定性举例（Dang & Ermon 2026）或错误被格式错误主导（Lu et al., ACL 2026），见第 2 节。
+2. **理论视角（AAMAS 卖点）**：把一步内并行去掩码建模为**同时行动的去中心化团队决策**：每个被掩码位置是一个“智能体”，只看共享上下文、看不到同伴本步的选择，联合动作按边缘分布之积采样。跨调用错误就是经典的**协调失败（miscoordination）**。由此得到可检验的预测，例如 n 个对称调用在一步内同时提交时，若联合分布对调用顺序对称，得到合法（无重复、无遗漏）分配的概率只有 n!/nⁿ。
+3. **因果归因方法**：三件套——(a) 剂量–响应干预（只改并行度，其余全固定）；(b) **逐实例反事实重放**（把出错那一步改成逐 token 串行提交，看错误是否消失）；(c) **依赖违背分数 DVS**（同一步提交的 token 对之间的条件依赖强度）。这三者把“并行去掩码导致的错误”与“模型能力不足”“生成顺序”分开。**核心论点：并行度可能不改变总准确率，却改变错误的构成**，这正好回应 Dang & Ermon 在总准确率层面观察到的“约束解码对步数不敏感”。
 
 ---
 
-## 2. 相关工作与空白
+## 2. 相关工作与空白（新颖性检查结果）
 
-（待文献检索结果补全，见本文件后续版本。）
+> 标 ✅ 的已由我直接在 arXiv 核对过标题、作者、日期和摘要；其余来自检索代理的汇总，**引用前请逐篇打开核对**，特别是数字。
+
+### 2.1 最有威胁的两篇（论文中必须正面引用和区分）
+
+**A1. Dang & Ermon, “Constrained Decoding for Diffusion Language Models via Efficient Inference over Finite Automata”，arXiv 2607.07026（2026-07-08）✅**
+- 内容：对任意有限自动机约束，给出从**约束化的平均场（mean-field）后验**中精确采样的算法；支持任意重掩码调度下的并行和分块解码。在 Dream-7B / LLaDA-8B 上评测 BFCL、xLAM 等。BFCL-Live：贪心 63.9 → 71.5，采样 22.3 → 69.0。
+- **威胁 1**：据代理报告，附录 D 讨论了“约束满足后仍然出错”的样例（取值不匹配、参数过度具体化、枚举合法但错误）。**只有定性举例，没有计数，没有按 BFCL 类别拆分，没有并行调用专门分析，也没有归因到并行去掩码。**
+- **威胁 2**：据代理报告，其图 4 显示约束解码下准确率**对去噪步数不敏感**。在总准确率层面，这是一条**不利于我们假设**的证据。
+- **我们的回应**：(1) 我们测的是**错误类型的构成**如何随并行度变化，而不仅是总准确率；(2) 我们专门看 parallel / parallel_multiple，那里调用之间的依赖最强，而总体准确率被 simple 类主导；(3) 除步数外，我们还干预块长度、调度器和置信度阈值；(4) 他们采样的仍是**平均场**（各位置独立）后验，自动机约束只保证语法，并不强制跨调用一致（如“两个调用的 city 不能相同”），所以协调错误在他们的方法下依然可能存在。**如果他们开源了代码，直接用它作为我们的约束解码器**，最有说服力。
+
+**A2. Lu, Ding, Zhang, Zhang, Tao, “The Bitter Lesson of Diffusion Language Models for Agentic Workflows: A Comprehensive Reality Check”，ACL 2026 Main，arXiv 2601.12979 ✅**
+- 内容：在 AgentBoard 和 BFCL-v3（含 parallel / parallel-multiple）上评测 LLaDA、Dream 等 dLLM，结论是 dLLM 目前不适合作智能体骨干，工具调用中“在扩散噪声下无法保持符号精度（如严格 JSON schema）”。提出 DiffuAgent 框架。
+- 据代理报告：其错误分析以 JSON 格式错误和参数错误为主；把原因**笼统地**归于“并行解码削弱因果依赖”，**没有做受控实验**。
+- **区别**：他们**没有保证语法**，所以错误被格式错误淹没；他们的“并行导致”是断言，我们要做的是检验。
+
+### 2.2 机制层面最相关
+
+**ParallelBench（Kang et al., ICLR 2026, arXiv 2510.04767）✅**：从信息论角度分析并行解码的条件独立假设，在可解析的合成列表任务上展示强依赖时的质量退化（例如 “New York” + “Mexico City” → “New City” 这类嵌合，以及去重/排列类错误随并行度上升）。**这是我们“嵌合取值”和“重复/遗漏”预测的直接先例，但它不涉及工具调用，也没有约束解码。** 我们的定位：把 ParallelBench 的机制带到智能体工具调用场景，并在语法已保证的条件下做逐实例因果归因。
+
+**并行解码误差的理论**（用于第 3 节）：
+- **Fast-dLLM**（ICLR 2026, arXiv 2505.22618）定理 1：若同时提交的各位置边缘概率都 > 1−ε 且 (n+1)ε ≤ 1，则边缘之积的贪心结果与联合分布的贪心结果一致。这正是 3.3 中“阈值调度保护对称槽”推论的理论依据，直接引用。
+- **EB-Sampler**（NeurIPS 2025, arXiv 2505.24857）把误差分解为“模型误差 + 联合依赖误差”。这与我们“模型能力 vs 并行去掩码”的归因框架同构，可以直接借用它的术语。
+- ParallelBench 定理 1、Li & Cai（arXiv 2505.21400）、Chen et al.（arXiv 2511.04647）、Wen et al.（arXiv 2608.25505）：误差下界 = 各步条件总相关之和。**第 3.1 节的 Δₜ 就是这个量，要引用而不是当成自己的贡献。**
+- Feng et al.（arXiv 2502.09622）：要控制**序列级**错误率，步数须随长度线性增长。JSON 工具调用正是“一处错就全错”的序列级任务。
+
+**依赖度量（与我们的 DVS 最接近，必须引用）**：
+- **DEMASK**（arXiv 2604.02560）定义 D_ij = 揭示 j 后 i 的预测分布的 TV 变化，并开源代码。
+- **Wen et al.**（arXiv 2608.25505）的 pseudo-cost：对同一轮揭示的 token 逐个重新打分，求 log 概率差之和。
+- 两者都**只用于设计调度器或衡量整体质量，没有用于逐个错误的归因**。所以 DVS 不宣称是新度量，而定位为“把 DEMASK / pseudo-cost 用于错误归因”。**我们的方法新意在 (A) 剂量–响应 + (B) 反事实重放 + 与工具调用错误类型挂钩。**
+
+依赖感知解码器（DAPD、DAWN、CoCommit、Mean-Field Parallel Decoding 等）是方法类工作，没有工具调用评测，作为背景引用。
+
+### 2.3 其他相关（中低威胁，待核对）
+
+- **LLaDA2.0**（arXiv 2512.15745 ✅，16B-A1.4B 的 mini 版原生支持工具调用，模型卡报告 BFCL 70.90 ✅）；**LLaDA2.1**（arXiv 2602.08676）据报告在 speedy / quality 两种模式下 BFCL v3 有 74.86 vs 75.61 的差异（每次前向提交 token 数不同）。这是“并行度越高，工具调用略差”的**总量层面**证据，但没有错误分析。
+- **DLLM Agent**（arXiv 2602.07451）、**DLLM-Searcher**（arXiv 2602.07035）：dLLM 搜索智能体，错误分析停留在格式层（无法解析、缺少 tool_call 等），单轮单调用。
+- **Chavan**（arXiv 2609.23742，2026-09-20）：“约束解码消除结构错误后暴露语义差距”，做了约束后的错误分类，但对象似乎是 AR 小模型。说明“语法之后还剩什么”这一问法本身不新，**我们的新意必须落在 dLLM 特有的并行去掩码归因上**。
+- **Khanal et al., “Agents of Diffusion”**（arXiv 2601.07152，**AAMAS 2026**）：用多智能体 RL 引导 dLLM 生成符合 schema 的 JSON。说明 AAMAS 接收 dLLM 相关工作，可以引用来论证与会议的契合度。
+- dLLM 约束解码系列（均未对 BFCL 并行调用做分类分析）：
+  - DINGO（NeurIPS 2025, arXiv 2505.23061）：正则约束，代码 github.com/uiuc-focal-lab/DINGO
+  - **Mündler, Dekoninck, Vechev**（ICLR 2026, arXiv 2508.10111）：CFG 约束，含 JSON Schema 实验，代码 github.com/eth-sri/constrained-diffusion
+  - LAVE（arXiv 2602.00612）：CFG，代码 github.com/zhangyitonggg/CD4dLLM
+  - EPIC（arXiv 2606.00722）：CFG + 并行提交的兼容子集选择，代码 github.com/hyundong98/EPIC-Decoding
+- **FactorDLM**（Su & Zhang, arXiv 2609.32900，2026-09-26 ✅）：用因子图表达**跨字段关系约束**（如 JSON 中的交叉引用）并精确解码。**这对我们的论点有影响**：如果事先知道“各调用的实体必须互不相同”，理论上可以写成关系约束来消除重复。我们的回应是：(1) 哪个实体对应哪个调用、调用数是多少，正是任务本身要解决的，无法事先写成约束；(2) all-different 这类启发式约束在合法的重复调用场景下会出错。可以把“加 all-different 约束”作为一个对照实验，展示它只能修掉重复，修不掉错绑和嵌合。
+
+### 2.4 结论：空白在哪里
+
+原来的说法“没人研究语法正确之后还剩哪些错误”**不能这样写**，会被 A1 和 Chavan 直接反驳。改为：
+
+> 已有工作要么在没有语法保证的条件下评测 dLLM 工具调用，导致错误被格式问题主导（A2）；要么在保证语法后只定性列举残余错误，并在总准确率层面报告对步数的鲁棒性（A1）。**没有工作定量刻画语法保证下 dLLM 并行工具调用的残余错误构成，也没有工作检验这些错误是否由并行去掩码造成。**
+
+真正开放的问题：(1) 按 BFCL 类别拆分的定量分类；(2) 并行调用特有的错误（重复、遗漏、跨调用错绑、嵌合、共享参数不一致）；(3) 固定约束、只改并行度的因果检验，看**错误类型分布**如何变化；(4) 覆盖原生支持工具调用的新 dLLM（LLaDA2.x）。
 
 ---
 
@@ -62,7 +112,6 @@
 | 按边缘之积采样 | 独立（非相关）策略 |
 | 跨调用重复/遗漏/错绑 | 协调失败（如对称协调博弈中的错配） |
 | 先提交一个调用，再提交其余 | 顺序行动/相关化装置（correlation device）打破对称 |
-| 冲突组串行化调度 | 在冲突组内引入“轮流行动”的协调协议 |
 
 ### 3.3 可检验的定量预测
 
@@ -93,8 +142,6 @@
   - **H4（机制）**：同一步提交的 token 对的依赖违背分数（DVS）越高，出错概率越高。
 - **RQ3（什么时候最严重）**：调用数量 n、槽分配歧义度、实体多 token 程度、跨调用共享参数如何调节并行错误？
   - **H5**：错误率随 n 和歧义度上升，在对称设置下接近命题 1 的预测曲线。
-- **RQ4（能否低成本修复）**（可选）：利用语法状态得知“哪些位置属于同一协调组”，限制组内同步提交，能否在保持大部分加速的前提下消除大部分协调错误？
-  - **H6**：冲突组串行化在准确率–NFE 上严格优于同 NFE 的基线调度器。
 
 ---
 
@@ -132,9 +179,9 @@
 | Dream-v0-Instruct-7B | Qwen2.5-7B-Instruct | Dream 由 Qwen2.5-7B 初始化，是最干净的对照 |
 | LLaDA-8B-Instruct（及 LLaDA-1.5） | LLaMA-3-8B-Instruct（规模、数据量近似） | 从头训练的 MDM，原生 dLLM |
 | （可选）块扩散/半 AR 模型，如 SDAR / Fast-dLLM v2 等 | 其初始化来源的 AR 模型 | 用于检验“块长度”这个旋钮 |
-| （可选）LLaDA2.0 系列等原生支持工具调用的新模型 | 同规模 Qwen3 | 若本地显存允许 |
+| **LLaDA2.0-mini**（inclusionAI/LLaDA2.0-mini，16B 总参/1.4B 激活，MoE，原生支持工具调用，BFCL 70.90，默认块长 32） | Qwen3-8B（LLaDA2.0 报告中的对比模型）；若能找到其 AR 来源模型更好 | **强烈建议纳入**：回应“你们的 dLLM 根本没学过工具调用”的质疑。块扩散结构使“块长度”成为天然干预旋钮 |
 
-具体型号、HF ID 和是否原生支持 tool calling 待文献检索结果确认，后续补入。
+LLaDA-8B 和 Dream-7B 在无约束时 BFCL 很弱（A2 报告总分约 13–20），但在 A1 的约束解码下 Dream 的 BFCL-Live 可达约 71。因此约束解码本身就是让分析有意义的前提。
 
 **是否微调**：主实验不做训练，直接用 instruct 模型加 few-shot 工具调用模板。如果某 dLLM 在 BFCL simple 上准确率过低（< 40%）导致分析没有意义，再用同一份工具调用数据（如 xLAM/APIGen 子集）对 dLLM 和 AR **做同样的 LoRA SFT**，保持对照公平。这一步列为“风险预案”，不作为必做项。
 
@@ -142,7 +189,7 @@
 
 - 输出格式统一为 JSON 数组：`[{"name": ..., "arguments": {...}}, ...]`，由函数 schema 生成 JSON-Schema / 文法。
 - 实现优先级：
-  1. **复用已有的 dLLM 约束解码实现**（正则/CFG 版本，见第 2 节文献），保证“语法合法”是**硬保证**。
+  1. **复用已有的 dLLM 约束解码实现**，保证“语法合法”是**硬保证**。Dang & Ermon（A1）的代码目前没有找到公开链接，可以发邮件询问；**默认用 Mündler et al. 的 eth-sri/constrained-diffusion**（CFG，已开源，有 JSON Schema 实验，支持 LLaDA-8B 和 Dream-7B），把 BFCL 函数 schema 转成文法。LAVE / EPIC 作为备选。注意：LLaDA2.0-mini 的分词器和块扩散结构可能需要额外适配，先在 Dream 上跑通。
   2. 若 1 来不及：采用**骨架填空（scaffolded infilling）**，这正是 dLLM 的天然能力。先在受限集合中确定调用数和函数名，再把 JSON 骨架（括号、键名）写入画布，只对值槽加掩码；值槽内按类型做 token 级约束（数字/枚举/布尔/字符串）。
   3. 兜底的稳健性检验：不加约束，只保留语法合法的输出做“条件于语法合法”的分析，并报告选择偏差。
 - **额外设置——Oracle 骨架**（强烈推荐，也最容易实现）：直接给定调用数和函数名，只让模型填参数值。这时剩下的错误**全部是参数层面的语义错误**，跨调用错绑/重复/嵌合可以被最干净地测量，是 RQ2/RQ3 的主战场。
@@ -183,19 +230,13 @@
 5. **安慰剂对照**：在正确实例上随机挑一步做同样处理，统计被“改坏”的比例，作为噪声基线。
 6. 报告：可归因比例 = P(修复 | 出错) − P(改坏 | 正确)，按错误类型分解。
 
-**(C) 依赖违背分数 DVS 与共提交分析**：
+**(C) 依赖违背分数 DVS 与共提交分析**（度量本身沿用 DEMASK 的 D_ij 和 Wen et al. 的 pseudo-cost，见 2.2；我们的贡献是把它和具体错误挂钩）：
 - 对第 t 步同时提交的 token 对 (i, j)，额外做一次前向：把 xᵢ 填为已提交的值，得到 p(xⱼ | xᵢ, ·)，计算
   DVSₜ(i, j) = KL( p(xⱼ | xᵢ, ·) ‖ p(xⱼ | ·) )，步级 DVSₜ = 对该步所有 token 对求和（或取最大值）。
 - 检验：出错步的 DVS 分布显著高于正确步（AUROC）。
 - **混杂提醒**（论文里要主动写）：在阈值调度下，“两个槽同时被提交”本身说明它们都是高置信，这是简单样本的标志。所以观察性的“共提交 vs 出错”相关会被样本难度混杂，只能作为辅助证据。**因果结论以 (A)(B) 的干预结果为准**。
 
-### 6.6 缓解方法（RQ4，可选）
-
-1. **冲突组串行化调度（Coordination-Group Scheduling, CGS）**：约束解码器的文法状态已知每个位置属于哪个调用、哪个键。定义协调组 = {各调用的函数名槽}、{各调用中同一键的值槽}。调度规则：**每一步每个协调组内最多提交 1 个 token**，组间仍然并行。几行代码即可实现，插在任何调度器之上。
-2. **校验触发的定向重掩码**：检测到重复调用或嵌合值（值不在 prompt 可抽取的实体集合中）时，只重掩码该值槽并串行重解码。
-3. 报告准确率–NFE / 墙钟时间的 Pareto 曲线，与 AR、各基线调度器对比。
-
-### 6.7 统计
+### 6.6 统计
 
 - 所有比较用配对设计（同一实例、不同解码配置），McNemar 检验或配对 bootstrap（10k 次）给 95% CI。
 - 剂量–响应用 logistic 回归：error ~ log k + 错误类型 + 模型 + (1 | 实例)。
@@ -211,7 +252,6 @@
 - **图 4**：ParaProbe 上重复/错绑率随 n 的变化，叠加命题 1 的理论曲线 n!/nⁿ → RQ3。
 - **表 1**：反事实重放的归因结果（按错误类型；含安慰剂对照）。
 - **图 5**：DVS 的 AUROC / 分布对比。
-- **图 6**：准确率–NFE Pareto（含 CGS）→ RQ4。
 
 ---
 
@@ -222,9 +262,8 @@
 3. Parallel Unmasking as a Simultaneous-Move Decision（0.75 页）：形式化、命题 1、调度器依赖推论
 4. Taxonomy & Evaluation Protocol（0.75 页）：集合级匹配、分类法、ParaProbe
 5. Experimental Setup（0.5 页）
-6. Results（2.5 页）：RQ1–RQ3
-7. Mitigation（0.75 页）：CGS
-8. Discussion, Limitations, Conclusion（0.5 页）
+6. Results（3 页）：RQ1–RQ3
+7. Discussion, Limitations, Conclusion（0.75 页）：含对解码器设计的启示（例如耦合位置不应同步提交），但不作为贡献
 
 **AAMAS 定位**：主领域选 GAAI（涵盖 orchestration and workflows、agentic benchmarks）。叙事上强调：**工具调用是智能体的动作，并行工具调用是联合动作，并行去掩码是“无通信的同时行动”**。关键词：agentic AI, tool use, diffusion language models, parallel action selection, coordination failure。
 
@@ -239,7 +278,7 @@
 | **10/2** | ParaProbe 生成器；启动主实验矩阵（BFCL × 模型 × k × 调度器）；AR 基线 | 图 2、图 3 的原始数据开始产出 |
 | **10/3** | ParaProbe 实验（n、歧义度、token 结构）；温度采样验证命题 1；人工标注 200 条 | 图 4；κ 值 |
 | **10/4** | 反事实重放 + 安慰剂；DVS 计算（在子集上） | 表 1、图 5 |
-| **10/5** | CGS 缓解 + Pareto；补跑缺失的格子 | 图 6；**实验冻结** |
+| **10/5** | 稳健性检验（无约束设置、更多采样种子、块扩散模型）；补跑缺失的格子 | **实验冻结** |
 | **10/6** | 写作：方法、实验、结果（边写边补图） | 完整初稿 |
 | **10/7** | 写作：引言、相关工作、理论节；内部审阅 | 第二稿 |
 | **10/8** | 精修、压页、补充材料（代码 + ParaProbe + 完整结果表）、AI 使用声明 | 定稿 |
@@ -259,8 +298,9 @@
 | 约束解码实现来不及 | 骨架填空（6.2 第 2 种）；或无约束 + 条件于语法合法（稳健性检验） |
 | 阈值调度下几乎看不到并行错误 | 这本身是一个发现（阈值保护对称槽），与命题 1 的推论一致。把重点放在固定 k 调度和“部分对称/共享前缀”的嵌合错误上，并报告速度–错误的权衡 |
 | 审稿人质疑“只是 NLP 分析，不是 AAMAS” | 第 3 节的同时行动博弈框架 + 智能体联合动作叙事；GAAI 领域明确欢迎 agentic benchmarks 和 orchestration |
-| 已有工作抢先（见第 2 节） | 以文献检索结果为准，调整贡献表述 |
-| 8 天写不完 | 砍掉 RQ4（CGS），论文保留 RQ1–RQ3 仍然完整；或按第 11 节换投 |
+| A1 的“约束解码对步数鲁棒”在我们的设置中复现，即总准确率随并行度基本不变 | 这不否定我们的问题，反而是论文的看点：检查**错误构成**是否变化、parallel 类是否与 simple 类表现不同。若错误构成也不变，那就是一个干净的**负面结果**：“语法保证后，并行去掩码不是主要错误来源”，同样可发表，但要在 10/5 前决定叙事 |
+| 被审稿人认为与 A1 / A2 / ParallelBench 重叠 | 引言第二段就明确三者的差异（见 2.4），并在相关工作中逐条对比 |
+| 8 天写不完 | 优先保证 RQ1 + RQ2（分类法 + 剂量–响应 + 反事实重放）；DVS 和 ParaProbe 的部分因子可移入补充材料；或按第 11 节换投 |
 
 ---
 
@@ -278,23 +318,30 @@
 - [ ] 所有合作者在 OpenReview 上的账号是否已于 9/17 前完成注册/激活？没有的话马上联系 PC chairs 询问
 - [ ] 确认算力（卡数、型号、可用时长）
 - [ ] 确定标题，填入第 13 节摘要草稿，10/2 20:00（北京时间）前提交
-- [ ] 下载 Dream-v0-Instruct-7B、LLaDA-8B-Instruct、Qwen2.5-7B-Instruct、LLaMA-3-8B-Instruct；拉取 BFCL 数据
+- [ ] 下载 Dream-v0-Instruct-7B、LLaDA-8B-Instruct、LLaDA2.0-mini、Qwen2.5-7B-Instruct、LLaMA-3-8B-Instruct、Qwen3-8B；拉取 BFCL 数据
+- [ ] 查 Dang & Ermon（arXiv 2607.07026）是否开源代码（没有就发邮件）；通读其附录 D 和图 4
+- [ ] 克隆 eth-sri/constrained-diffusion，在 Dream-7B 上跑通一个 BFCL parallel 样例
+- [ ] 读 FactorDLM（arXiv 2609.32900）：确认它能否表达跨调用约束，决定是否把 all-different 约束作为对照
+- [ ] 通读 Lu et al.（ACL 2026）的 BFCL 错误分析部分，以及 ParallelBench
 - [ ] 分工
 
 ---
 
-## 13. 摘要草稿（英文，可直接用于 10/1 摘要注册，约 200 词）
+## 13. 摘要（英文，用于 10/1 AoE 摘要注册，289 词）
 
-**标题候选**
-1. *Syntactically Valid, Semantically Uncoordinated: Diagnosing Parallel Tool-Call Errors in Diffusion Language Model Agents*
-2. *When Tokens Move Simultaneously: Parallel Unmasking as a Coordination Failure in Diffusion LLM Tool Calling*
+**标题**：*Syntactically Valid, Semantically Uncoordinated: Diagnosing Parallel Tool-Call Errors in Diffusion Language Model Agents*
 
-**Abstract**
-> Diffusion language models (dLLMs) decode many tokens in parallel, which makes them look naturally suited to agents that issue several tool calls in a single turn. Constrained decoding can already guarantee that dLLM tool calls are syntactically valid, yet syntactic validity does not imply that a set of calls is correct. We study what goes wrong after syntax is guaranteed, and why. We introduce a taxonomy of residual errors that separates single-call errors from cross-call coordination errors (duplicated, omitted, and cross-bound calls, and "chimera" argument values stitched from two valid values), together with a set-level evaluation protocol and a controllable probe suite. We cast a parallel unmasking step as a simultaneous-move decision in which each masked position acts on the shared context without observing its peers, which predicts when factorized sampling breaks the coordination between calls. Using dose–response interventions on the degree of parallelism, per-instance counterfactual sequentialization of decoding steps, and a dependency-violation score, we test whether residual errors are caused by parallel unmasking rather than by model capability or generation order. Finally, we show that a lightweight coordination-group scheduler, which forbids simultaneous commitment within groups of interdependent positions, removes much of this error at a small cost in speed.
+**Abstract**（纯文本，直接复制）：
 
-> ⚠️ 摘要里的结论性语句（如 “removes much of this error”）在实验结果出来之前是假设，10/8 提交全文时要按实际结果修改。OpenReview 通常允许在全文截止前修改摘要，但请以当年说明为准。
+```text
+Diffusion language models (dLLMs) commit several tokens per denoising step, which makes them look well suited to agents that issue multiple tool calls in one turn. Automaton- and grammar-constrained decoding now guarantees that dLLM tool calls are syntactically valid. Yet prior evaluations either report errors dominated by malformed output or describe the remaining semantic errors only qualitatively, and none tests whether parallel unmasking causes them. We ask which errors remain once syntax is guaranteed, and whether parallel unmasking changes which errors occur, not only how many. We model an unmasking step as a simultaneous-move decision: each masked position chooses a token without observing what its peers commit in the same step, so co-committed tokens follow a product of marginals, and schema constraints do not enforce agreement across calls. For n interchangeable calls whose argument slots are committed together under a permutation-symmetric joint distribution, this predicts a valid assignment (no duplicated or omitted call) with probability only n!/n^n, e.g. 0.22 for three calls. We study LLaDA-8B-Instruct, Dream-v0-Instruct-7B, and the tool-use-trained LLaDA2.0-mini against autoregressive baselines, including Qwen2.5-7B-Instruct, from which Dream is initialized. We use the Berkeley Function Calling Leaderboard (simple, multiple, parallel, and parallel-multiple) and a controllable probe suite that varies the number of calls, slot-assignment ambiguity, and shared-prefix entity names. We propose an order-invariant, set-level evaluation and a taxonomy separating single-call errors from cross-call coordination errors: duplicated, omitted, and cross-bound calls, inconsistent shared arguments, and chimera values spliced from two valid values. To attribute errors to parallelism rather than to model capability or generation order, we hold the constraint fixed and combine dose-response interventions on tokens per step, confidence threshold, and block length; counterfactual re-decoding of single steps one token at a time; and a dependency-violation score over co-committed tokens.
+```
 
----
+**说明**
+- 摘要只陈述问题、定位、理论预测和实验设计，**不包含尚未得到的实验结论**，今天提交是安全的。10/8 提交全文前，把最后一句替换成实际发现（例如跨调用错误占比、错误构成随 k 的变化、反事实重放的修复比例）。
+- 第二、三句是对 A1（Dang & Ermon）和 A2（Lu et al.）的定位，没有点名，也没有说“从来没人研究过”。
+- 模型写明了 LLaDA-8B-Instruct、Dream-v0-Instruct-7B、LLaDA2.0-mini、Qwen2.5-7B-Instruct；数据写明了 BFCL 四个类别。如果最终换模型，记得同步修改。
+- 全文截止前能否改摘要，请在 OpenReview 提交页面确认（多数会议允许）。
 
 ## 附：参考链接
 
@@ -302,3 +349,7 @@
 - 投稿说明（8 页 + 参考文献、LaTeX、双盲）：https://warwick.ac.uk/fac/sci/dcs/aamas2027/calls/instructions/
 - Q&A（附录算入 8 页、允许 arXiv、Findings）：https://warwick.ac.uk/fac/sci/dcs/aamas2027/calls/qa/
 - OpenReview：https://openreview.net/group?id=ifaamas.org/AAMAS/2027/Conference
+- A1 Dang & Ermon 2026：https://arxiv.org/abs/2607.07026
+- A2 Lu et al., ACL 2026：https://arxiv.org/abs/2601.12979
+- ParallelBench：https://arxiv.org/abs/2510.04767
+- LLaDA2.0：https://arxiv.org/abs/2512.15745 ，模型卡 https://huggingface.co/inclusionAI/LLaDA2.0-mini
