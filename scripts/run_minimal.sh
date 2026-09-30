@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # The "minimal" plan (proposal §6, README 算力估计): Dream-7B + LLaDA2.0-mini,
-# AR controls Qwen2.5-7B-Instruct + Ling-mini-2.0. ~31 A100-hours estimated.
+# AR controls Qwen2.5-7B-Instruct + Ling-mini-2.0. ~35 A100-hours estimated.
 #
 # Usage:  bash scripts/run_minimal.sh <phase>
 #   setup     data + CPU tests
 #   smoke     smoke tests for both dLLMs (must pass before anything else)
-#   timing    20-example timing run per dLLM, then re-estimate the budget
+#   pilot     80 BFCL items x k in {1,4,16} per dLLM (LLaDA2.0 in both block settings):
+#             accuracy, cross-call errors and timing before the budget is spent
 #   dream     all Dream runs            (one GPU; set CUDA_VISIBLE_DEVICES)
-#   llada2    all LLaDA2.0-mini runs    (one 80GB GPU)
+#   llada2    all LLaDA2.0-mini runs, 32-token blocks and one-block contrast (80GB GPU)
 #   ar        both AR baselines
 #   attr      counterfactual attribution + DVS for both dLLMs (after dream/llada2)
 #   summary   tables into results/summary/
@@ -58,18 +59,26 @@ case "${1:-}" in
     $PY_DREAM scripts/smoke_test.py --model $DREAM 2>&1 | tee results/smoke_dream.txt
     $PY_LLADA2 scripts/smoke_test.py --model $LLADA2 2>&1 | tee results/smoke_llada2.txt
     ;;
-  timing)
-    mkdir -p results/timing
-    $PY_DREAM scripts/run_dllm.py --model $DREAM --data $BFCL --mode skeleton --k 1 --limit 20 \
-        --out results/timing/dream.jsonl
-    $PY_LLADA2 scripts/run_dllm.py --model $LLADA2 --data $BFCL --mode skeleton --k 1 \
-        --block-length 32 --limit 20 --out results/timing/llada2.jsonl
-    $PY_DREAM - <<'EOF'
+  pilot)
+    # 40 evenly spaced items per BFCL category. Written into the main result files, so the
+    # dream / llada2 phases skip these runs later and the pilot costs nothing extra.
+    PILOT="--data bfcl:parallel --data bfcl:parallel_multiple --per-data 40 --mode skeleton --k 1,4,16"
+    mkdir -p results/dream results/llada2
+    $PY_DREAM scripts/run_dllm.py --model $DREAM $PILOT --out results/dream/bfcl_skel_k.jsonl
+    $PY_LLADA2 scripts/run_dllm.py --model $LLADA2 $PILOT --block-length 32 --out results/llada2/bfcl_skel_k.jsonl
+    $PY_LLADA2 scripts/run_dllm.py --model $LLADA2 $PILOT --block-length none --out results/llada2/bfcl_skel_bfull.jsonl
+    $PY_DREAM scripts/summarize.py results/dream/bfcl_skel_k.jsonl results/llada2/bfcl_skel_k.jsonl \
+        results/llada2/bfcl_skel_bfull.jsonl | tee results/pilot.md
+    $PY_DREAM - <<'EOF' | tee -a results/pilot.md
 import json
-for t in ("dream", "llada2"):
-    rs = [json.loads(l) for l in open(f"results/timing/{t}.jsonl") if "nfe" in l]
-    ms = [1000 * r["seconds"] / r["nfe"] for r in rs if r.get("nfe")]
-    L = [r["prompt_len"] + r["cfg"]["gen_length"] for r in rs if r.get("nfe")]
+# timing from the k=1 runs at each model's main setting; LLaDA2.0 with 32-token blocks
+# forwards only up to the current block, on average prompt + half the generation region
+for t, tag, frac in (("dream", "confidence_k1_tnone_bfull_T0.0", 1.0),
+                     ("llada2", "confidence_k1_tnone_b32_T0.0", 0.5)):
+    rs = [json.loads(l) for l in open(f"results/{t}/bfcl_skel_k.jsonl")]
+    rs = [r for r in rs if r.get("cfg_tag") == tag and r.get("nfe")]
+    ms = [1000 * r["seconds"] / r["nfe"] for r in rs]
+    L = [r["prompt_len"] + frac * r["cfg"]["gen_length"] for r in rs]
     f, l = sum(ms) / len(ms), sum(L) / len(L)
     print(f"{t}: {len(rs)} runs, {f:.0f} ms per forward at mean canvas {l:.0f} tokens"
           f"  ->  --timing {t}={max(f - 15, 1) * 1000 / l:.0f}:15")
@@ -84,6 +93,13 @@ EOF
     ;;
   llada2)
     dllm_runs "$PY_LLADA2" $LLADA2 llada2 "--block-length 32"
+    # block-length contrast (proposal §6.4): with 32-token blocks, same-parameter slots of
+    # different calls share a block in <1% of pairs and so are never committed together;
+    # one block over the whole canvas removes that barrier for the same weights
+    $PY_LLADA2 scripts/run_dllm.py --model $LLADA2 --data $BFCL --mode skeleton --block-length none \
+        --k 4,1,16 --order confidence --out results/llada2/bfcl_skel_bfull.jsonl
+    $PY_LLADA2 scripts/run_dllm.py --model $LLADA2 --data $PROBE --mode skeleton --block-length none \
+        --k 4,1 --order confidence --out results/llada2/probe_skel_bfull.jsonl
     # free mode with the model's own default decoding (block 32, threshold 0.95)
     $PY_LLADA2 scripts/run_dllm.py --model $LLADA2 --data $BFCL --mode free --gen-length 256 \
         --block-length 32 --k 1 --threshold 0.95 --out results/llada2/bfcl_free.jsonl
@@ -108,6 +124,9 @@ EOF
     $PY_LLADA2 scripts/dvs.py --model $LLADA2 --results results/llada2/bfcl_skel_k.jsonl --data $BFCL \
         --cfg-tag confidence_k4_tnone_b32_T0.0 --max-records 150 --out results/llada2/dvs_k4.jsonl \
         | tee results/llada2/dvs_k4.txt
+    $PY_LLADA2 scripts/attribute.py --model $LLADA2 --results results/llada2/bfcl_skel_bfull.jsonl --data $BFCL \
+        --cfg-tag confidence_k4_tnone_bfull_T0.0 --out results/llada2/attr_k4_bfull.jsonl \
+        | tee results/llada2/attr_k4_bfull.txt
     ;;
   summary)
     mkdir -p results/summary

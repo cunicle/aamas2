@@ -59,6 +59,9 @@ PLANS = {
         "probe_sampling_seeds": 0,
         "free_bfcl": [("k", 2, "confidence", None)],
         "attribution_k": [4], "dvs_records": 150,
+        # LLaDA2.0 only: one block over the whole canvas, the block-length contrast (§6.4)
+        "block_full_bfcl": [("k", k, "confidence", "full") for k in (1, 4, 16)],
+        "block_full_probe": [("k", k, "confidence", "full") for k in (1, 4)],
         "llada_light": False,
         "debug_hours": 3,
     },
@@ -75,6 +78,8 @@ PLANS = {
         "probe_sampling_seeds": 3,  # k=8, T=1 for Proposition 1
         "free_bfcl": [("k", 2, "confidence", None)],
         "attribution_k": [4, 8], "dvs_records": 300,
+        "block_full_bfcl": [("k", k, "confidence", "full") for k in (1, 4, 16)],
+        "block_full_probe": [("k", k, "confidence", "full") for k in (1, 4)],
         "llada_light": True,  # LLaDA-8B: only k in {1,4,16} + free, on BFCL
         "debug_hours": 5,
     },
@@ -111,8 +116,10 @@ def blocks_of(row, B, absolute):
 
 def steps(row, cfg, absolute):
     kind, val, _order, B = cfg
-    if absolute and not B:
-        B = 32  # LLaDA2.0 always decodes in blocks
+    if B == "full":
+        B = None
+    elif absolute and not B:
+        B = 32  # LLaDA2.0's native block length
     tps = val if kind == "k" else ASSUMPTIONS["tokens_per_step_at_threshold"][val]
     return sum(math.ceil(c / tps) for c in blocks_of(row, B, absolute))
 
@@ -122,12 +129,12 @@ def fwd_ms(model, L, timing):
     return over + L * ktok / 1000
 
 
-def canvas(row, absolute, mode):
+def canvas(row, absolute, mode, B=None):
     S = row["S"] if mode == "skeleton" else row["S"] + 32
     if mode == "free" and not absolute:
         S = 256
     # LLaDA2.0 forwards only up to the current block: on average half the generation region
-    return row["P"] + (S / 2 if absolute else S)
+    return row["P"] + (S / 2 if absolute and B != "full" else S)
 
 
 def dllm_hours(model, rows_by_set, plan, timing):
@@ -138,8 +145,8 @@ def dllm_hours(model, rows_by_set, plan, timing):
 
     def run(rows, cfgs, mode, key, reps=1):
         for r in rows:
-            L = canvas(r, absolute, mode)
             for cfg in cfgs:
+                L = canvas(r, absolute, mode, cfg[3])
                 if mode == "free":
                     n = math.ceil((r["S"] + 32) / cfg[1]) if absolute else math.ceil(256 / cfg[1])
                 else:
@@ -153,13 +160,18 @@ def dllm_hours(model, rows_by_set, plan, timing):
         if plan["probe_sampling_seeds"]:
             run(rows_by_set["probe"], [("k", 8, "confidence", None)], "skeleton",
                 "Prop.1 sampling", reps=plan["probe_sampling_seeds"])
+        attr_cfgs = [("k", k, "confidence", None) for k in plan["attribution_k"]]
+        if absolute:
+            run(rows_by_set["bfcl"], plan["block_full_bfcl"], "skeleton", "block-length contrast BFCL")
+            run(rows_by_set["probe"], plan["block_full_probe"], "skeleton", "block-length contrast ParaProbe")
+            attr_cfgs.append(("k", 4, "confidence", "full"))
         A = ASSUMPTIONS
         rows = rows_by_set["bfcl"]
-        for k in plan["attribution_k"]:
-            cfg = ("k", k, "confidence", None)
+        for cfg in attr_cfgs:
+            k = cfg[1]
             n_err = min(A["max_errors"], int(A["error_rate"] * len(rows)))
             n_plc = min(A["max_placebo"], len(rows) - n_err)
-            per = [(0.5 * steps(r, cfg, absolute) + k) * fwd_ms(model, canvas(r, absolute, "skeleton"), timing)
+            per = [(0.5 * steps(r, cfg, absolute) + k) * fwd_ms(model, canvas(r, absolute, "skeleton", cfg[3]), timing)
                    for r in rows]
             avg = sum(per) / len(per)
             ms["attribution"] += n_err * A["labels_per_error"] * A["replays_per_label"] * avg
@@ -209,7 +221,7 @@ def main():
         for k, v in h.items():
             rows.append((m, k, v))
             total += v
-        n_invocations += 4 + len(plan["attribution_k"]) * 2
+        n_invocations += 4 + len(plan["attribution_k"]) * 2 + (3 if DLLM[m][3] else 0)
     for a in plan["ar"]:
         v = ar_hours(a, measured[AR[a][0]], plan)
         rows.append((a, "AR baseline (skeleton + free)", v))

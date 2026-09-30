@@ -8,7 +8,8 @@
 3. Dream:     no exact reference schedule exists for fixed k, so it only runs one
               BFCL example end to end and prints the output.
 All:          one BFCL parallel example in free and skeleton mode, and a determinism
-              check (resume at step 3 without intervention == original).
+              check (resume at step 3 without intervention == original). LLaDA2.0 also
+              runs skeleton mode with one block over the whole canvas.
 
   python scripts/smoke_test.py --model GSAI-ML/LLaDA-8B-Instruct
 """
@@ -95,10 +96,13 @@ def main():
         ref_gen = ref[0].tolist()
         print("LLaDA2.0 reference match (up to EOS):", ours_gen[:len(ref_gen)] == ref_gen)
 
-    for mode in ("free", "skeleton"):
-        cfg = DecodeConfig(gen_length=256, block_length=32 if a.name == "llada2" else None, k=2)
+    runs = [("free", 32 if a.name == "llada2" else None), ("skeleton", 32 if a.name == "llada2" else None)]
+    if a.name == "llada2":
+        runs.append(("skeleton", None))  # one block over the whole canvas (block-length contrast)
+    for mode, B in runs:
+        cfg = DecodeConfig(gen_length=256, block_length=B, k=2)
         rec = run_example(a, ex, cfg, mode)
-        print(f"[{mode}] syntax_ok={rec['syntax_ok']} labels={rec['diagnosis']['labels']} "
+        print(f"[{mode} block={B or 'full'}] syntax_ok={rec['syntax_ok']} labels={rec['diagnosis']['labels']} "
               f"nfe={rec['nfe']} {rec['seconds']}s\n  {rec['text'][:300]!r}")
         print(f"  determinism (resume at step 3): {reproduces(a, ex, rec, step=3)}")
 

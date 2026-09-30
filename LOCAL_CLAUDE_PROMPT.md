@@ -13,7 +13,7 @@
 
 ## 硬约束
 
-1. **预算**：整套实验估计约 31 A100·小时（含余量）。实际用量预计超过 **40 A100·小时**时，先停下来问我。
+1. **预算**：整套实验估计约 35 A100·小时（含余量）。实际用量预计超过 **45 A100·小时**时，先停下来问我。
 2. **时间**：实验要在北京时间 **10 月 5 日**之前全部跑完（10 月 9 日 20:00 交论文）。
 3. **不改科学设计**：模型、数据、解码配置、错误分类规则、提示模板都不要改。可以修的是让代码在真实模型上跑起来的工程问题，例如适配器、版本兼容、显存。每一处代码修改都要单独提交，commit message 写清原因。
 4. **只用贪心解码**（temperature 0），这是反事实归因的前提。
@@ -41,22 +41,27 @@ export PY_DREAM=~/envs/dream/bin/python PY_LLADA2=~/envs/llada2/bin/python
 每一步做完先检查关卡，**关卡不过就停下来汇报，不要继续往下跑**。
 
 **第 1 步：`bash scripts/run_minimal.sh setup`**
-- 关卡：`pytest` 全部通过（36 个）。
+- 关卡：`pytest` 全部通过（38 个）。
 
 **第 2 步：`bash scripts/run_minimal.sh smoke`**
 - 关卡（看 `results/smoke_*.txt`）：
   - LLaDA2.0：`LLaDA2.0 reference match (up to EOS): True`；
-  - 两个模型的两种模式都是 `determinism (resume at step 3): True`；
-  - skeleton 模式 `syntax_ok=True`，而且输出文本是合理的 JSON 工具调用。
+  - 每一次运行都是 `determinism (resume at step 3): True`（Dream 两次，LLaDA2.0 三次，多出的一次是 `[skeleton block=full]`）；
+  - 所有 skeleton 运行都是 `syntax_ok=True`，而且输出文本是合理的 JSON 工具调用。
 - 如果 reference match 为 False：找出第一个不一致的 token 位置，检查注意力掩码、position_ids、块边界和阈值比较，修好再重跑。
 - 如果 determinism 为 False：先试 `torch.use_deterministic_algorithms(True)` 加 `CUBLAS_WORKSPACE_CONFIG=:4096:8`；还是不行就汇报，不要跳过。
 - 模型加载失败：大多是 transformers 版本问题，按模型卡说明修；修不好就汇报完整报错。
 
-**第 3 步：`bash scripts/run_minimal.sh timing`**
-- 它会打印每个模型的 `--timing` 参数，用这些参数重算预算：
+**第 3 步：`bash scripts/run_minimal.sh pilot`（试跑，约 1 A100·小时）**
+- 两个 dLLM 各在 BFCL 两类中均匀抽 40 条，跑 k ∈ {1, 4, 16}；LLaDA2.0 在 32 块和整段一块两种设置下都跑。结果直接写进主结果文件，后面的正式运行会跳过这些条目。
+- 输出在 `results/pilot.md`：每个模型、每个配置的 `set_acc`、`syntax`、`ccer`、`scer`，最后几行是测速得到的 `--timing` 参数。用这些参数重算预算：
   `$PY_LLADA2 scripts/estimate_cost.py --plan minimal --timing dream=..:15 --timing llada2=..:15`
-- 关卡：估计值 ≤ 40 A100·小时。超了就停下来，把估计明细发给我。我倾向的缩减办法是用 `$PY_DREAM scripts/prepare_data.py --per-cell 3` 缩小 ParaProbe，但要我确认后才能做。
-- 同时看 `results/timing/*.jsonl` 前 20 条：skeleton 模式的语法正确率应接近 100%，集合级准确率（`diagnosis.correct`）应明显大于 0。如果接近 0，打印 3 条输出文本，排查提示模板或适配器，不要直接开跑。
+- 关卡：
+  - 所有配置的 `syntax` 接近 1.0；
+  - Dream 和 LLaDA2.0（32 块）在 k = 1 的 `set_acc` 不低于约 0.3。低于这个值多半是适配器或提示的问题：打印 3 条输出文本排查，不要直接开跑；
+  - LLaDA2.0 整段一块在 k = 1 的 `set_acc` 如果比 32 块低一半以上，在汇报里标出来；
+  - 重算的预算不超过 45 A100·小时。超了就把估计明细发给我。我倾向的缩减办法是用 `$PY_DREAM scripts/prepare_data.py --per-cell 3` 缩小 ParaProbe，但要我确认后才能做。
+- **无论关卡是否通过，试跑结束后都先停下**：`git add -f results/pilot.md results/smoke_*.txt`，提交并推到 `gpu-run`，把 `results/pilot.md` 的内容、重算的预算和你的简短判断发给我（例如跨调用错误是否随 k 上升、LLaDA2.0 两种块设置是否不同）。**等我确认后再做第 4 步。**
 
 **第 4 步：两个 dLLM 并行跑**
 ```bash
@@ -83,13 +88,13 @@ CUDA_VISIBLE_DEVICES=1 nohup bash scripts/run_minimal.sh llada2 > results/log_ll
 1. 在 `results/REPORT.md` 写一份报告，包含：
    - **用量**：每个阶段的实际 GPU 小时和总计。
    - **冒烟测试**：关键输出。
-   - **主表**：`results/summary/bfcl_*.md` 的内容。重点看每个模型的跨调用错误率（`ccer`）和单调用错误率（`scer`）怎样随 k 变化，以及 confidence k=1 与 left_to_right k=1 的对比。
+   - **主表**：`results/summary/bfcl_*.md` 的内容。重点看每个模型的跨调用错误率（`ccer`）和单调用错误率（`scer`）怎样随 k 变化，以及 confidence k=1 与 left_to_right k=1 的对比。LLaDA2.0 要单独列出块长度 × k 的 2×3 表（cfg 里 `b32` 和 `bfull`，k = 1, 4, 16）。
    - **ParaProbe**：按 `meta.n`、`meta.entities`、`meta.ambiguity` 的表。
-   - **归因与 DVS**：`attr_k4.txt` 和 `dvs_k4.txt` 的输出（每类错误的修复比例、安慰剂比例，以及 DVS 的 AUROC）。
+   - **归因与 DVS**：`attr_k4.txt`、`attr_k4_bfull.txt`（LLaDA2.0 整段一块）和 `dvs_k4.txt` 的输出（每类错误的修复比例、安慰剂比例，以及 DVS 的 AUROC）。
    - **错误样例**：每个跨调用错误类别（`duplicate_call`、`cross_binding`、`chimera_value`、`omitted_call`、`inconsistent_shared_arg`）各挑 3 条 k=4 下的真实样例，给出用户请求、模型输出和标准答案，供论文图 1 选用。
    - **异常与代码修改**：遇到的所有异常、你做的代码修改和原因。
-   - **你的判断**：结果是否支持 `proposal.md` 第 4 节的 H1–H4。不支持的地方如实写，不要美化。
-2. `git add -f results/REPORT.md results/summary results/*/attr_k4.txt results/*/dvs_k4.txt results/smoke_*.txt`，连同代码修改一起提交，推到 `gpu-run`。
+   - **你的判断**：结果是否支持 `proposal.md` 第 4 节的 H1–H4 和 H2b。不支持的地方如实写，不要美化。
+2. `git add -f results/REPORT.md results/pilot.md results/summary results/*/attr_*.txt results/*/dvs_k4.txt results/smoke_*.txt`，连同代码修改一起提交，推到 `gpu-run`。
 3. 原始 JSONL 打包成 `results_raw.tar.gz` 留在本机，不要提交。
 
-遇到这份说明没覆盖的决定（改配置、删数据、换模型、超预算），先问我。
+遇到这份说明没覆盖的决定（改配置、删数据、换模型、超预算），先问我。特别是：LLaDA2.0 如果在冒烟测试或试跑里修不好，不要自己换成别的模型，把报错和你试过的办法发给我（备选是 LLaDA-8B，适配器已经写好）。

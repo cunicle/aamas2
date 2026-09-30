@@ -103,10 +103,13 @@ class LLaDA2Adapter(Adapter):
 
     def canvas_length(self, prompt_len, gen_length, block_length):
         # Called at the start of every generation: keeps the attention mask's block
-        # size in sync with the sampler's DecodeConfig.block_length.
-        if not block_length:
-            raise ValueError("LLaDA2.0 is a block-diffusion model; set block_length (e.g. 32)")
+        # size in sync with the sampler's DecodeConfig.block_length. block_length=None
+        # makes the whole canvas one block (full bidirectional attention), the MDLM
+        # setting of LLaDA2.0's stable pre-training phase; used for the block-length
+        # contrast (proposal §6.4), not as the model's native decoding.
         self.block_length = block_length
+        if not block_length:
+            return prompt_len + gen_length
         return math.ceil((prompt_len + gen_length) / block_length) * block_length
 
     def _block_mask(self, n_blocks, B):
@@ -120,8 +123,11 @@ class LLaDA2Adapter(Adapter):
     def logits(self, x, window_end=None):
         B = self.block_length
         end = window_end or x.shape[1]
-        assert end % B == 0, "window must end on a block boundary"
-        mask = self._block_mask(x.shape[1] // B, B)[:, :, :end, :end]
+        if not B:  # one block: nothing masked (not cached, the length varies per example)
+            mask = torch.zeros(1, 1, end, end, device=x.device, dtype=self.dtype)
+        else:
+            assert end % B == 0, "window must end on a block boundary"
+            mask = self._block_mask(x.shape[1] // B, B)[:, :, :end, :end]
         pos = torch.arange(end, device=x.device)[None]
         return self.model(x[:, :end], attention_mask=mask, position_ids=pos).logits[0]
 

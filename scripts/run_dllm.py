@@ -42,13 +42,20 @@ def main():
     ap.add_argument("--temperature", type=float, default=0.0)
     ap.add_argument("--seeds", default="0")
     ap.add_argument("--limit", type=int, default=None)
+    ap.add_argument("--per-data", type=int, default=None,
+                    help="N evenly spaced examples from each --data spec (pilot runs)")
     ap.add_argument("--out", required=True)
     ap.add_argument("--no-trace", action="store_true")
     ap.add_argument("--device", default="cuda")
     ap.add_argument("--bfcl-dir", default="data/bfcl")
     args = ap.parse_args()
 
-    examples = [ex for spec in args.data for ex in load_examples(spec, args.bfcl_dir)]
+    examples = []
+    for spec in args.data:
+        exs = load_examples(spec, args.bfcl_dir)
+        if args.per_data and len(exs) > args.per_data:
+            exs = [exs[i * len(exs) // args.per_data] for i in range(args.per_data)]
+        examples += exs
     if args.limit:
         examples = examples[: args.limit]
     configs = [

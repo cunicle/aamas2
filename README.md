@@ -21,7 +21,7 @@
 ```bash
 pip install -r requirements.txt
 python scripts/prepare_data.py          # 下载 BFCL v4 + 生成 ParaProbe
-python -m pytest tests -q               # 36 个测试；test_pipeline 需要能下载 Dream 分词器
+python -m pytest tests -q               # 38 个测试；test_pipeline 需要能下载 Dream 分词器
 python scripts/sim_prop1.py             # 命题 1：闭式解 vs 真实采样器
 python scripts/estimate_cost.py          # A100 小时估计（见下）
 ```
@@ -65,7 +65,7 @@ tests/
 export PY_DREAM=~/envs/dream/bin/python PY_LLADA2=~/envs/llada2/bin/python
 bash scripts/run_minimal.sh setup     # 数据 + CPU 测试
 bash scripts/run_minimal.sh smoke     # 冒烟测试，必须通过才能继续
-bash scripts/run_minimal.sh timing    # 各跑 20 条测速，然后用 estimate_cost.py 重算预算
+bash scripts/run_minimal.sh pilot     # 试跑 80 条 × k∈{1,4,16}：准确率、跨调用错误、测速；看完再决定开跑
 CUDA_VISIBLE_DEVICES=0 bash scripts/run_minimal.sh dream &
 CUDA_VISIBLE_DEVICES=1 bash scripts/run_minimal.sh llada2 &   # 需要 80GB 卡
 wait
@@ -76,7 +76,7 @@ bash scripts/run_minimal.sh summary   # 表格写入 results/summary/
 
 冒烟测试要看到：
 - LLaDA2.0：`LLaDA2.0 reference match (up to EOS): True`。官方采样器在 temperature=0 时仍然用 `torch.multinomial` 采样，所以冒烟测试会先把它换成贪心再比较；我们的主实验一律用真正的贪心。
-- 所有模型：`determinism (resume at step 3): True`。这是反事实重放的前提；如果是 False，先试 `torch.use_deterministic_algorithms(True)`。
+- 所有模型：`determinism (resume at step 3): True`。这是反事实重放的前提；如果是 False，先试 `torch.use_deterministic_algorithms(True)`。LLaDA2.0 还会多跑一次整段一块的骨架模式（`[skeleton block=full]`），同样要求语法正确、确定性为 True。
 - Dream：官方调度不是固定 k，没有可逐 token 对齐的参考，只看端到端输出是否像样（JSON 结构、调用数合理）。
 
 单独运行某一项时，各脚本的用法写在文件开头的 docstring 里（`run_dllm.py`、`run_ar.py`、`attribute.py`、`dvs.py`、`summarize.py`）。LLaDA-8B 的适配器还保留在代码里，但不在 minimal 方案中。
@@ -92,10 +92,11 @@ python scripts/estimate_cost.py --plan full --timing dream=110:20 --timing llada
 
 | 方案 | 内容 | 估计 |
 |---|---|---|
-| minimal | Dream + LLaDA2.0-mini；BFCL parallel / parallel_multiple；ParaProbe 840 条；k∈{1,2,4,8,16}、左到右 k=1、τ=0.9；free 对照 1 个配置；k=4 下做归因和 DVS；AR 对照为 Qwen2.5-7B 和 Ling-mini-2.0 | 约 24 h，加 30% 重跑余量后约 **31 A100·h**；2 卡并行约 15 h |
-| full | 在 minimal 基础上增加 LLaDA-8B（轻量版）、live 并行题、ParaProbe 1,680 条、更多 τ 和块长度、左到右 k=4、命题 1 的采样验证、k=8 下的归因、Llama-3.1-8B | 约 48 h，加余量后约 **63 A100·h** |
+| minimal | Dream + LLaDA2.0-mini；BFCL parallel / parallel_multiple；ParaProbe 840 条；k∈{1,2,4,8,16}、左到右 k=1、τ=0.9；free 对照 1 个配置；k=4 下做归因和 DVS；LLaDA2.0 整段一块的块长度对照（BFCL k∈{1,4,16}、ParaProbe k∈{1,4}、k=4 归因）；AR 对照为 Qwen2.5-7B 和 Ling-mini-2.0 | 约 27 h，加 30% 重跑余量后约 **35 A100·h**；2 卡并行约 18 h |
+| full | 在 minimal 基础上增加 LLaDA-8B（轻量版）、live 并行题、ParaProbe 1,680 条、更多 τ 和块长度、左到右 k=4、命题 1 的采样验证、k=8 下的归因、Llama-3.1-8B | 约 54 h，加余量后约 **70 A100·h** |
 
 - 大头是 k=1 的对照（每条约 80–100 次前向）和 ParaProbe；按因子砍 ParaProbe 是最有效的省钱方式。
+- 为什么 LLaDA2.0 要加整段一块的对照：按原生的 32 token 分块，BFCL 并行题里不同调用的同名参数槽只有 0.8% 落在同一块，ParaProbe 为 0%，所以原生设置下它们几乎不可能被同时提交，理论预测跨调用错误对 k 不敏感（proposal H2b）。整段一块时这个比例是 100%，同一权重上形成块长度 × k 的对照。
 - 显存：Dream / LLaDA-8B 用 40GB 卡即可；LLaDA2.0-mini 的 bf16 权重约 32GB，需要 80GB 卡。
 - 前向耗时的不确定性约 ±50%（取决于 attention 实现和 MFU），所以冒烟测试实测速度后一定要重算。
 

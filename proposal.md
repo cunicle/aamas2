@@ -1,7 +1,7 @@
 # 研究方案：语法正确之后——扩散语言模型并行工具调用的残余错误及其与并行去掩码的因果关系
 
 > 目标会议：**AAMAS 2027**（第 26 届，越南河内，2027-05-03 ~ 05-07），主轨道，主投 **Generative and Agentic AI (GAAI)** 领域
-> 版本：v0.5（2026-09-30）——采用 minimal 实验方案（Dream-7B + LLaDA2.0-mini），LLaDA-8B 移出；摘要同步
+> 版本：v0.6（2026-09-30）——minimal 方案（Dream-7B + LLaDA2.0-mini）加上 LLaDA2.0 的块长度对照和试跑关卡；摘要同步
 
 ---
 
@@ -70,7 +70,7 @@
 
 ### 2.3 其他相关（中低威胁，待核对）
 
-- **LLaDA2.0**（arXiv 2512.15745 ✅，16B-A1.4B 的 mini 版原生支持工具调用，模型卡报告 BFCL 70.90 ✅）；**LLaDA2.1**（arXiv 2602.08676）据报告在 speedy / quality 两种模式下 BFCL v3 有 74.86 vs 75.61 的差异（每次前向提交 token 数不同）。这是“并行度越高，工具调用略差”的**总量层面**证据，但没有错误分析。
+- **LLaDA2.0**（arXiv 2512.15745 ✅，16B-A1.4B 的 mini 版原生支持工具调用，模型卡报告 BFCL_Live 70.90，同表 Qwen3-8B（非思考）70.08、Ling-mini-2.0 53.98 ✅）；**LLaDA2.1**（arXiv 2602.08676）据报告在 speedy / quality 两种模式下 BFCL v3 有 74.86 vs 75.61 的差异（每次前向提交 token 数不同）。这是“并行度越高，工具调用略差”的**总量层面**证据，但没有错误分析。
 - **DLLM Agent**（arXiv 2602.07451）、**DLLM-Searcher**（arXiv 2602.07035）：dLLM 搜索智能体，错误分析停留在格式层（无法解析、缺少 tool_call 等），单轮单调用。
 - **Chavan**（arXiv 2609.23742，2026-09-20）：“约束解码消除结构错误后暴露语义差距”，做了约束后的错误分类，但对象似乎是 AR 小模型。说明“语法之后还剩什么”这一问法本身不新，**我们的新意必须落在 dLLM 特有的并行去掩码归因上**。
 - **Khanal et al., “Agents of Diffusion”**（arXiv 2601.07152，**AAMAS 2026**）：用多智能体 RL 引导 dLLM 生成符合 schema 的 JSON。说明 AAMAS 接收 dLLM 相关工作，可以引用来论证与会议的契合度。
@@ -126,7 +126,7 @@
 **推论（调度器依赖性，很重要）**：
 - **置信度阈值调度**（如 Fast-dLLM，τ≈0.9）：对称槽的边缘最大值 ≤ 1/n < τ，因此它们*不会*在同一步被提交。完全对称的情况反而被保护。风险出现在**部分对称**的情况：例如多 token 实体共享前缀（"San Francisco" / "San Diego"，"New York" / "New Delhi"），前缀 token 高置信、一起提交后，后缀才出现分歧。这会产生**嵌合取值**（如 "San Diego" 被写成 "San Francisco" 的一半）。
 - **固定 k 的低置信度重掩码调度**（LLaDA 默认）：k 大时会强制把低置信的对称槽一起提交，预测重复/错绑显著增加。
-- **半自回归分块**（block diffusion / LLaDA block_length）：两个耦合槽若落在不同块中，就不会被同时提交。**块长度是一个天然的干预旋钮**。
+- **半自回归分块**（block diffusion / LLaDA block_length）：两个耦合槽若落在不同块中，就不会被同时提交。**块长度是一个天然的干预旋钮**。实测（`LLaDA2.0` 分词器、Oracle 骨架、按绝对位置 32 个 token 分块）：BFCL 并行两类里，不同调用的**同名参数槽**落在同一块的只占 0.8%（2,092 对中），ParaProbe 为 0%（8,820 对中）；块长 128 时为 37% / 41%，整段一块时为 100%。一个调用的骨架平均 50–67 个 token，比一块还长，所以 LLaDA2.0 的原生解码在调用之间几乎是逐块自回归的。
 
 **命题 2（顺序先验）**：若提示中实体的提及顺序给了模型强烈的“按提及顺序排列调用”的先验，联合分布集中在恒等排列上，边缘之积≈联合，因子化误差很小。**预测：错误率随“槽分配歧义度”（排列熵）单调上升**。合成探针会显式操控这个变量（见 6.3）。
 
@@ -140,6 +140,7 @@
   - **H2（剂量–响应）**：跨调用错误率随每步提交 token 数 k（或 1/τ）单调上升；k=1 时降到接近 AR 的水平；单调用错误对 k 不敏感。
   - **H3（逐实例归因）**：在出错的轨迹中，把出错步改成逐 token 串行提交，可以修复相当大比例的跨调用错误；对照组（随机选一个正确步串行化）几乎不改变结果。
   - **H4（机制）**：同一步提交的 token 对的依赖违背分数（DVS）越高，出错概率越高。
+  - **H2b（块结构调节）**：H2 的斜率取决于不同调用的槽能否落在同一块。LLaDA2.0 用原生 32 块时，同名参数槽几乎从不共块（见 3.3），预测其 CCER 对 k 基本平坦；同一权重改为整段一块时，CCER 随 k 上升（块长度 × k 的交互）。这是同一模型内部的对照，不受模型能力差异的混杂。
 - **RQ3（什么时候最严重）**：调用数量 n、槽分配歧义度、实体多 token 程度、跨调用共享参数如何调节并行错误？
   - **H5**：错误率随 n 和歧义度上升，在对称设置下接近命题 1 的预测曲线。
 
@@ -180,11 +181,15 @@
 | dLLM | 匹配的 AR 基线 | 说明 |
 |---|---|---|
 | Dream-v0-Instruct-7B | Qwen2.5-7B-Instruct | Dream 由 Qwen2.5-7B 初始化，是最干净的对照 |
-| **LLaDA2.0-mini**（inclusionAI/LLaDA2.0-mini，16B 总参/1.4B 激活，MoE，原生支持工具调用，BFCL 70.90，默认块长 32） | **Ling-mini-2.0**（inclusionAI/Ling-mini-2.0，16.3B，MIT；模型卡说明 LLaDA2.0 在 Ling2.0 系列上继续训练，并直接与其对比）；辅以 Qwen3-8B | **强烈建议纳入**：回应“你们的 dLLM 根本没学过工具调用”的质疑。有同源 AR 模型，是继 Dream/Qwen2.5 之后的第二个干净对照。块扩散结构使“块长度”成为天然干预旋钮。SGLang 原生支持（`--dllm-algorithm LowConfidence / JointThreshold`） |
+| **LLaDA2.0-mini**（inclusionAI/LLaDA2.0-mini，16B 总参/1.4B 激活，MoE，原生支持工具调用，模型卡 BFCL_Live 70.90，默认块长 32） | **Ling-mini-2.0**（inclusionAI/Ling-mini-2.0，16.3B，MIT；模型卡说明 LLaDA2.0 在 Ling2.0 系列上继续训练，并直接与其对比）；辅以 Qwen3-8B | **强烈建议纳入**：回应“你们的 dLLM 根本没学过工具调用”的质疑。有同源 AR 模型，是继 Dream/Qwen2.5 之后的第二个干净对照。块扩散结构使“块长度”成为天然干预旋钮。SGLang 原生支持（`--dllm-algorithm LowConfidence / JointThreshold`） |
 
 **已定：minimal 方案**，只用上表中两组同源对照：Dream-v0-Instruct-7B ↔ Qwen2.5-7B-Instruct，LLaDA2.0-mini ↔ Ling-mini-2.0。LLaDA-8B（没有同源 AR 模型）、其他块扩散模型和 Llama-3.1 对照都不做。
 
 Dream-7B 在无约束时 BFCL 很弱（A2 报告总分十几分），但在 A1 的约束解码下 BFCL-Live 可达约 71。因此约束（本文用 Oracle 骨架）是让分析有意义的前提。
+
+**关于工具调用能力**：LLaDA2.0-mini 是目前工具调用最强的开源 dLLM（模型卡 BFCL_Live 70.90，高于其 AR 同源模型 Ling-mini-2.0 的 53.98），但这是自报分数、用的是它自己的工具格式。骨架模式下格式由我们给定，模型只需填参数值，对能力的要求更低。是否真的可用，由试跑关卡（6.4）在花掉主要预算之前验证。
+
+**为什么不换成 full 方案**：full 方案包含 minimal 的全部内容，只是加了 LLaDA-8B（工具调用最弱、没有同源 AR 模型）、live 类、更多 τ 和块长度 {8, 32}，算力翻倍。它既不降低“LLaDA2.0 不可用”的风险，也解决不了下面的块结构问题（块长 8 和 32 都太短）。
 
 **是否微调**：主实验不做训练，直接用 instruct 模型加统一的系统提示。如果某 dLLM 在骨架模式下准确率过低（< 40%）导致分析没有意义，再用同一份工具调用数据（如 xLAM/APIGen 子集）对 dLLM 和 AR **做同样的 LoRA SFT**，保持对照公平。这一步列为“风险预案”，不作为必做项。
 
@@ -232,9 +237,11 @@ Dream-7B 在无约束时 BFCL 很弱（A2 报告总分十几分），但在 A1 �
 | ParaProbe | confidence 顺序，k ∈ {1, 2, 4, 8} | 调节因子（图 4） |
 | BFCL 并行两类 | 自由生成（无约束），各模型默认式解码 | 对照：语法错误率和自然生成下的错误构成 |
 
-- Dream 不分块；LLaDA2.0 固定块长 32（其训练设置，按绝对位置对齐）。块长度不作为干预变量。
+- Dream 不分块；LLaDA2.0 的主设置是原生块长 32（其 SFT 设置，按绝对位置对齐）。
+- **LLaDA2.0 块长度对照（检验 H2b）**：同一权重改为整段一块（全双向注意力，即 LLaDA2.0 继续预训练稳定阶段的 MDLM 设置，块长 4096），BFCL 上 k ∈ {1, 4, 16}，ParaProbe 上 k ∈ {1, 4}；反事实归因在两种块设置的 k = 4 上都做。整段一块偏离了它 SFT 时的设置，所以用 k = 1 的准确率检查能力有没有明显下降；如果下降很多，交互效应的解读要打折扣。
+- **试跑关卡**：主实验之前，两个 dLLM 各在 BFCL 两类中均匀抽 40 条（共 80 条），跑 k ∈ {1, 4, 16}（LLaDA2.0 两种块设置都跑）。先看 k = 1 的集合级准确率（低于约 0.3 说明适配器或提示有问题）、跨调用错误是否随 k 变化，同时测速。结果写进主结果文件，主实验会跳过这些条目，不额外花算力。
 - 反事实重放和 DVS 在 k = 4 的 BFCL 结果上做。
-- 不做：温度采样多种子（命题 1 的采样版在玩具模型上已验证，见 `scripts/sim_prop1.py`）、更多 τ、块长度扫描。
+- 不做：温度采样多种子（命题 1 的采样版在玩具模型上已验证，见 `scripts/sim_prop1.py`）、更多 τ、更细的块长度扫描。
 
 ### 6.5 因果归因三件套
 
@@ -302,7 +309,7 @@ Dream-7B 在无约束时 BFCL 很弱（A2 报告总分十几分），但在 A1 �
 | **10/8** | 精修、压页、补充材料（代码 + ParaProbe + 完整结果表）、AI 使用声明 | 定稿 |
 | **10/9 白天** | 缓冲；**20:00 前提交** | 提交 |
 
-**算力估计（minimal 方案）**：约 **31 A100·小时**（含 30% 重跑余量），2 张卡并行约 15 小时墙钟时间。明细和估算方法见 README 与 `scripts/estimate_cost.py`；冒烟测试实测速度后重算。LLaDA2.0-mini 需要 80GB 卡。
+**算力估计（minimal 方案）**：约 **35 A100·小时**（含 30% 重跑余量；其中 LLaDA2.0 块长度对照约 5 小时），2 张卡并行约 18 小时墙钟时间。明细和估算方法见 README 与 `scripts/estimate_cost.py`；冒烟测试实测速度后重算。LLaDA2.0-mini 需要 80GB 卡。
 
 **分工建议（若有 3 人）**：A 负责解码器（约束 + 调度 + 轨迹记录 + 重放）；B 负责数据与评估（BFCL 适配、ParaProbe、分类器、标注）；C 负责理论节、AR 基线、写作主线。
 
@@ -312,7 +319,8 @@ Dream-7B 在无约束时 BFCL 很弱（A2 报告总分十几分），但在 A1 �
 
 | 风险 | 预案 |
 |---|---|
-| dLLM 基础工具调用能力太弱，错误被“啥都不会”淹没 | 以 LLaDA2.0-mini（原生工具调用）和 Oracle 骨架设置为主战场；必要时用同一份数据对 dLLM 与 AR 做 LoRA SFT |
+| dLLM 基础工具调用能力太弱，错误被“啥都不会”淹没 | 以 LLaDA2.0-mini（原生工具调用）和 Oracle 骨架设置为主战场；试跑关卡先验证 k = 1 准确率；LLaDA2.0 若无法修好，退回 LLaDA-8B（适配器和逐 token 参考测试已写好）；必要时用同一份数据对 dLLM 与 AR 做 LoRA SFT |
+| LLaDA2.0 的 32 块让不同调用的槽几乎不会同时提交，CCER 对 k 平坦，看起来像“没效果” | 这正是理论的预测（H2b），不是反例；用整段一块的对照在同一权重上把效应“打开”。Dream（不分块）是 H2 的主要检验 |
 | 结果对提示格式和解码设置极度敏感：Dream-7B 的 BFCL 分数在 A1（BFCL-Live 约 64–72）和 A2（整体十几分）之间差异巨大 | 第一天就固定提示模板（JSON 格式、系统提示写法）、gen_length、步数和块长度，在论文里完整报告；主结论只依赖**同一配置下只改并行度**的配对比较，不依赖绝对分数 |
 | 约束解码实现来不及 | 骨架填空（6.2 第 2 种）；或无约束 + 条件于语法合法（稳健性检验） |
 | 阈值调度下几乎看不到并行错误 | 这本身是一个发现（阈值保护对称槽），与命题 1 的推论一致。把重点放在固定 k 调度和“部分对称/共享前缀”的嵌合错误上，并报告速度–错误的权衡 |
@@ -346,20 +354,20 @@ Dream-7B 在无约束时 BFCL 很弱（A2 报告总分十几分），但在 A1 �
 
 ---
 
-## 13. 摘要（英文，296 词；v0.5 已按 minimal 方案修改）
+## 13. 摘要（英文，317 词；v0.6）
 
 **标题**：*Syntactically Valid, Semantically Uncoordinated: Diagnosing Parallel Tool-Call Errors in Diffusion Language Model Agents*
 
 **Abstract**（纯文本，直接复制到 OpenReview 替换旧版）：
 
 ```text
-Diffusion language models (dLLMs) commit several tokens per denoising step, which makes them look well suited to agents that issue multiple tool calls in one turn. Automaton- and grammar-constrained decoding now guarantees that dLLM tool calls are syntactically valid. Yet prior evaluations either report errors dominated by malformed output or describe the remaining semantic errors only qualitatively, and none tests whether parallel unmasking causes them. We ask which errors remain once syntax is guaranteed, and whether parallel unmasking changes which errors occur, not only how many. We model an unmasking step as a simultaneous-move decision: each masked position chooses a token without observing what its peers commit in the same step, so co-committed tokens follow a product of marginals, and schema constraints do not enforce agreement across calls. For n interchangeable calls whose argument slots are committed together under a permutation-symmetric joint distribution, this predicts a valid assignment (no duplicated or omitted call) with probability only n!/n^n, e.g. 0.22 for three calls. We study Dream-v0-Instruct-7B and the tool-use-trained LLaDA2.0-mini, each paired with an autoregressive model from the same base family (Qwen2.5-7B-Instruct and Ling-mini-2.0). We use the parallel and parallel-multiple categories of the Berkeley Function Calling Leaderboard and a controllable probe suite that varies the number of calls, slot-assignment ambiguity, and shared-prefix entity names. We propose an order-invariant, set-level evaluation and a taxonomy separating single-call errors from cross-call coordination errors: duplicated, omitted, and cross-bound calls, inconsistent shared arguments, and chimera values spliced from two valid values. To attribute errors to parallelism rather than to model capability or generation order, we hold the constraint fixed and combine dose-response interventions on the number of tokens committed per step, with a left-to-right control; counterfactual re-decoding of single steps one token at a time; and a dependency-violation score over co-committed tokens.
+Diffusion language models (dLLMs) commit several tokens per denoising step, which makes them look well suited to agents that issue multiple tool calls in one turn. Automaton- and grammar-constrained decoding now guarantees that dLLM tool calls are syntactically valid. Yet prior evaluations either report errors dominated by malformed output or describe the remaining semantic errors only qualitatively, and none tests whether parallel unmasking causes them. We ask which errors remain once syntax is guaranteed, and whether parallel unmasking changes which errors occur, not only how many. We model an unmasking step as a simultaneous-move decision: each masked position chooses a token without observing what its peers commit in the same step, so co-committed tokens follow a product of marginals, and schema constraints do not enforce agreement across calls. For n interchangeable calls whose argument slots are committed together under a permutation-symmetric joint distribution, this predicts a valid assignment (no duplicated or omitted call) with probability only n!/n^n, e.g. 0.22 for three calls. We study Dream-v0-Instruct-7B and the tool-use-trained LLaDA2.0-mini, each paired with an autoregressive model from the same base family (Qwen2.5-7B-Instruct and Ling-mini-2.0). We use the parallel and parallel-multiple categories of the Berkeley Function Calling Leaderboard and a controllable probe suite that varies the number of calls, slot-assignment ambiguity, and shared-prefix entity names. We propose an order-invariant, set-level evaluation and a taxonomy separating single-call errors from cross-call coordination errors: duplicated, omitted, and cross-bound calls, inconsistent shared arguments, and chimera values spliced from two valid values. To attribute errors to parallelism rather than to model capability or generation order, we hold the constraint fixed and combine three analyses: dose-response interventions on the number of tokens committed per step (with a left-to-right control) and on the decoding block length, which determines whether slots of different calls can be committed together at all; counterfactual re-decoding of single steps one token at a time; and a dependency-violation score over co-committed tokens.
 ```
 
-**相对上一版的三处修改**（都是为了和 minimal 方案一致）：
+**相对最初提交版的修改**：
 1. 模型：删去 LLaDA-8B-Instruct，改为“Dream 和 LLaDA2.0-mini 各配一个同源 AR 模型”。
 2. 数据：BFCL 只写 parallel 和 parallel-multiple 两类（simple / multiple 不跑）。
-3. 干预：删去“置信度阈值、块长度”作为剂量–响应变量，改为“每步提交 token 数 + 从左到右对照”（阈值只有一个工作点，块长度不扫）。
+3. 干预（v0.6）：每步提交 token 数（加从左到右对照）和**块长度**两个剂量–响应变量。块长度决定不同调用的槽能否同时提交，是 LLaDA2.0 上检验机制的关键（H2b）。置信度阈值只有一个工作点，不写进摘要。
 
 **说明**
 - 摘要只陈述问题、定位、理论预测和实验设计，**不包含尚未得到的实验结论**。10/8 提交全文前，把最后一句替换成实际发现（例如跨调用错误占比、错误构成随 k 的变化、反事实重放的修复比例）。
