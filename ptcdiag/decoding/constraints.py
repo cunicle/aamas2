@@ -20,12 +20,18 @@ padding inside a JSON value (P(pad) ~1e-5 even right after the gold value on Dre
 LLaDA2.0), so without closers they fill every slot to the end.
 
 Slot length (`oracle_lengths`): masked diffusion models read the number of masks as the
-length of the content (in training every mask stands for one real token), so a long
-slot makes them write a long value ("HSBC for home loan of $500,000", 5000000000). A
-parameter's slot length is therefore the token length of its longest gold value over
-all calls of the item: identical for every call, so it does not tell which value goes
-where. Before a non-string value the skeleton stops at '":' and the model writes the
-space itself, as in natural tokenization (' [', ' true'); number / boolean slots accept
+length of the content (in training every mask stands for one real token), so a slot
+longer than the value gets filled ("HSBC for home loan of $500,000", 5000000000). Each
+slot therefore has the token length of its own reference gold value. This is part of
+the oracle: siblings of different lengths (the same parameter in other calls) can be
+told apart by length, so cross-call errors are analysed on length-symmetric sibling
+groups (`length_symmetric`). One shared length per parameter (the longest value) was
+tried and rejected: the models then wrote the longer sibling's value into the shorter
+slot (sea_level 0 -> 1000), producing artificial duplicates / cross-bindings (17 of 18
+cross-call errors in a 20-item pilot sat in such slots).
+
+Before a non-string value the skeleton stops at '":' and the model writes the space
+itself, as in natural tokenization (' [', ' true'); number / boolean slots accept
 whitespace-only tokens for it.
 
 A grammar constraint for free-form generation (e.g. wrapping the completability check
@@ -199,18 +205,25 @@ def value_text(value, bfcl_type):
 
 
 def oracle_lengths(tokenizer, example):
-    """{param: slot length}: tokens of the param's longest acceptable gold value over all
-    calls of the item. One length per parameter name, so every call's slot for it is the
-    same length and the canvas does not reveal which value belongs to which call."""
-    out = defaultdict(lambda: 1)
-    for fname, params in example.gold_calls:
+    """{(call index, param): slot length} = tokens of the reference gold value, i.e. the
+    first non-empty acceptable value (the one the tests' gold predictions use)."""
+    out = {}
+    for ci, (fname, params) in enumerate(example.gold_calls):
         for p, acc in params.items():
-            t = _param_type(example, fname, p)
-            for a in acc:
-                if a != "":
-                    n = len(tokenizer(value_text(a, t), add_special_tokens=False)["input_ids"])
-                    out[p] = max(out[p], n)
+            vals = [a for a in acc if a != ""]
+            if vals:
+                t = _param_type(example, fname, p)
+                out[ci, p] = max(1, len(tokenizer(value_text(vals[0], t), add_special_tokens=False)["input_ids"]))
     return out
+
+
+def length_symmetric(tokenizer, example):
+    """{param: bool}: every call's slot for this parameter has the same length, so the
+    canvas gives no hint which value belongs to which call (parameters used once: True)."""
+    by_param = defaultdict(set)
+    for (ci, p), n in oracle_lengths(tokenizer, example).items():
+        by_param[p].add(n)
+    return {p: len(ns) == 1 for p, ns in by_param.items()}
 
 
 def build_skeleton(tokenizer, example, mask_id, slot_lengths=None):
@@ -243,7 +256,7 @@ def build_skeleton(tokenizer, example, mask_id, slot_lengths=None):
             buf.append(("" if first else ", ") + '"' + p + '":' + (' "' if q else ""))
             first = False
             flush()
-            n = (slot_lengths or {}).get(t, oracle[p])
+            n = (slot_lengths or {}).get(t, oracle[ci, p])
             slots.append(Slot(ci, p, t, list(range(len(ids), len(ids) + n))))
             ids.extend([mask_id] * n)
             buf.append(q)

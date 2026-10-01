@@ -11,7 +11,8 @@ from ptcdiag.analysis.counterfactual import reproduces
 from ptcdiag.analysis.dependency import step_dvs
 from ptcdiag.decoding.adapters import ToyAdapter
 from ptcdiag.decoding.ar import generate_skeleton
-from ptcdiag.decoding.constraints import SLOT_LENGTHS, build_skeleton, token_classes, token_texts, value_end
+from ptcdiag.decoding.constraints import (SLOT_LENGTHS, build_skeleton, length_symmetric, token_classes,
+                                          token_texts, value_end)
 from ptcdiag.decoding.sampler import DecodeConfig, Sampler, Trace
 from ptcdiag.pipeline import decode_region, make_constraint, run_example
 from ptcdiag.prompting import render_prompt
@@ -157,8 +158,8 @@ def test_ar_array_value_is_not_cut_at_inner_comma(dream_tokenizer):
     assert text == TARGET
 
 
-def test_oracle_slot_lengths_are_per_parameter(dream_tokenizer):
-    """One length per parameter (its longest gold value), so slots do not tell calls apart;
+def test_oracle_slot_lengths(dream_tokenizer):
+    """Each slot has the length of its own reference value (first acceptable one);
     non-string values get their leading space inside the slot."""
     tok = dream_tokenizer
     fn = {"name": "g", "description": "", "parameters": {"type": "dict", "properties": {
@@ -169,9 +170,12 @@ def test_oracle_slot_lengths_are_per_parameter(dream_tokenizer):
     n_tok = lambda s: len(tok(s, add_special_tokens=False)["input_ids"])  # noqa: E731
     gen, slots = build_skeleton(tok, ex, tok.mask_token_id)
     by = {(s.call, s.param): s for s in slots}
-    assert len(by[0, "city"].positions) == len(by[1, "city"].positions) == n_tok("New York City")
-    assert len(by[0, "n"].positions) == len(by[1, "n"].positions) == n_tok(" 1234")
-    assert len(by[0, "on"].positions) == n_tok(" false")
+    assert len(by[0, "city"].positions) == n_tok("Paris")
+    assert len(by[1, "city"].positions) == n_tok("New York City")  # first acceptable value, not "NYC"
+    assert len(by[0, "n"].positions) == n_tok(" 5") and len(by[1, "n"].positions) == n_tok(" 1234")
+    assert len(by[0, "on"].positions) == n_tok(" true")
+    sym = length_symmetric(tok, ex)
+    assert sym["on"] == (n_tok(" true") == n_tok(" false")) and not sym["n"] and not sym["city"]
     assert tok.decode(gen[:by[0, "n"].positions[0]]).endswith('"n":')       # space left to the model
     assert tok.decode(gen[:by[0, "city"].positions[0]]).endswith('"city": "')
     space = tok(" ", add_special_tokens=False)["input_ids"][0]
