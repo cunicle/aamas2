@@ -1,0 +1,13 @@
+`torch_dtype` is deprecated! Use `dtype` instead!
+Loading checkpoint shards:   0%|          | 0/7 [00:00<?, ?it/s]Loading checkpoint shards:  14%|█▍        | 1/7 [00:05<00:35,  5.96s/it]Loading checkpoint shards:  29%|██▊       | 2/7 [00:12<00:32,  6.59s/it]Loading checkpoint shards:  43%|████▎     | 3/7 [00:19<00:26,  6.67s/it]Loading checkpoint shards:  57%|█████▋    | 4/7 [00:27<00:21,  7.10s/it]Loading checkpoint shards:  71%|███████▏  | 5/7 [00:35<00:14,  7.50s/it]Loading checkpoint shards:  86%|████████▌ | 6/7 [00:44<00:07,  7.96s/it]Loading checkpoint shards: 100%|██████████| 7/7 [00:47<00:00,  6.35s/it]Loading checkpoint shards: 100%|██████████| 7/7 [00:47<00:00,  6.80s/it]
+adapter=llada2 prompt_len=271
+LLaDA2.0 reference match (up to EOS): True
+[free block=32] syntax_ok=True labels=[] nfe=41 21.475s
+  '[{"name": "spotify.play", "arguments": {"artist": "Taylor Swift", "duration": 20}}, {"name": "spotify.play", "arguments": {"artist": "Maroon 5", "duration": 15}}]'
+  determinism (resume at step 3): True
+[skeleton block=32] syntax_ok=True labels=[] nfe=7 3.792s
+  '[{"name": "spotify.play", "arguments": {"artist": "Taylor Swift", "duration": 20}}, {"name": "spotify.play", "arguments": {"artist": "Maroon 5", "duration": 15}}]'
+  determinism (resume at step 3): True
+[skeleton block=full] syntax_ok=True labels=[] nfe=6 2.721s
+  '[{"name": "spotify.play", "arguments": {"artist": "Taylor Swift", "duration": 20}}, {"name": "spotify.play", "arguments": {"artist": "Maroon 5", "duration": 15}}]'
+  determinism (resume at step 3): True
