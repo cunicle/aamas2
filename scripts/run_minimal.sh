@@ -9,8 +9,13 @@
 #             accuracy, cross-call errors and timing before the budget is spent
 #   dream     all Dream runs            (one GPU; set CUDA_VISIBLE_DEVICES)
 #   llada2    all LLaDA2.0-mini runs, 32-token blocks and one-block contrast (80GB GPU)
-#   ar        both AR baselines
-#   attr      counterfactual attribution + DVS for both dLLMs (after dream/llada2)
+#   ar        both AR baselines (= ar_qwen + ar_ling)
+#   attr      counterfactual attribution + DVS for both dLLMs (= attr_dream + attr_llada2;
+#             each after that model's runs)
+#
+# The sub-phases let one 80GB GPU run two chains side by side (LLaDA2.0 / Ling leave
+# most of the GPU idle: their MoE layers loop over experts in Python), e.g.
+#   llada2 -> attr_llada2   alongside   dream -> ar_qwen -> ar_ling -> attr_dream
 #   summary   tables into results/summary/
 #
 # Every run appends to its JSONL and skips finished items, so any phase can be
@@ -105,20 +110,35 @@ EOF
         --block-length 32 --k 1 --threshold 0.95 --out results/llada2/bfcl_free.jsonl
     ;;
   ar)
-    mkdir -p results/qwen results/ling
+    bash "$0" ar_qwen
+    bash "$0" ar_ling
+    ;;
+  ar_qwen)
+    mkdir -p results/qwen
     for mode in skeleton free; do
       $PY_DREAM scripts/run_ar.py --model $QWEN --data $BFCL --mode $mode --out results/qwen/bfcl_$mode.jsonl
-      $PY_LLADA2 scripts/run_ar.py --model $LING --data $BFCL --mode $mode --out results/ling/bfcl_$mode.jsonl
     done
     $PY_DREAM scripts/run_ar.py --model $QWEN --data $PROBE --mode skeleton --out results/qwen/probe_skeleton.jsonl
+    ;;
+  ar_ling)
+    mkdir -p results/ling
+    for mode in skeleton free; do
+      $PY_LLADA2 scripts/run_ar.py --model $LING --data $BFCL --mode $mode --out results/ling/bfcl_$mode.jsonl
+    done
     $PY_LLADA2 scripts/run_ar.py --model $LING --data $PROBE --mode skeleton --out results/ling/probe_skeleton.jsonl
     ;;
   attr)
+    bash "$0" attr_dream
+    bash "$0" attr_llada2
+    ;;
+  attr_dream)
     $PY_DREAM scripts/attribute.py --model $DREAM --results results/dream/bfcl_skel_k.jsonl --data $BFCL \
         --cfg-tag confidence_k4_tnone_bfull_T0.0 --out results/dream/attr_k4.jsonl | tee results/dream/attr_k4.txt
     $PY_DREAM scripts/dvs.py --model $DREAM --results results/dream/bfcl_skel_k.jsonl --data $BFCL \
         --cfg-tag confidence_k4_tnone_bfull_T0.0 --max-records 150 --out results/dream/dvs_k4.jsonl \
         | tee results/dream/dvs_k4.txt
+    ;;
+  attr_llada2)
     $PY_LLADA2 scripts/attribute.py --model $LLADA2 --results results/llada2/bfcl_skel_k.jsonl --data $BFCL \
         --cfg-tag confidence_k4_tnone_b32_T0.0 --out results/llada2/attr_k4.jsonl | tee results/llada2/attr_k4.txt
     $PY_LLADA2 scripts/dvs.py --model $LLADA2 --results results/llada2/bfcl_skel_k.jsonl --data $BFCL \
