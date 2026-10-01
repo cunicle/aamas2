@@ -68,6 +68,10 @@ class StepRecord:
     topk_probs: list = field(default_factory=list)
     n_candidates: int = 0
     sequentialized: bool = False
+    # positions the constraint set to padding after this step's commits (the rest of a
+    # value slot once its closing token is in); not decided by the model, so they are
+    # not part of `positions` and do not count towards k
+    forced: list = field(default_factory=list)
 
 
 @dataclass
@@ -216,8 +220,9 @@ class Sampler:
                 rec = StepRecord(step=step, positions=pos.tolist(), tokens=chosen[sel].tolist(),
                                  probs=[round(v, 5) for v in chosen_p[sel].tolist()],
                                  scores=[round(v, 5) for v in scores[sel].tolist()],
-                                 topk_ids=ids, topk_probs=ps, n_candidates=len(cand))
-            for p in rec.positions:
+                                 topk_ids=ids, topk_probs=ps, n_candidates=len(cand),
+                                 forced=self._after_commit(x))
+            for p in rec.positions + rec.forced:
                 trace.commit_step[p - gs] = step
             trace.steps.append(rec)
             step += 1
@@ -235,6 +240,10 @@ class Sampler:
                     break
 
         return x[0], trace
+
+    def _after_commit(self, x):
+        hook = getattr(self.constraint, "after_commit", None)
+        return hook(x) if hook is not None else []
 
     def _commit_sequential(self, x, positions, window_end, step, n_cand, trace, first):
         """Commit `positions` one at a time, re-running the model before each commit.
@@ -263,7 +272,10 @@ class Sampler:
             rec.scores.append(round(float(scores[j]), 5))
             rec.topk_ids += ids
             rec.topk_probs += ps
-            remaining = torch.cat([remaining[:j], remaining[j + 1:]])
+            forced = self._after_commit(x)  # may pad positions of this step that are still pending
+            rec.forced += forced
+            done = set(forced) | {p}
+            remaining = remaining[[i for i, q in enumerate(remaining.tolist()) if q not in done]]
         return rec
 
 

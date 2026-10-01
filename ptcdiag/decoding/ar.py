@@ -4,14 +4,16 @@ free:     greedy generation of the whole answer.
 skeleton: the oracle skeleton is teacher-forced; each value slot is generated
           greedily with the same per-type token restrictions as for dLLMs, until the
           model emits the slot's closing token (a quote for strings, ',' '}' for the
-          rest) or the slot length is reached.
+          rest; for arrays / dicts only outside brackets and strings, the same
+          `value_end` rule as for dLLMs) or the slot length is reached.
 """
 
 import time
 
 import torch
 
-from ptcdiag.decoding.constraints import STRING_TYPES, build_skeleton, slot_class, token_classes
+from ptcdiag.decoding.constraints import (build_skeleton, slot_class, slot_closers, token_classes,
+                                          token_texts, value_end)
 from ptcdiag.eval.taxonomy import diagnose
 from ptcdiag.prompting import parse_tool_calls, render_prompt
 
@@ -82,6 +84,7 @@ def generate_skeleton(ar, prompt_ids, example, slot_lengths=None):
     MASK = -1
     gen_ids, slots = build_skeleton(tok, example, MASK, slot_lengths)
     slot_at = {s.positions[0]: s for s in slots}
+    texts = token_texts(tok)
 
     logits, past = ar.step(prompt_ids, None)
     V = logits.shape[-1]
@@ -97,12 +100,23 @@ def generate_skeleton(ar, prompt_ids, example, slot_lengths=None):
             i = j
             continue
         s = slot_at[i]
-        closers = ['"'] if s.type in STRING_TYPES else [",", "}"]
-        closer = _closer_mask(tok, V, closers, logits.device)
+        closers = slot_closers(s.type)
+        nested = slot_class(s.type) == "generic"
+        closer = _closer_mask(tok, V, list(closers), logits.device)
         allowed = _class_mask(tok, V, slot_class(s.type), logits.device) | closer
+        slot_texts = []
         for _ in range(len(s.positions)):
             t = int(logits.masked_fill(~allowed, float("-inf")).argmax())
-            if closer[t]:
+            slot_texts.append(texts[t] if t < len(texts) else "")
+            end = value_end(slot_texts, closers, nested)
+            if end is not None:
+                # the closer ends the value; inside a token (e.g. '],') keep the text before it
+                prefix = slot_texts[-1][:end[1]]
+                if prefix:
+                    pids = tok(prefix, add_special_tokens=False)["input_ids"]
+                    out.extend(pids)
+                    logits, past = ar.step(torch.tensor([pids], device=ar.device), past)
+                    nfe += 1
                 break
             out.append(t)
             logits, past = ar.step(torch.tensor([[t]], device=ar.device), past)

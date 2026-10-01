@@ -1,0 +1,155 @@
+"""Value slots end at their closing token, for the dLLM skeleton and the AR baseline alike.
+
+Real models put a closer ('",', ',', '}}', '],' ...) right after a value and practically
+never padding, so without this the dLLM fills every fixed-length slot to the end.
+"""
+
+import pytest
+import torch
+
+from ptcdiag.analysis.counterfactual import reproduces
+from ptcdiag.analysis.dependency import step_dvs
+from ptcdiag.decoding.adapters import ToyAdapter
+from ptcdiag.decoding.ar import generate_skeleton
+from ptcdiag.decoding.constraints import build_skeleton, token_texts, value_end
+from ptcdiag.decoding.sampler import DecodeConfig, Sampler, Trace
+from ptcdiag.pipeline import decode_region, make_constraint, run_example
+from ptcdiag.prompting import render_prompt
+from ptcdiag.types import Example
+
+HI = 15.0  # with ~150k tokens: p ~0.96, and ~0.9997 with a +5 closer bonus (not 1.0 in float32)
+FN = {"name": "f", "description": "Test function.",
+      "parameters": {"type": "dict", "required": ["city", "tags", "days"],
+                     "properties": {"city": {"type": "string", "description": "City."},
+                                    "tags": {"type": "array", "items": {"type": "integer"}, "description": "Tags."},
+                                    "days": {"type": "integer", "description": "Days."}}}}
+EXAMPLE = Example(id="closers", category="parallel",
+                  messages=[{"role": "user", "content": "f for Paris, tags 1 and 2, 3 days"}],
+                  functions=[FN], ground_truth=[{"f": {"city": ["Paris"], "tags": [[1, 2]], "days": [3]}}])
+TARGET = '[{"name": "f", "arguments": {"city": "Paris", "tags": [1, 2], "days": 3}}]'
+
+
+def test_value_end_scalar():
+    q, c = ('"',), (",", "}")
+    assert value_end(["Taylor", " Swift", '",', " x"], q, False) == (2, 0)
+    assert value_end(["Taylor", None, '",', None], q, False) == (2, 0)  # masked before it: still the end
+    assert value_end(["Taylor", "", " Swift"], q, False) is None        # padding is not a closer
+    assert value_end(["2", "0", "}}"], c, False) == (2, 0)
+
+
+def test_value_end_nested():
+    c = (",", "}")
+    assert value_end(["[", "3", ",", " ", "5", "],", " x"], c, True) == (5, 1)
+    assert value_end(["[", "3", ",", " ", "5", "]", "}}"], c, True) == (6, 0)
+    assert value_end(['["', "a", ",", " b", '",', ' "', "c", '"]', ","], c, True) == (8, 0)  # ',' in a string
+    assert value_end(['{"', "x", '":', " 1", "}},"], c, True) == (4, 1)
+    assert value_end(["[", None, "],"], c, True) is None  # depth unknown until every token is decided
+
+
+def one_token(tok, s):
+    ids = tok(s, add_special_tokens=False)["input_ids"]
+    if len(ids) != 1:
+        pytest.skip(f"{s!r} is not a single token for this tokenizer")
+    return ids[0]
+
+
+class SlotToy:
+    """Writes each value, then its closer, then junk; closers can be made the most confident."""
+
+    def __init__(self, tok, closer_bonus=0.0):
+        t = lambda s: one_token(tok, s)  # noqa: E731
+        self.tok = tok
+        self.scripts = {"city": ([t("Paris"), t('",')], t("x")),
+                        "tags": ([t("["), t("1"), t(","), t(" "), t("2"), t("],")], t("9")),
+                        "days": ([t("3"), t("}}")], t("7"))}
+        self.closers = {t('",'), t("],"), t("}}")}
+        self.bonus = closer_bonus
+        self.mask, self.eos = tok.mask_token_id, tok.eos_token_id
+        self.adapter = ToyAdapter(self.fn, len(tok), mask_id=self.mask, pad_id=self.eos,
+                                  eos_ids=[self.eos], tokenizer=tok)
+        self.P = len(self.adapter.encode(render_prompt(tok, EXAMPLE)))
+        gen, slots = build_skeleton(tok, EXAMPLE, self.mask)
+        self.G = len(gen)
+        self.slot_at = {g: (s.param, o) for s in slots for o, g in enumerate(s.positions)}
+
+    def fn(self, x):
+        logits = torch.zeros(len(x), len(self.tok))
+        for g, (param, o) in self.slot_at.items():
+            script, junk = self.scripts[param]
+            t = script[o] if o < len(script) else junk
+            logits[self.P + g, t] = HI + (self.bonus if t in self.closers else 0.0)
+        return logits
+
+
+@pytest.mark.parametrize("order,k,bonus", [("left_to_right", 1, 0.0), ("confidence", 4, 5.0),
+                                           ("confidence", 1, 0.0)])
+def test_dllm_slots_end_at_closer(dream_tokenizer, order, k, bonus):
+    toy = SlotToy(dream_tokenizer, bonus)
+    cfg = DecodeConfig(gen_length=toy.G, k=k, order=order, eos_early_stop=False)
+    rec = run_example(toy.adapter, EXAMPLE, cfg, "skeleton")
+    assert rec["text"] == TARGET and rec["diagnosis"]["correct"], rec["text"]
+    forced = [p for s in rec["trace"]["steps"] for p in s["forced"]]
+    assert all(rec["gen_ids"][p - toy.P] == toy.eos for p in forced)
+    if order == "left_to_right" or bonus:  # ties among equal logits may commit junk first otherwise
+        assert forced
+    assert not set(forced) & {p for s in rec["trace"]["steps"] for p in s["positions"]}
+    assert reproduces(toy.adapter, EXAMPLE, rec, step=2)
+
+
+def test_closers_first_pad_before_values(dream_tokenizer):
+    """Closers most confident: scalar slots are padded behind them before the values exist."""
+    # +15: closers at p = 1.0 in float32; values stay below even in small integer classes
+    toy = SlotToy(dream_tokenizer, closer_bonus=15.0)
+    rec = run_example(toy.adapter, EXAMPLE, DecodeConfig(gen_length=toy.G, k=1, eos_early_stop=False),
+                      "skeleton")
+    assert rec["text"] == TARGET
+    first3 = rec["trace"]["steps"][:3]
+    assert all(s["tokens"][0] in toy.closers for s in first3)
+    assert sum(bool(s["forced"]) for s in first3) == 2  # city and days; the array needs its prefix
+
+    # DVS on a step whose closer pads part of the canvas: only the committed tokens count
+    rec4 = run_example(toy.adapter, EXAMPLE, DecodeConfig(gen_length=toy.G, k=4, eos_early_stop=False),
+                       "skeleton")
+    s0 = Trace.from_dict(rec4["trace"]).steps[0]
+    assert s0.forced and len(s0.positions) == 4
+    assert step_dvs(toy.adapter, EXAMPLE, rec4, 0)["m"] == 4
+
+
+def test_sequentialized_step_skips_padded_positions(dream_tokenizer):
+    toy = SlotToy(dream_tokenizer, closer_bonus=5.0)
+    prompt = toy.adapter.encode(render_prompt(dream_tokenizer, EXAMPLE))
+    cfg = DecodeConfig(gen_length=toy.G, k=10_000, eos_early_stop=False, sequentialize_steps=(0,))
+    constraint = make_constraint(toy.adapter, EXAMPLE, "skeleton")
+    canvas, tr = Sampler(toy.adapter, cfg, constraint).generate(prompt)
+    s0 = tr.steps[0]
+    assert s0.sequentialized and len(tr.steps) == 1 and s0.forced
+    assert len(s0.positions) + len(s0.forced) == sum(1 for t in constraint.gen_ids if t == toy.mask)
+    assert decode_region(toy.adapter, canvas, tr, "skeleton", constraint)[0] == TARGET
+
+
+class FakeAR:
+    """Greedy 'model' that wants to write TARGET, preferring the longest matching token."""
+
+    def __init__(self, tok, extra=("[", "1", ",", " ", "2", "3", "Paris", "],", "}}]", "}}", '",')):
+        self.tokenizer, self.device, self.fed = tok, "cpu", []
+        self.texts = token_texts(tok)
+        self.vocab = set(tok(TARGET, add_special_tokens=False)["input_ids"])
+        self.vocab |= {i for s in extra for i in tok(s, add_special_tokens=False)["input_ids"]}
+
+    def step(self, ids, past):
+        if past is not None:
+            self.fed += ids[0].tolist()
+        done = self.tokenizer.decode(self.fed)
+        rest = TARGET[len(done):] if TARGET.startswith(done) else ""
+        best = max((i for i in self.vocab if self.texts[i] and rest.startswith(self.texts[i])),
+                   key=lambda i: len(self.texts[i]), default=0)
+        logits = torch.zeros(len(self.tokenizer))
+        logits[best] = 1.0
+        return logits, True
+
+
+def test_ar_array_value_is_not_cut_at_inner_comma(dream_tokenizer):
+    one_token(dream_tokenizer, "],")
+    ar = FakeAR(dream_tokenizer)
+    text, _ = generate_skeleton(ar, torch.tensor([[1, 2, 3]]), EXAMPLE)
+    assert text == TARGET

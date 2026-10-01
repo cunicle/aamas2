@@ -19,17 +19,27 @@ def make_constraint(adapter, example, mode, slot_lengths=None):
     raise ValueError(mode)
 
 
-def decode_region(adapter, canvas, trace, mode):
+def decode_region(adapter, canvas, trace, mode, constraint=None):
     """Text of the generation region, plus the canvas position of every kept token.
 
     free:     cut at the first EOS.
-    skeleton: drop padding/EOS tokens wherever they occur (slots are padded).
+    skeleton: cut every value at its closing token (`constraint.cuts`), and drop
+              padding/EOS tokens wherever they occur (slots are padded).
     """
     ids = canvas[trace.gen_start:trace.gen_end].tolist()
     positions = list(range(trace.gen_start, trace.gen_end))
     special = adapter.special_ids
+    if mode == "skeleton":
+        assert constraint is not None, "skeleton decoding needs the constraint (value cuts)"
+        cuts = constraint.cuts(ids)
+    else:
+        cuts = {}
     kept_ids, kept_pos = [], []
-    for i, p in zip(ids, positions):
+    for j, (i, p) in enumerate(zip(ids, positions)):
+        if j in cuts:  # a re-tokenized prefix keeps the position of the token it came from
+            kept_ids += cuts[j]
+            kept_pos += [p] * len(cuts[j])
+            continue
         if i in special:
             if mode == "free" and i in adapter.eos_ids:
                 break
@@ -50,7 +60,7 @@ def run_example(adapter, example, cfg, mode="free", slot_lengths=None, keep_trac
     t0 = time.time()
     canvas, trace = Sampler(adapter, cfg, constraint).generate(prompt_ids)
     elapsed = time.time() - t0
-    text, kept_ids, kept_pos = decode_region(adapter, canvas, trace, mode)
+    text, kept_ids, kept_pos = decode_region(adapter, canvas, trace, mode, constraint)
     parsed = parse_tool_calls(text)
     diag = diagnose(example, parsed)
     rec = {

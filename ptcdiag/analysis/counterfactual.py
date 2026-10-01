@@ -32,9 +32,12 @@ def _canvas(prompt_ids, record):
     return torch.cat([prompt_ids, torch.tensor(record["gen_ids"], dtype=torch.long)])
 
 
-def error_positions(adapter, record, detail, trace, canvas):
-    """Canvas positions responsible for one taxonomy detail, or [] if not localisable."""
-    text, kept_ids, kept_pos = decode_region(adapter, canvas, trace, record["mode"])
+def error_positions(adapter, record, detail, trace, canvas, constraint=None):
+    """Canvas positions responsible for one taxonomy detail, or [] if not localisable.
+
+    constraint: the record's constraint (`make_constraint`); needed in skeleton mode.
+    """
+    text, kept_ids, kept_pos = decode_region(adapter, canvas, trace, record["mode"], constraint)
     parsed = parse_tool_calls(text)
     if not parsed.syntax_ok:
         return []
@@ -88,7 +91,7 @@ def replay(adapter, example, record, step, sequentialize=True):
     constraint = make_constraint(adapter, example, record["mode"])
     new_canvas, new_trace = Sampler(adapter, cfg, constraint).generate(
         prompt_ids, init_gen=init, start_step=step)
-    text, _, _ = decode_region(adapter, new_canvas.cpu(), new_trace, record["mode"])
+    text, _, _ = decode_region(adapter, new_canvas.cpu(), new_trace, record["mode"], constraint)
     diag = diagnose(example, parse_tool_calls(text)).to_dict()
     return text, diag
 
@@ -108,11 +111,12 @@ def attribute(adapter, example, record, labels=LOCALIZABLE, max_steps=6):
     prompt_ids = adapter.encode(render_prompt(adapter.tokenizer, example))
     trace = Trace.from_dict(record["trace"])
     canvas = _canvas(prompt_ids, record)
+    constraint = make_constraint(adapter, example, record["mode"])
     results = []
     for det in record["diagnosis"]["details"]:
         if det["label"] not in labels:
             continue
-        pos = error_positions(adapter, record, det, trace, canvas)
+        pos = error_positions(adapter, record, det, trace, canvas, constraint)
         steps = parallel_steps(trace, pos)[:max_steps]
         res = {"label": det["label"], "detail": det, "positions": pos, "steps_tried": steps,
                "fixed_by": None, "became_correct": False, "after": []}
@@ -137,12 +141,13 @@ def placebo(adapter, example, record, rng=None, max_steps=6):
     prompt_ids = adapter.encode(render_prompt(adapter.tokenizer, example))
     trace = Trace.from_dict(record["trace"])
     canvas = _canvas(prompt_ids, record)
+    constraint = make_constraint(adapter, example, record["mode"])
     calls = record["calls"]
     choices = [(i, p) for i, c in enumerate(calls) for p in c["arguments"]]
     rng.shuffle(choices)
     for i, p in choices:
         det = {"label": "wrong_value", "pred": i, "param": p}
-        steps = parallel_steps(trace, error_positions(adapter, record, det, trace, canvas))[:max_steps]
+        steps = parallel_steps(trace, error_positions(adapter, record, det, trace, canvas, constraint))[:max_steps]
         if not steps:
             continue
         for t in steps:

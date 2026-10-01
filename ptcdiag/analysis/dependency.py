@@ -41,6 +41,15 @@ def _setup(adapter, example, record, step):
     return cfg, rec, constraint, x, window
 
 
+def _reveal(constraint, x, pos, tok, step_positions):
+    """Commit one token of the step, then let the constraint pad any value it ends (as
+    the sampler does), keeping the step's other positions masked."""
+    x[0, pos] = tok
+    hook = getattr(constraint, "after_commit", None)
+    if hook is not None:
+        hook(x, exclude=set(step_positions))
+
+
 def _logprobs(adapter, constraint, x, positions, window):
     pos = torch.tensor(positions, device=x.device)
     logits = adapter.logits(x, window)[pos].float()
@@ -56,7 +65,7 @@ def step_dvs(adapter, example, record, step):
     mf = [float(lp[j, t]) for j, t in enumerate(tok)]
     seq = [mf[0]]
     for j in range(1, len(pos)):
-        x[0, pos[j - 1]] = tok[j - 1]
+        _reveal(constraint, x, pos[j - 1], tok[j - 1], pos)
         lpj = _logprobs(adapter, constraint, x, [pos[j]], window)
         seq.append(float(lpj[0, tok[j]]))
     per = [m - s for m, s in zip(mf, seq)]
@@ -73,7 +82,7 @@ def pairwise_tv(adapter, example, record, step):
     D = torch.zeros(m, m)
     for i in range(m):
         xi = x.clone()
-        xi[0, pos[i]] = tok[i]
+        _reveal(constraint, xi, pos[i], tok[i], pos)
         cond = _logprobs(adapter, constraint, xi, pos, window).exp()
         D[i] = 0.5 * (cond - base).abs().sum(-1).cpu()
         D[i, i] = 0.0

@@ -11,6 +11,14 @@ only argument values are masked, each slot restricted to tokens of its JSON type
 Syntax is then guaranteed by construction up to the value level (a number slot can
 still produce e.g. "-" alone; those cases are reported as syntax errors, not hidden).
 
+A value ends where the model writes the slot's closing token, as in the AR baseline:
+a quote for strings, ',' or '}' for everything else (for arrays and dicts only outside
+brackets and string literals; see `value_end`). The closing token and everything after
+it in the slot are dropped when decoding, and the slot's still-masked positions after
+it are set to padding at once (`after_commit`). Slots are fixed-length, and the models
+practically never put padding inside a JSON value (P(pad) ~1e-5 even right after the
+gold value on Dream / LLaDA2.0), so without closers they fill every slot to the end.
+
 A grammar constraint for free-form generation (e.g. wrapping the completability check
 of eth-sri/constrained-diffusion) should implement the same interface; see README.
 """
@@ -49,7 +57,17 @@ def _classify(text):
     return out
 
 
+_TEXT_CACHE = {}
 _CLASS_CACHE = {}
+
+
+def token_texts(tokenizer):
+    """Decoded text of every token id (index = id), cached per tokenizer."""
+    key = (tokenizer.name_or_path, len(tokenizer))
+    if key not in _TEXT_CACHE:
+        _TEXT_CACHE[key] = tokenizer.batch_decode([[i] for i in range(len(tokenizer))],
+                                                  skip_special_tokens=False)
+    return _TEXT_CACHE[key]
 
 
 def token_classes(tokenizer):
@@ -57,8 +75,7 @@ def token_classes(tokenizer):
     key = (tokenizer.name_or_path, len(tokenizer))
     if key in _CLASS_CACHE:
         return _CLASS_CACHE[key]
-    n = len(tokenizer)
-    texts = tokenizer.batch_decode([[i] for i in range(n)], skip_special_tokens=False)
+    texts = token_texts(tokenizer)
     special = set(tokenizer.all_special_ids)
     special |= {i for i, t in enumerate(texts) if t.startswith("<|") and t.endswith("|>")}
     classes = {k: [] for k in ("generic", "string", "integer", "float", "boolean")}
@@ -77,6 +94,50 @@ def slot_class(bfcl_type):
     if bfcl_type in ("integer", "float", "boolean"):
         return bfcl_type
     return "generic"
+
+
+def slot_closers(bfcl_type):
+    """Characters that end a value of this type (the token after it in the skeleton)."""
+    return ('"',) if bfcl_type in STRING_TYPES else (",", "}")
+
+
+def value_end(texts, closers, nested):
+    """Where a slot's value ends: (token index, char offset) of its closer, or None.
+
+    texts:   decoded text of each slot token in order; None = still masked, "" = padding.
+    nested:  False for string / number / boolean slots. Their token classes cannot
+             contain a closer, so the value ends at the first token that starts with
+             one, whatever is still masked before it (that can only end it earlier).
+             True for arrays / dicts, whose values contain ',' and '}' themselves: a
+             closer counts only outside brackets and string literals, so every earlier
+             token must be decided, and the value can end inside a token (e.g. '],').
+    """
+    if not nested:
+        for i, t in enumerate(texts):
+            if t and t.startswith(closers):
+                return i, 0
+        return None
+    depth, in_str, esc = 0, False, False
+    for i, t in enumerate(texts):
+        if t is None:
+            return None
+        for j, ch in enumerate(t):
+            if in_str:
+                if esc:
+                    esc = False
+                elif ch == "\\":
+                    esc = True
+                elif ch == '"':
+                    in_str = False
+            elif ch == '"':
+                in_str = True
+            elif depth == 0 and ch in closers:
+                return i, j
+            elif ch in "[{":
+                depth += 1
+            elif ch in "]}":
+                depth -= 1
+    return None
 
 
 class Constraint:
@@ -151,6 +212,7 @@ class SkeletonConstraint(Constraint):
         self.a = adapter
         self.gen_ids, self.slots = build_skeleton(adapter.tokenizer, example, adapter.mask_id, slot_lengths)
         self.classes = token_classes(adapter.tokenizer)
+        self.texts = token_texts(adapter.tokenizer)
         self.P = None
         self._masks = {}
         self._pos_class = {}
@@ -170,6 +232,8 @@ class SkeletonConstraint(Constraint):
             m = torch.zeros(V, dtype=torch.bool, device=device)
             ids = torch.tensor([i for i in self.classes[cls] if i < V], dtype=torch.long, device=device)
             m[ids] = True
+            ends = [i for i, t in enumerate(self.texts[:V]) if t.startswith(slot_closers(cls))]
+            m[torch.tensor(ends, dtype=torch.long, device=device)] = True  # a value may end anywhere
             m[self.a.pad_id] = True  # unused slot positions are filled with padding
             self._masks[key] = m
         return self._masks[key]
@@ -179,6 +243,57 @@ class SkeletonConstraint(Constraint):
         rows = [self._mask(self._pos_class.get(int(p) - self.P, "generic"), V, logits.device) for p in cand]
         allowed = torch.stack(rows)
         return logits.masked_fill(~allowed, float("-inf"))
+
+    def _slot_texts(self, gen, s):
+        special, out = self.a.special_ids, []
+        for g in s.positions:
+            t = gen[g]
+            if t == self.a.mask_id:
+                out.append(None)
+            else:
+                out.append("" if t in special or t >= len(self.texts) else self.texts[t])
+        return out
+
+    def _end(self, gen, s):
+        return value_end(self._slot_texts(gen, s), slot_closers(s.type), slot_class(s.type) == "generic")
+
+    def after_commit(self, x, exclude=()):
+        """Set the masked positions after every ended value to padding, in place.
+
+        Returns the canvas positions it filled. `exclude`: positions to leave alone
+        (DVS reveals the tokens of one step one at a time and must keep the rest masked).
+        """
+        P = self.P
+        gen = x[0, P:P + len(self.gen_ids)].tolist()
+        forced = []
+        for s in self.slots:
+            end = self._end(gen, s)
+            if end is None:
+                continue
+            forced += [P + g for g in s.positions[end[0] + 1:]
+                       if gen[g] == self.a.mask_id and P + g not in exclude]
+        if forced:
+            x[0, forced] = self.a.pad_id
+        return forced
+
+    def cuts(self, gen):
+        """{gen-region index: replacement token ids} that cut every value at its closer.
+
+        The closing token and the rest of the slot map to []; a closer inside a token
+        (arrays / dicts, e.g. '],') keeps that token's text before it, re-tokenized.
+        """
+        out = {}
+        for s in self.slots:
+            texts = ["" if t is None else t for t in self._slot_texts(gen, s)]
+            end = value_end(texts, slot_closers(s.type), slot_class(s.type) == "generic")
+            if end is None:
+                continue
+            i, off = end
+            out[s.positions[i]] = \
+                self.a.tokenizer(texts[i][:off], add_special_tokens=False)["input_ids"] if off else []
+            for g in s.positions[i + 1:]:
+                out[g] = []
+        return out
 
     def slot_positions(self):
         """{(call, param): canvas positions} (after initial_gen has been called)."""

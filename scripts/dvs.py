@@ -22,6 +22,7 @@ from ptcdiag.analysis.dependency import step_dvs  # noqa: E402
 from ptcdiag.data import load_examples  # noqa: E402
 from ptcdiag.decoding.adapters import load_adapter  # noqa: E402
 from ptcdiag.decoding.sampler import Trace  # noqa: E402
+from ptcdiag.pipeline import make_constraint  # noqa: E402
 from ptcdiag.prompting import render_prompt  # noqa: E402
 
 
@@ -59,10 +60,11 @@ def main():
             trace = Trace.from_dict(r["trace"])
             prompt_ids = adapter.encode(render_prompt(adapter.tokenizer, ex))
             canvas = torch.cat([prompt_ids, torch.tensor(r["gen_ids"], dtype=torch.long)])
+            constraint = make_constraint(adapter, ex, r["mode"])
             bad = set()
             for det in r["diagnosis"]["details"]:
                 if det["label"] in LOCALIZABLE:
-                    bad |= set(error_positions(adapter, r, det, trace, canvas))
+                    bad |= set(error_positions(adapter, r, det, trace, canvas, constraint))
             for s in trace.steps:
                 if len(s.positions) < 2 or s.sequentialized:
                     continue
