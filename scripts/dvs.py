@@ -60,7 +60,7 @@ def main():
             trace = Trace.from_dict(r["trace"])
             prompt_ids = adapter.encode(render_prompt(adapter.tokenizer, ex))
             canvas = torch.cat([prompt_ids, torch.tensor(r["gen_ids"], dtype=torch.long)])
-            constraint = make_constraint(adapter, ex, r["mode"])
+            constraint = make_constraint(adapter, ex, r["mode"], r.get("slot_lengths"))
             bad = set()
             for det in r["diagnosis"]["details"]:
                 if det["label"] in LOCALIZABLE:

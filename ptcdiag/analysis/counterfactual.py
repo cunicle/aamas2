@@ -88,7 +88,7 @@ def replay(adapter, example, record, step, sequentialize=True):
     trace = Trace.from_dict(record["trace"])
     canvas = _canvas(prompt_ids, record)
     init = state_before_step(trace, canvas, step, adapter.mask_id)
-    constraint = make_constraint(adapter, example, record["mode"])
+    constraint = make_constraint(adapter, example, record["mode"], record.get("slot_lengths"))
     new_canvas, new_trace = Sampler(adapter, cfg, constraint).generate(
         prompt_ids, init_gen=init, start_step=step)
     text, _, _ = decode_region(adapter, new_canvas.cpu(), new_trace, record["mode"], constraint)
@@ -111,7 +111,7 @@ def attribute(adapter, example, record, labels=LOCALIZABLE, max_steps=6):
     prompt_ids = adapter.encode(render_prompt(adapter.tokenizer, example))
     trace = Trace.from_dict(record["trace"])
     canvas = _canvas(prompt_ids, record)
-    constraint = make_constraint(adapter, example, record["mode"])
+    constraint = make_constraint(adapter, example, record["mode"], record.get("slot_lengths"))
     results = []
     for det in record["diagnosis"]["details"]:
         if det["label"] not in labels:
@@ -141,7 +141,7 @@ def placebo(adapter, example, record, rng=None, max_steps=6):
     prompt_ids = adapter.encode(render_prompt(adapter.tokenizer, example))
     trace = Trace.from_dict(record["trace"])
     canvas = _canvas(prompt_ids, record)
-    constraint = make_constraint(adapter, example, record["mode"])
+    constraint = make_constraint(adapter, example, record["mode"], record.get("slot_lengths"))
     calls = record["calls"]
     choices = [(i, p) for i, c in enumerate(calls) for p in c["arguments"]]
     rng.shuffle(choices)

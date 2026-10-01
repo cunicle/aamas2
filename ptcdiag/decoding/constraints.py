@@ -15,23 +15,34 @@ A value ends where the model writes the slot's closing token, as in the AR basel
 a quote for strings, ',' or '}' for everything else (for arrays and dicts only outside
 brackets and string literals; see `value_end`). The closing token and everything after
 it in the slot are dropped when decoding, and the slot's still-masked positions after
-it are set to padding at once (`after_commit`). Slots are fixed-length, and the models
-practically never put padding inside a JSON value (P(pad) ~1e-5 even right after the
-gold value on Dream / LLaDA2.0), so without closers they fill every slot to the end.
+it are set to padding at once (`after_commit`). The models practically never put
+padding inside a JSON value (P(pad) ~1e-5 even right after the gold value on Dream /
+LLaDA2.0), so without closers they fill every slot to the end.
+
+Slot length (`oracle_lengths`): masked diffusion models read the number of masks as the
+length of the content (in training every mask stands for one real token), so a long
+slot makes them write a long value ("HSBC for home loan of $500,000", 5000000000). A
+parameter's slot length is therefore the token length of its longest gold value over
+all calls of the item: identical for every call, so it does not tell which value goes
+where. Before a non-string value the skeleton stops at '":' and the model writes the
+space itself, as in natural tokenization (' [', ' true'); number / boolean slots accept
+whitespace-only tokens for it.
 
 A grammar constraint for free-form generation (e.g. wrapping the completability check
 of eth-sri/constrained-diffusion) should implement the same interface; see README.
 """
 
+import json
 import re
+from collections import defaultdict
 from dataclasses import dataclass, field
 
 import torch
 
 STRING_TYPES = {"string", "any"}
+# Fixed per-type lengths of the first design, kept for `slot_lengths` overrides (tests).
 # Chosen from BFCL parallel-category gold values (Dream tokenizer): covers p99 of strings
 # (11 tokens) and the max of integers (9) and floats (12); arrays/dicts p99 is 40.
-# Too-short slots would truncate values and show up as spurious wrong_value errors.
 SLOT_LENGTHS = {"string": 14, "any": 14, "integer": 10, "float": 12, "boolean": 2,
                 "array": 48, "tuple": 48, "dict": 48}
 
@@ -54,6 +65,8 @@ def _classify(text):
     st = text.strip()
     if st and st == text.lstrip() and (st in "true" or st in "false"):
         out.add("boolean")
+    if text and not st:  # the space before a value (the skeleton stops at '":')
+        out |= {"integer", "float", "boolean"}
     return out
 
 
@@ -167,13 +180,48 @@ def _param_type(example, fname, param):
     return f["parameters"]["properties"].get(param, {}).get("type", "string") if f else "string"
 
 
+def _concrete(v):
+    """A concrete JSON value from a BFCL acceptable value (dicts hold lists of acceptable
+    values; the first non-empty one is taken, as in the tests' gold predictions)."""
+    if isinstance(v, dict) and v and all(isinstance(a, list) for a in v.values()):
+        return {k: _concrete(next(a for a in acc if a != "")) for k, acc in v.items()
+                if any(a != "" for a in acc)}
+    if isinstance(v, list):
+        return [_concrete(a) for a in v]
+    return v
+
+
+def value_text(value, bfcl_type):
+    """Slot text of a gold value: string contents without quotes, otherwise ' ' + JSON."""
+    if bfcl_type in STRING_TYPES:
+        return value if isinstance(value, str) else json.dumps(value)
+    return " " + json.dumps(_concrete(value))
+
+
+def oracle_lengths(tokenizer, example):
+    """{param: slot length}: tokens of the param's longest acceptable gold value over all
+    calls of the item. One length per parameter name, so every call's slot for it is the
+    same length and the canvas does not reveal which value belongs to which call."""
+    out = defaultdict(lambda: 1)
+    for fname, params in example.gold_calls:
+        for p, acc in params.items():
+            t = _param_type(example, fname, p)
+            for a in acc:
+                if a != "":
+                    n = len(tokenizer(value_text(a, t), add_special_tokens=False)["input_ids"])
+                    out[p] = max(out[p], n)
+    return out
+
+
 def build_skeleton(tokenizer, example, mask_id, slot_lengths=None):
     """Oracle skeleton from the ground truth: (gen_ids, slots).
 
     Includes every gold call in gold order and every parameter with at least one
     non-empty acceptable value. Parameters whose only acceptable value is "" are left out.
+    Slot lengths come from `oracle_lengths`; `slot_lengths` ({bfcl_type: n}) overrides
+    them per type with fixed lengths.
     """
-    lengths = dict(SLOT_LENGTHS, **(slot_lengths or {}))
+    oracle = oracle_lengths(tokenizer, example)
     ids, slots, buf = [], [], []
 
     def flush():
@@ -192,10 +240,10 @@ def build_skeleton(tokenizer, example, mask_id, slot_lengths=None):
                 continue
             t = _param_type(example, fname, p)
             q = '"' if t in STRING_TYPES else ""
-            buf.append(("" if first else ", ") + '"' + p + '": ' + q)
+            buf.append(("" if first else ", ") + '"' + p + '":' + (' "' if q else ""))
             first = False
             flush()
-            n = lengths.get(t, lengths["string"])
+            n = (slot_lengths or {}).get(t, oracle[p])
             slots.append(Slot(ci, p, t, list(range(len(ids), len(ids) + n))))
             ids.extend([mask_id] * n)
             buf.append(q)

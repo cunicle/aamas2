@@ -81,6 +81,8 @@ def run_example(adapter, example, cfg, mode="free", slot_lengths=None, keep_trac
         "seconds": round(elapsed, 3),
         "gen_ids": canvas[trace.gen_start:trace.gen_end].tolist(),
     }
+    if slot_lengths:  # replay must rebuild the same skeleton
+        rec["slot_lengths"] = slot_lengths
     if keep_trace:
         rec["trace"] = trace.to_dict()
     return rec
