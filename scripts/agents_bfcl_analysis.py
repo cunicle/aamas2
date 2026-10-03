@@ -16,6 +16,11 @@ requests by the same functions (canvas call i = agent i):
                  the share of agents whose call passes the check of the group's first reference call
   unparsed       some agent did not make exactly one call (the team is then not correct and has
                  only the syntax_error label)
+  order_correct  in_order among the correct teams (in_order implies correct), the measure behind the
+                 paper's "slots filled in mention order 95-97%": on the C1 requests the one-canvas
+                 runs give 94.6% (Dream k=1), 95.7% (LLaDA2.0 k=1), 95.8% (Qwen)
+  in_order_clean C1 only: in_order on the requests whose reference calls follow the request's
+                 mention order (all but ORDER_NOISE); every correct one-canvas output there is in order
 Slot level (C2): the slots the length swap changes (514 with the Dream / Qwen tokenizer); each
 agent's value for them is
   own            passes its own reference call's check (value_ok)
@@ -49,7 +54,17 @@ from ptcdiag.eval.taxonomy import is_cross_call, value_ok  # noqa: E402
 from ptcdiag.prompting import system_prompt  # noqa: E402
 
 TEAM_KEYS = ["set_acc", "ccer", "duplicate", "in_order", "first_mention", "unparsed"]
+ORDER_KEYS = ["order_correct", "in_order_clean"]
 SLOT_KINDS = ["own", "sibling_fit", "sibling_other", "other"]
+# C1 requests (checked by hand) whose reference order is not the request's mention order: the
+# reference lists the calls out of mention order (parallel_14 "10, 20 and 30 years" -> 20, 30, 10;
+# parallel_152 "first 3^5, then 2^3" -> 2^3, 3^5; parallel_168 the 2nd and 3rd scenarios swapped;
+# parallel_multiple_111 core beliefs "of both these religions" -> Hinduism, Buddhism after
+# Buddhism, Hinduism), or the request is a cross product with no single mention order
+# (parallel_46, 74, 137, 178, 180). Every correct but out-of-order one-canvas output (Dream k=1 / 16,
+# LLaDA2.0 k=1, Qwen) on the 104 requests is one of these.
+ORDER_NOISE = {"parallel_14", "parallel_152", "parallel_168", "parallel_multiple_111",
+               "parallel_46", "parallel_74", "parallel_137", "parallel_178", "parallel_180"}
 ORDER = [*PROTOCOLS, *RULE_PROTOCOLS]
 DREAM, QWEN = "Dream-org/Dream-v0-Instruct-7B", "Qwen/Qwen2.5-7B-Instruct"
 # one-canvas comparison rows: (label, file under --canvas-root, cfg_tag, length mode)
@@ -133,7 +148,9 @@ def swap_slots(tok, ex):
     return [(ci, p, "longer" if S[ci, p] > L[ci, p] else "shorter") for (ci, p) in sorted(L) if S[ci, p] != L[ci, p]]
 
 
-def mean_row(key, mets):
+def mean_row(key, items):
+    """items: [(request id, team_metrics)] of one group -> its row (TEAM_KEYS and ORDER_KEYS)."""
+    mets = [m for _, m in items]
     row = dict(key)
     row["teams"] = len(mets)
     for k in TEAM_KEYS:
@@ -142,6 +159,11 @@ def mean_row(key, mets):
             row[k] = num / den if den else float("nan")
         else:
             row[k] = sum(m[k] for m in mets) / len(mets)
+    n_correct = sum(m["set_acc"] for m in mets)
+    row["order_correct"] = sum(m["in_order"] for m in mets) / n_correct if n_correct else float("nan")
+    if dict(key).get("subset") == "sym":
+        clean = [m for i, m in items if i not in ORDER_NOISE]
+        row["in_order_clean"] = sum(m["in_order"] for m in clean) / len(clean) if clean else float("nan")
     return row
 
 
@@ -279,7 +301,7 @@ def main():
         key = (("model", r["model"]), ("subset", r["subset"]), ("lengths", r["length_mode"]),
                ("protocol", r["protocol"]))
         calls, unparsed = team_calls(r)
-        team_groups[key].append(team_metrics(ex, calls, r["team"]["diagnosis"], unparsed))
+        team_groups[key].append((r["id"], team_metrics(ex, calls, r["team"]["diagnosis"], unparsed)))
         if r["subset"] == "swap":
             L = oracle_lengths(tok_of(r["model"]), ex)
             for ci, p, d in swap_slots(tok_of(r["model"]), ex):
@@ -302,7 +324,7 @@ def main():
                     ex = exs[r["id"]]
                     key = (("model", label), ("subset", subset), ("lengths", lm), ("protocol", "one canvas"))
                     calls, unparsed = canvas_calls(ex, r)
-                    canvas_team[key].append(team_metrics(ex, calls, r["diagnosis"], unparsed))
+                    canvas_team[key].append((r["id"], team_metrics(ex, calls, r["diagnosis"], unparsed)))
                     if subset == "swap" and not label.startswith("LLaDA"):
                         tok = toks[QWEN] if label.startswith("Qwen") else toks[DREAM]
                         L = oracle_lengths(tok, ex)
@@ -318,7 +340,8 @@ def main():
     canvas_rows = [mean_row(k, v) for k, v in canvas_team.items()]
     s_rows = order([row for k, v in slot_kinds.items() for row in slot_rows(k, v)])
     cs_rows = [row for k, v in canvas_slots.items() for row in slot_rows(k, v)]
-    tcols = ["model", "lengths", "protocol", "teams"] + TEAM_KEYS
+    tcols = ["model", "lengths", "protocol", "teams"] + TEAM_KEYS[:4] + ORDER_KEYS + TEAM_KEYS[4:]
+    tcols2 = [c for c in tcols if c != "in_order_clean"]  # C2: mention order not checked there
     scols = ["model", "lengths", "protocol", "dir", "n_slots"] + SLOT_KINDS
     n_items = {s: len(ids) for s, ids in subset_ids.items()}
 
@@ -326,7 +349,9 @@ def main():
     print("One agent per reference call, each with its call's single-call skeleton; greedy decoding "
           "(Dream: k=1, confidence order). Team metrics: set_acc (the n calls as one array, set-level "
           "diagnosis), ccer (cross-call error label), duplicate (duplicate_call label), in_order "
-          "(agent i passes reference call i, all i), first_mention (agents of a sibling group that pass "
+          "(agent i passes reference call i, all i), order_correct (in_order among the correct teams: "
+          "the paper's 95-97% measure), in_order_clean (C1: in_order on the 95 requests whose reference "
+          "order is the request's mention order), first_mention (agents of a sibling group that pass "
           "the group's first reference call), unparsed (some agent did not make exactly one call). "
           "The one-canvas rows are the 10-03 runs on the same requests, by the same functions "
           "(canvas call i = agent i).\n")
@@ -364,9 +389,9 @@ def main():
                 ccols) if rule_rows or b_rows else "TBD (no sim-rule teams yet)")
 
     print(f"\n## C2: length cue, requests where the swap changes a slot ({n_items['swap']} items)\n")
-    print(table([r for r in team_rows if r["subset"] == "swap"], tcols))
+    print(table([r for r in team_rows if r["subset"] == "swap"], tcols2))
     print("\nOne canvas, same requests:\n")
-    print(table([r for r in canvas_rows if r["subset"] == "swap"], tcols))
+    print(table([r for r in canvas_rows if r["subset"] == "swap"], tcols2))
     print("\n### C2 slot level: the slots the swap changes\n")
     print("own / sibling_fit (a sibling's value of exactly the slot's length) / sibling_other / other "
           "(incl. missing and unparsed); dir: the swap makes the slot longer or shorter than its own "
@@ -384,7 +409,7 @@ def main():
                 + [{"table": "slots", **r} for r in s_rows] + [{"table": "slots_canvas", **r} for r in cs_rows]
                 + [{"table": "choose_rule", **r} for r in rule_rows] + [{"table": "choose_b", **r} for r in b_rows])
         cols = ["table", "model", "subset", "lengths", "protocol", "variant", "temperature", "teams", "dir",
-                "n_slots"] + TEAM_KEYS + SLOT_KINDS + [k for k in aa.KEYS if k not in TEAM_KEYS]
+                "n_slots"] + TEAM_KEYS + ORDER_KEYS + SLOT_KINDS + [k for k in aa.KEYS if k not in TEAM_KEYS]
         with open(args.csv, "w", newline="") as f:
             w = csv.DictWriter(f, fieldnames=cols, extrasaction="ignore")
             w.writeheader()
