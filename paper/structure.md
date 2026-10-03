@@ -233,6 +233,9 @@ CPU 部分由本会话做，实验 B 由另一个会话做。
    - ✅ LLaDA2.0 兄弟槽的同块比例已在当前骨架下重算（`block_share.md`：3.1% / 2.3%）。
    - 同一参数取最长值的 pilot（17/18）是我们自己的数据，要用的话先在结果里复核。
 6. 实验 B：方案见 `EXP_B_PROMPT.md`，结果推到 `exp-b-agents`，最晚 10-05 22:00。拿到后合并 `results/summary/agents*.md`，填表 2。
+   - ✅ 10-03 结果已合并（`results/summary/agents.md`、`choose_sample.md`、`choose_focal.md`），表 2 由 `paper_tables.py` 的 `table_choose` 生成，§5 已写。
+   - 与预测对照：同时匿名 100% 撞车（理智检查通过）；轮流 0%（符合）；**同时有编号在 list 上与预测相反**（Qwen 100%、Dream 78.3% 撞车，按列表顺序的只有 3.3% / 0%）。同时行动的 Qwen agent 全部选列表第一个城市；T=0.7 采样也打不破对称（list 75–100%）。
+   - 论点的改法（用户 10-03 同意）：§5 标题改为 “Same-Step Slots Collide When Nothing Orders the Choices”；协议维度可以类比，标签维度不能：prompt 里的编号几乎分不开 agent，而画布上的槽位置能分开同一步提交的槽（k=16 时 list 槽对 94.5% 不同）。P2 加上编号那半句，并在 §5 如实报告它不成立。
    - **B 推迟时的预案**：10-06 中午仍没有结果，§5 只写单画布的 choose-N，删掉表 2 里的 agent 行，把“与 agent 团队一致”改为“与预测一致”，第 1 节和 §1 里提到实验 B 的地方也一并删掉。
 
 ## 8. 审稿人可能追问的问题和回应位置

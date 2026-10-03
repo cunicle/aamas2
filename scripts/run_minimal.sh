@@ -323,6 +323,11 @@ EOF
       $PY_DREAM scripts/choose_analysis.py results/dream/choose_sample.jsonl \
           --csv results/summary/choose_sample.csv | tee results/summary/choose_sample.md
     fi
+    # which listed city the agents take (the first listed city as a shared focal point)
+    $PY_DREAM scripts/choose_focal.py results/qwen/agents.jsonl results/dream/agents.jsonl \
+        results/qwen/agents_sample.jsonl results/dream/agents_sample.jsonl | tee results/summary/choose_focal.md
+    # Table 2 of the paper (one canvas next to the teams of agents)
+    $PY_DREAM scripts/paper_tables.py --results results --summary results/summary --out paper/tables
     ;;
   *)
     sed -n '2,20p' "$0"; exit 1 ;;

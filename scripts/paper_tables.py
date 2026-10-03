@@ -199,6 +199,76 @@ def table_swap(summ):
     return "\n".join(lines) + "\n"
 
 
+def table_choose(summ):
+    """Choose-N: one canvas for all n calls (choose.csv, choose_sample.csv) next to teams of n
+    agents that make one call each (agents.csv, experiment B). Duplicates in both variants,
+    list order in the list variant; greedy, and T=0.7 over five seeds where it was run."""
+    canvas = {(r["model"], r["cfg"], r["variant"]): r for r in csv_rows(f"{summ}/choose.csv")}
+    canvas.update({(r["model"], r["cfg"], r["variant"]): r for r in csv_rows(f"{summ}/choose_sample.csv")})
+    teams = {(r["model"], r["protocol"], r["variant"], float(r["temperature"])): r
+             for r in csv_rows(f"{summ}/agents.csv") if r["n"] == "all"}
+    D, L, Q = "Dream-v0-Instruct-7B", "LLaDA2.0-mini", "Qwen2.5-7B-Instruct"
+
+    def cell(r, col, n_col):
+        return fmt(pct(r[col], r[n_col])) if r and r.get(col) not in (None, "-") else "--"
+
+    def row(label, get):
+        greedy, sample = get(0.0), get(0.7)
+        cells = [cell(greedy["list"], "duplicate", "n"), cell(greedy["list"], "in_order", "n"),
+                 cell(greedy["open"], "duplicate", "n"),
+                 cell(sample["list"], "duplicate", "n"), cell(sample["open"], "duplicate", "n")]
+        return f"{label} & " + " & ".join(cells) + r" \\"
+
+    def canvas_get(model, tag):
+        def get(t):
+            cfg = f"{tag}_T{t}" if tag != "ar_greedy" else (tag if t == 0.0 else None)
+            return {v: canvas.get((model, cfg, v)) for v in ("list", "open")}
+        return get
+
+    def team_get(model, protocol):
+        def get(t):
+            out = {}
+            for v in ("list", "open"):
+                r = teams.get((model, protocol, v, t))
+                out[v] = dict(r, n=r["teams"]) if r else None
+            return out
+        return get
+
+    rows = [r"\multicolumn{6}{@{}l}{\emph{One canvas holds all $n$ calls}} \\",
+            row(r"\dream, $k{=}16$", canvas_get(D, "confidence_k16_tnone_bfull")),
+            row(r"\dream, $k{=}1$", canvas_get(D, "confidence_k1_tnone_bfull")),
+            row(r"\llada, $k{=}16$", canvas_get(L, "confidence_k16_tnone_b32")),
+            row(r"\llada, $k{=}1$", canvas_get(L, "confidence_k1_tnone_b32")),
+            row(r"\qwen (AR)", canvas_get(Q, "ar_greedy"))]
+    names = {"sim-anon": "same time, anonymous", "sim-label": "same time, numbered",
+             "turn-anon": "turns, anonymous", "turn-label": "turns, numbered"}
+    for model, tag in [(Q, r"\qwen"), (D, r"\dream")]:
+        rows += [r"\midrule", rf"\multicolumn{{6}}{{@{{}}l}}{{\emph{{A team of $n$ {tag} agents, one call each}}}} \\"]
+        rows += [row(r"\quad " + names[p], team_get(model, p)) for p in names]
+    n = {v: teams[(D, "sim-anon", v, 0.0)]["teams"] for v in ("list", "open")}
+    ns = {v: teams[(D, "sim-anon", v, 0.7)]["teams"] for v in ("list", "open")}
+    lines = [
+        r"\begin{table}[t]",
+        r"\caption{Symmetric requests (choose-N). Dup.: requests (\%) in which two calls take the same city. "
+        r"Order: list requests (\%) whose $i$-th call takes the $i$-th listed city. Top: one canvas holds all $n$ "
+        r"calls. Below: $n$ agents make one call each, at the same time or in turns (seeing the calls made so far), "
+        r"anonymous or numbered (``assistant $i$ of $n$''). "
+        rf"Greedy decoding on {n['list']} list and {n['open']} open requests; $T{{=}}0.7$: five seeds "
+        rf"({ns['list']} and {ns['open']} runs). Open requests hold one-token slots, so only duplicates are reported.}}",
+        r"\label{tab:choose}",
+        r"\small\setlength{\tabcolsep}{3.2pt}",
+        r"\begin{tabular}{@{}lrrrrr@{}}",
+        r"\toprule",
+        r" & \multicolumn{3}{c}{Greedy} & \multicolumn{2}{c}{$T{=}0.7$} \\",
+        r"\cmidrule(lr){2-4}\cmidrule(l){5-6}",
+        r" & \multicolumn{2}{c}{List} & Open & List & Open \\",
+        r"\cmidrule(lr){2-3}",
+        r" & Dup. & Order & Dup. & Dup. & Dup. \\",
+        r"\midrule",
+    ] + rows + [r"\bottomrule", r"\end{tabular}", r"\end{table}"]
+    return "\n".join(lines) + "\n"
+
+
 MASQ_KEEP = ["exact, k=16", "estimate, k=1", "surplus +1, k=1", "surplus +8, k=1", "swap, k=1"]
 
 
@@ -370,7 +440,8 @@ def main():
     for name, fn in [("ksweep", lambda: table_ksweep(args.results, args.summary)),
                      ("swap", lambda: table_swap(args.summary)),
                      ("masquerade", lambda: table_masquerade(args.summary)),
-                     ("mitigation", lambda: table_mitigation(args.results))]:
+                     ("mitigation", lambda: table_mitigation(args.results)),
+                     ("choose", lambda: table_choose(args.summary))]:
         with open(f"{args.out}/{name}.tex", "w") as f:
             f.write(fn())
         print(f"wrote {args.out}/{name}.tex")

@@ -1,0 +1,33 @@
+\begin{table}[t]
+\caption{Symmetric requests (choose-N). Dup.: requests (\%) in which two calls take the same city. Order: list requests (\%) whose $i$-th call takes the $i$-th listed city. Top: one canvas holds all $n$ calls. Below: $n$ agents make one call each, at the same time or in turns (seeing the calls made so far), anonymous or numbered (``assistant $i$ of $n$''). Greedy decoding on 60 list and 45 open requests; $T{=}0.7$: five seeds (300 and 225 runs). Open requests hold one-token slots, so only duplicates are reported.}
+\label{tab:choose}
+\small\setlength{\tabcolsep}{3.2pt}
+\begin{tabular}{@{}lrrrrr@{}}
+\toprule
+ & \multicolumn{3}{c}{Greedy} & \multicolumn{2}{c}{$T{=}0.7$} \\
+\cmidrule(lr){2-4}\cmidrule(l){5-6}
+ & \multicolumn{2}{c}{List} & Open & List & Open \\
+\cmidrule(lr){2-3}
+ & Dup. & Order & Dup. & Dup. & Dup. \\
+\midrule
+\multicolumn{6}{@{}l}{\emph{One canvas holds all $n$ calls}} \\
+\dream, $k{=}16$ & 15.0 & 11.7 & 100.0 & 17.3 & 100.0 \\
+\dream, $k{=}1$ & 0.0 & 48.3 & 0.0 & 0.0 & 0.4 \\
+\llada, $k{=}16$ & 0.0 & 96.7 & 4.4 & -- & -- \\
+\llada, $k{=}1$ & 0.0 & 100.0 & 0.0 & -- & -- \\
+\qwen (AR) & 0.0 & 81.7 & 0.0 & -- & -- \\
+\midrule
+\multicolumn{6}{@{}l}{\emph{A team of $n$ \qwen agents, one call each}} \\
+\quad same time, anonymous & 100.0 & 0.0 & 100.0 & 99.7 & 93.8 \\
+\quad same time, numbered & 100.0 & 0.0 & 97.8 & 100.0 & 93.8 \\
+\quad turns, anonymous & 0.0 & 91.7 & 0.0 & -- & -- \\
+\quad turns, numbered & 0.0 & 91.7 & 0.0 & -- & -- \\
+\midrule
+\multicolumn{6}{@{}l}{\emph{A team of $n$ \dream agents, one call each}} \\
+\quad same time, anonymous & 100.0 & 0.0 & 100.0 & 87.7 & 100.0 \\
+\quad same time, numbered & 78.3 & 3.3 & 100.0 & 75.0 & 100.0 \\
+\quad turns, anonymous & 0.0 & 35.0 & 0.0 & -- & -- \\
+\quad turns, numbered & 0.0 & 26.7 & 0.0 & -- & -- \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -5,7 +5,8 @@ masked positions of a record are the calls' slots in call order, and their commi
 say which slots moved together. Over every pair of calls of every syntax-ok record, per
 model x decoding config x variant: pairs committed in the same step and how many of them
 hold the same city, and the same for pairs committed in different steps (a later slot that
-copies an earlier one).
+copies an earlier one), with how many of those repeat a city that two slots committed
+before the later one already share (a collision that a later slot follows).
 
   python scripts/choose_pairs.py results/dream/choose.jsonl results/llada2/choose.jsonl
 """
@@ -30,7 +31,7 @@ def main():
     args = ap.parse_args()
 
     exs = {e.id: e for e in load_jsonl(args.data)}
-    agg = defaultdict(lambda: [0, 0, 0, 0])  # same-step pairs, collisions; other pairs, collisions
+    agg = defaultdict(lambda: [0, 0, 0, 0, 0])  # same-step pairs, collisions; other pairs, collisions, after one
     for path in args.results:
         with open(path) as f:
             for r in map(json.loads, f):
@@ -46,14 +47,19 @@ def main():
                     i = 0 if steps[a] == steps[b] else 2
                     agg[key][i] += 1
                     agg[key][i + 1] += vals[a] == vals[b]
-    print("| model | cfg | variant | same-step pairs | same city | rate | other pairs | same city | rate |")
-    print("|---|---|---|---|---|---|---|---|---|")
+                    if i == 2 and vals[a] == vals[b]:
+                        # does the later slot repeat a city that two slots committed before it already share?
+                        late = a if steps[a] > steps[b] else b
+                        agg[key][4] += [vals[j] for j in range(len(vals)) if steps[j] < steps[late]].count(vals[late]) >= 2
+    print("| model | cfg | variant | same-step pairs | same city | rate | other pairs | same city | rate "
+          "| after a collision |")
+    print("|---|---|---|---|---|---|---|---|---|---|")
 
     def rate(hit, n):
         return f"{hit / n:.3f}" if n else "--"
 
-    for (m, tag, v), (s, sc, o, oc) in sorted(agg.items()):
-        print(f"| {m} | {tag} | {v} | {s} | {sc} | {rate(sc, s)} | {o} | {oc} | {rate(oc, o)} |")
+    for (m, tag, v), (s, sc, o, oc, after) in sorted(agg.items()):
+        print(f"| {m} | {tag} | {v} | {s} | {sc} | {rate(sc, s)} | {o} | {oc} | {rate(oc, o)} | {after} |")
 
 
 if __name__ == "__main__":

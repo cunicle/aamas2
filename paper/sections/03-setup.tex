@@ -33,7 +33,7 @@ The sibling slots of a turn face a coordination problem. Each slot must take the
 \noindent These cues give three predictions, which Sections~\ref{sec:ordered}--\ref{sec:masquerade} test.
 \begin{itemize}
 \item[\pred{1}] \emph{Order is a focal point.} When the request orders its entities, the slots take the $i$-th entity for the $i$-th call at any $k$, so committing many tokens per step costs little, even when slot lengths cannot tell the calls apart.
-\item[\pred{2}] \emph{Symmetric calls collide.} When nothing tells the calls apart, slots committed in the same step take the same value, while slots that take turns do not. A team of LLM agents that act at the same time without seeing each other should collide in the same way.
+\item[\pred{2}] \emph{Symmetric calls collide.} When nothing tells the calls apart, slots committed in the same step take the same value, while slots that take turns do not. A team of LLM agents that act at the same time without seeing each other should collide in the same way, unless numbering the agents lets them follow a listed order.
 \item[\pred{3}] \emph{Length is a promise.} A slot reads its mask count as the length of its value. A slot of the wrong length therefore receives a value of the length it promises: a longer version of its own value, or a sibling's value that fits. This happens at any $k$, including one token per step.
 \end{itemize}
 
