@@ -211,6 +211,13 @@ swap 时两种线索互相冲突：顺序线索指向自己的值（own），长
 | S³（2507.04504） | “null token” | S³ 在 prompt 里要求模型用语义词 `null` 占位，只测了 LLaDA 和 WikiBio；它也报告过 mask 给多时会产生幻觉内容 | 原论证“P(pad)≈1e-5，所以 null 没用”**并不能覆盖 S³**，因为它的 null 是模型会自然写出的词。改用这条论证：收尾符本身就是 JSON 里自然的“值结束”记号，写出一次之后剩余位置全部填 pad，模型只需要做一次“停”的决定；探针测的正是这一决定，在 s=1 时概率只有 0.010。另外在局限里写明没跑 S³ 式 prompt 基线 |
 | AAMAS 2027 篇幅 | “以 CFP 为准” | 官方说明：至多 8 页，另加任意页数的参考文献；补充材料为单个 zip，不超过 25MB，审稿人可以不看；必须用 LaTeX（`aamas_2027_template.zip`）；双盲 | 8 页包括一切，没有附录空间 |
 | AI 使用声明 | 没有提到 | AAMAS 2027 规定：AI 工具参与假设或方法设计时，必须在正文或补充材料中详细说明，包括所用 prompt、工具和版本 | 本项目的代码、实验设计和运行都大量使用了 Claude。需要写声明，建议放在补充材料，正文加一句指向它。**要用户决定写什么** |
+| Lu et al. 的“没有受控实验” | 写作 “without a controlled experiment” | 原文附录 D.4 有一个 100 条 BFCL 输出的受控研究（schema guardrails），附录 D.1 比较了 APD、D2F、DCD 三种解码器；但没有改变槽长、每步提交的 token 数或并行程度。归因原话：“fail to maintain symbolic precision (e.g. strict JSON schemas) under diffusion noise”，§4.4 又说 “parallel decoding weakens causal dependency” | §1、§2 写成：他们报告 dLLM agent 调用工具失败（多为 JSON 格式错误和参数错误），归因于扩散噪声和并行解码削弱因果依赖，但没有改变能隔离原因的解码因素（槽长、每步提交的 token 数） |
+| Dream 的初始化 | “Qwen2.5-7B-Instruct, the model Dream starts from” | Dream 从 Qwen2.5-7B **base** 初始化（官方博客链接到 Qwen/Qwen2.5-7B） | §3 已改为 “the instruction-tuned version of the base model that Dream is initialized from” |
+| LLaDA2.0-mini | “1.4B active … trained for tool use” | 论文只写 16B MoE；“1.4B activated” 出自官方模型卡；论文没说为工具调用训练，只报告 BFCL v3 70.90；模型卡写 “Supports tool calling”。官方推理设置：块长 32、阈值 0.95 | §3 已改为 “supports tool calling” |
+| ParallelBench 与“嵌合值” | “the error most specific to parallel decoding” | 论文没有 chimera 这个词，也没有说它“最特有”；例子是 “New City”（来自 New York / Mexico City），归因于并行解码的条件独立 | §7 已改：chimera 是我们的术语，引用他们的例子和归因 |
+| DAEDAL | “adjust the end of the whole sequence” | 第一阶段在末尾追加 mask；第二阶段还会在低置信位置插入 mask。两者都只对单个回复定长，不处理多个字段 | §2 写成：从 EOS 信号给单个回复定长（ρ-EOS 伸缩尾部；DAEDAL 扩展尾部并在低置信位置插入 mask） |
+| Agents of Diffusion（AAMAS 2026） | “dLLM agents” | dLLM 本身不是 agent：两个 AR LLM agent（prompt 优化器和评判者）用语言反馈的多智能体 RL 引导冻结的 LLaDA-8B 生成符合 schema 的 JSON 数据 | §2 按此描述，不能说成 dLLM agent |
+| BFCL 的匹配 | “matched one to one, whatever their order” | 成立（App. H）；官方代码是贪心的先到先配，不是最大二分匹配，只在一个预测调用能满足多个参考调用时有差别 | 不用改 |
 
 ## 7. 待做
 

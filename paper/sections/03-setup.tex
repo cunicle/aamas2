@@ -40,7 +40,7 @@ The sibling slots of a turn face a coordination problem. Each slot must take the
 \subsection{Models, Data, and Measures}
 \label{sec:models}
 
-\paragraph{Models.} \dream~\cite{ye2025dream} (Dream-v0-Instruct-7B) is a dLLM with full bidirectional attention, initialized from \qwen-7B. \llada~\cite{bie2025llada2} (LLaDA2.0-mini, a mixture of experts with 16B parameters, 1.4B active) is a block-diffusion dLLM trained for tool use. The AR reference agent is \qwen-7B-Instruct~\cite{qwen2025qwen25}, the model \dream starts from. All models see the same system prompt, which lists the tools as JSON and asks for a JSON array of calls, and all decode greedily.
+\paragraph{Models.} \dream~\cite{ye2025dream} (Dream-v0-Instruct-7B) is a dLLM with full bidirectional attention, initialized from \qwen-7B. \llada~\cite{bie2025llada2} (LLaDA2.0-mini, a mixture of experts with 16B parameters, 1.4B of them active per token) is a block-diffusion dLLM that supports tool calling. The AR reference agent is \qwen-7B-Instruct~\cite{qwen2025qwen25}, the instruction-tuned version of the base model that \dream is initialized from. All models see the same system prompt, which lists the tools as JSON and asks for a JSON array of calls, and all decode greedily.
 
 \paragraph{Data.} We use the \texttt{parallel} and \texttt{parallel\_multiple} categories of BFCL v4~\cite{patil2025bfcl}: 400 requests with 2 to 8 calls (2.9 on average) and 3,063 value slots. \llada's experiments with wrong slot lengths use a subset of 100 requests, 50 evenly spaced in each category. For requests in which nothing tells the calls apart, we add 105 \emph{choose-N} requests (Section~\ref{sec:symmetric}).
 
