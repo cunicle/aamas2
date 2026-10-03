@@ -1,8 +1,10 @@
 """Tables for the length-prior study: errors vs slot surplus (and k, end bias).
 
-Groups skeleton records by model, surplus (extra masks per slot; records without the
-field are surplus 0), end bias and decoding config, on the items every surplus level of
-that model has (LLaDA2.0 ran surplus > 0 on a 100-item subset). Columns: set accuracy,
+Groups skeleton records by model, length mode (oracle lengths, or lengths estimated by
+the model: scripts/length_estimate.py; length-swap runs are left out, see
+scripts/slot_errors.py --swap-slots), surplus (extra masks per slot; records without the
+field are surplus 0), end bias and decoding config, on the items every length mode /
+surplus level of that model has (LLaDA2.0 ran those on a 100-item subset). Columns: set accuracy,
 syntax rate, cross-call error rate (CCER), single-call error rate (SCER), and the share
 of items with an overfilled value (a wrong value that starts with a gold value and goes
 on: "Taylor Swift. Swift", 5000000000 for 500000).
@@ -54,28 +56,31 @@ def main():
             continue
         with open(path) as f:
             recs += [r for r in map(json.loads, f)
-                     if r.get("mode") == "skeleton" and "diagnosis" in r and r["id"] in exs]
+                     if r.get("mode") == "skeleton" and "diagnosis" in r and r["id"] in exs
+                     and r.get("length_mode") != "swap"]
 
     def model(r):
         return r.get("model_id", r.get("model"))
 
-    surpluses = defaultdict(lambda: defaultdict(set))  # model -> surplus -> item ids
+    surpluses = defaultdict(lambda: defaultdict(set))  # model -> (length mode, surplus) -> item ids
     for r in recs:
-        surpluses[model(r)][r.get("surplus", 0)].add(r["id"])
+        surpluses[model(r)][r.get("length_mode", "oracle"), r.get("surplus", 0)].add(r["id"])
     common = {m: set.intersection(*by_s.values()) for m, by_s in surpluses.items()}
 
     groups = defaultdict(list)
     for r in recs:
         m = model(r)
         if r["id"] in common[m]:
-            groups[(m, r.get("surplus", 0), r.get("end_bias", 0.0) or 0.0, r["cfg_tag"])].append(r)
+            groups[(m, r.get("length_mode", "oracle"), r.get("surplus", 0), r.get("end_bias", 0.0) or 0.0,
+                    r["cfg_tag"])].append(r)
 
     rows = []
-    for (m, s, b, tag), rs in sorted(groups.items(), key=lambda kv: (kv[0][0], kv[0][2], kv[0][3], kv[0][1])):
+    for (m, lm, s, b, tag), rs in sorted(groups.items(),
+                                         key=lambda kv: (kv[0][0], kv[0][1], kv[0][3], kv[0][4], kv[0][2])):
         n = len(rs)
         labels = [r["diagnosis"]["labels"] for r in rs]
         rows.append({
-            "model": m.split("/")[-1], "surplus": s, "end_bias": b, "cfg": tag, "n": n,
+            "model": m.split("/")[-1], "length_mode": lm, "surplus": s, "end_bias": b, "cfg": tag, "n": n,
             "set_acc": sum(r["diagnosis"]["correct"] for r in rs) / n,
             "syntax": sum(r["syntax_ok"] for r in rs) / n,
             "ccer": sum(is_cross_call(lab) for lab in labels) / n,
@@ -83,7 +88,7 @@ def main():
             "overfill": sum(any(overfilled(exs[r["id"]], d) for d in r["diagnosis"]["details"]) for r in rs) / n,
             "nfe": sum(r.get("nfe", 0) for r in rs) / n,
         })
-    cols = ["model", "surplus", "end_bias", "cfg", "n", "set_acc", "syntax", "ccer", "scer", "overfill", "nfe"]
+    cols = ["model", "length_mode", "surplus", "end_bias", "cfg", "n", "set_acc", "syntax", "ccer", "scer", "overfill", "nfe"]
     print("| " + " | ".join(cols) + " |")
     print("|" + "---|" * len(cols))
     for row in rows:

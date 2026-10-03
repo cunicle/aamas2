@@ -33,6 +33,7 @@
 #                     then decoding with them, k in {4,1,16} / {4,1}
 #   choose_dream / choose_llada2 / choose_ar   choose-N probes (data/choose.jsonl): requests
 #                     that leave open which N cities to call; duplicates vs k
+#   summary_length    tables of the length study into results/summary/ (CPU)
 # e.g. lenprior_llada2 -> surplus_llada2  alongside  lenprior_dream -> surplus_dream -> surplus_ar -> endbias_dream
 #
 # Every run appends to its JSONL and skips finished items, so any phase can be
@@ -235,6 +236,29 @@ EOF
   choose_ar)
     choose_data
     $PY_DREAM scripts/run_ar.py --model $QWEN --data probe:data/choose.jsonl --mode skeleton         --out results/qwen/choose.jsonl
+    ;;
+  summary_length)
+    # tables of the length-prior study (all CPU): results/summary/*.md and .csv
+    mkdir -p results/summary
+    D=results/dream; L=results/llada2; Q=results/qwen
+    $PY_DREAM scripts/length_analysis.py $D/bfcl_skel_k.jsonl $D/bfcl_surplus.jsonl $D/bfcl_endbias.jsonl \
+        $D/bfcl_estimate.jsonl $L/bfcl_skel_k.jsonl $L/bfcl_surplus.jsonl $L/bfcl_estimate.jsonl \
+        $Q/bfcl_skeleton.jsonl $Q/bfcl_surplus.jsonl --csv results/summary/length.csv | tee results/summary/length.md
+    for t in dream llada2; do
+      $PY_DREAM scripts/slot_errors.py results/$t/bfcl_skel_k.jsonl results/$t/bfcl_surplus.jsonl \
+          results/$t/bfcl_endbias.jsonl results/$t/bfcl_estimate.jsonl --common \
+          --csv results/summary/slots_$t.csv | tee results/summary/slots_$t.md
+      $PY_DREAM scripts/slot_errors.py results/$t/bfcl_skel_k.jsonl results/$t/bfcl_swap.jsonl --swap-slots \
+          --csv results/summary/swap_$t.csv | tee results/summary/swap_$t.md
+    done
+    $PY_DREAM scripts/symmetry.py $DREAM $D/bfcl_skel_k.jsonl $D/bfcl_skel_ltr.jsonl $D/bfcl_skel_tau.jsonl \
+        | tee results/summary/symmetry_dream.md
+    $PY_DREAM scripts/symmetry.py $LLADA2 $L/bfcl_skel_k.jsonl | tee results/summary/symmetry_llada2.md
+    $PY_DREAM scripts/choose_analysis.py $D/choose.jsonl $L/choose.jsonl $Q/choose.jsonl \
+        --csv results/summary/choose.csv | tee results/summary/choose.md
+    for f in $D/length_prior*.txt $L/length_prior*.txt $D/length_estimate.txt $L/length_estimate.txt; do
+      if [ -f $f ]; then echo "== $f"; cat $f; fi
+    done > results/summary/length_prior.md
     ;;
   summary)
     mkdir -p results/summary

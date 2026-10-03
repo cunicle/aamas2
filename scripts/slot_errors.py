@@ -16,6 +16,8 @@ only the slots the length swap changes count (`swapped_lengths`), on the items t
 a swap record for that model, so the oracle-length rows of the same slots are the
 baseline; rows are then also split by whether the swapped slot is longer or shorter than
 its own value. Item-level set accuracy and cross-call error rate are over the same items.
+With --common, every model's groups are restricted to the items all its (length mode,
+surplus, end bias) settings share (LLaDA2.0 ran surplus > 0 on a 100-item subset).
 
   python scripts/slot_errors.py results/dream/bfcl_skel_k.jsonl results/dream/bfcl_swap.jsonl \
       --swap-slots --csv results/summary/swap_dream.csv
@@ -77,6 +79,7 @@ def main():
     ap.add_argument("--data", default="bfcl:parallel,parallel_multiple")
     ap.add_argument("--bfcl-dir", default="data/bfcl")
     ap.add_argument("--swap-slots", action="store_true")
+    ap.add_argument("--common", action="store_true")
     ap.add_argument("--csv")
     args = ap.parse_args()
 
@@ -107,10 +110,17 @@ def main():
         if r.get("length_mode") == "swap":
             swap_items[model(r)].add(r["id"])
 
+    settings = defaultdict(lambda: defaultdict(set))
+    for r in recs:
+        key = (r.get("length_mode", "oracle"), r.get("surplus", 0), r.get("end_bias", 0.0) or 0.0)
+        settings[model(r)][key].add(r["id"])
+    common = {m: set.intersection(*by.values()) for m, by in settings.items()}
     groups = defaultdict(list)
     for r in recs:
         m = model(r)
         if args.swap_slots and r["id"] not in swap_items[m]:
+            continue
+        if args.common and r["id"] not in common[m]:
             continue
         groups[(m, r.get("length_mode", "oracle"), r.get("surplus", 0), r.get("end_bias", 0.0) or 0.0,
                 r["cfg_tag"])].append(r)
