@@ -10,6 +10,11 @@ count as the length of the content puts more content.
 
   python scripts/length_prior.py --model Dream-org/Dream-v0-Instruct-7B \
       --data bfcl:parallel,parallel_multiple --surplus 4 --out results/dream/length_prior.jsonl
+
+With --closer-in-slot (experiment C3) the skeleton writes no closers: every slot holds its gold
+value and then 1 + surplus masks, followed by the next fixed text, and the closer is the model's
+to write at the first of them (with surplus 0 that position can only be the closer). The
+original probe's surplus s is s masks before the skeleton's closer.
 """
 
 import argparse
@@ -43,11 +48,11 @@ def _closer_mask(texts, closers, V, device):
 
 
 @torch.no_grad()
-def measure(adapter, example, surplus, block_length):
+def measure(adapter, example, surplus, block_length, closer_in_slot=False):
     tok, texts = adapter.tokenizer, token_texts(adapter.tokenizer)
     prompt_ids = adapter.encode(render_prompt(tok, example))
     P = len(prompt_ids)
-    c = SkeletonConstraint(adapter, example, surplus=surplus)
+    c = SkeletonConstraint(adapter, example, surplus=surplus, closer_in_slot=closer_in_slot)
     G = adapter.canvas_length(P, len(c.gen_ids), block_length) - P
     gen = c.initial_gen(G, P)
     gold = {(ci, p): next(a for a in acc if a != "")
@@ -56,7 +61,7 @@ def measure(adapter, example, surplus, block_length):
     queries = []
     for s in c.slots:
         ids = tok(value_text(gold[s.call, s.param], s.type), add_special_tokens=False)["input_ids"]
-        L = len(s.positions) - surplus
+        L = len(s.positions) - surplus - (1 if closer_in_slot else 0)  # the variant's closer position
         gen[s.positions[0]:s.positions[0] + L] = ids[:L]
         queries.append((s, L, P + s.positions[L]))
     x = torch.cat([prompt_ids, torch.tensor(gen, dtype=torch.long)]).to(adapter.device)[None]
@@ -92,13 +97,15 @@ def main():
     ap.add_argument("--model", required=True)
     ap.add_argument("--data", action="append", required=True)
     ap.add_argument("--surplus", type=int, default=4)
+    ap.add_argument("--closer-in-slot", action="store_true",
+                    help="the skeleton variant without closers; surplus 0 is allowed")
     ap.add_argument("--block-length", default="none", help="'none' or an int (LLaDA2.0: 32)")
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--out", required=True)
     ap.add_argument("--device", default="cuda")
     ap.add_argument("--bfcl-dir", default="data/bfcl")
     args = ap.parse_args()
-    assert args.surplus >= 1, "need at least one surplus position to look at"
+    assert args.surplus >= 1 or args.closer_in_slot, "need at least one surplus position to look at"
     B = None if args.block_length.lower() == "none" else int(args.block_length)
 
     examples = [ex for spec in args.data for ex in load_examples(spec, args.bfcl_dir)][: args.limit]
@@ -107,14 +114,17 @@ def main():
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
     with open(args.out, "w") as f:
         for i, ex in enumerate(examples):
-            for r in measure(adapter, ex, args.surplus, B):
+            for r in measure(adapter, ex, args.surplus, B, args.closer_in_slot):
                 r["model_id"], r["surplus"] = args.model, args.surplus
+                if args.closer_in_slot:
+                    r["closer_in_slot"] = True
                 f.write(json.dumps(r, ensure_ascii=False) + "\n")
                 rows.append(r)
             if (i + 1) % 50 == 0:
                 print(f"{i + 1}/{len(examples)}", flush=True)
 
-    print(f"{args.model}, surplus {args.surplus}: next token right after the gold value")
+    print(f"{args.model}, surplus {args.surplus}{', closer in slot' if args.closer_in_slot else ''}: "
+          "next token right after the gold value")
     print("| slot class | n | median P(pad) | mean P(closer) | mean P(content) | constrained pick: closer / pad / content |")
     print("|---|---|---|---|---|---|")
     groups = defaultdict(list)
