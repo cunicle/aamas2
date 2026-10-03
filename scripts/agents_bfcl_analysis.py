@@ -213,7 +213,7 @@ def protocol_rank(p):
 
 def examples_md(recs, exs, rule_recs, choose_exs):
     """One team per model x subset x slot lengths x protocol: the first request with three calls of
-    each subset (the same request for every protocol, model and length mode)."""
+    each subset outside ORDER_NOISE (the same request for every protocol, model and length mode)."""
     out = ["# Experiment C: example teams", "",
            "Every agent gets the system message of ptcdiag/prompting.py with the request's functions "
            "(shown once per request) and its own user message (`user`). `slots` are the agent's slot "
@@ -221,7 +221,7 @@ def examples_md(recs, exs, rule_recs, choose_exs):
            "confidence order.", ""]
     first = {}
     for r in sorted(recs, key=lambda r: r["_idx"]):
-        if r["n"] == 3 and r["subset"] not in first:
+        if r["n"] == 3 and r["subset"] not in first and r["id"] not in ORDER_NOISE:
             first[r["subset"]] = r["id"]
     shown = set()
     picked = sorted((r for r in recs if r["id"] == first.get(r["subset"])),
