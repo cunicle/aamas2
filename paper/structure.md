@@ -227,7 +227,11 @@ CPU 部分由本会话做，实验 B 由另一个会话做。
 2. ✅ `scripts/consequences.py`：统计错误动作的后果，按条件分别计算。类别包括：作用到错的实体、同一动作执行两次、数值参数差 10 倍以上、其他错误值。用于 §7.4。
 3. `scripts/stats.py`：对关键比较做配对 bootstrap 置信区间和 McNemar 检验，包括 LLaDA2.0 的子集，以及 B 里各协议之间的比较。
 4. ✅ 图 1、图 2 的生成脚本，输出到 `paper/figures/`。表 5 由 `paper_tables.py` 的 `table_mitigation` 生成，§8 引用的估计误差分布在 `paper/tables/estimate.md`。
-5. 引用前复核：同一参数取最长值的 pilot（17/18）、ParaProbe 实体绑错为零、LLaDA2.0 同名兄弟槽的同块比例（在当前骨架下重算）。复核不了就删掉。
+5. 引用前复核：
+   - ✅ 引用清单定稿，见 `paper/references.md`（43 条，均已核对）。
+   - ✅ ParaProbe 查无此文，“实体绑错为零”删掉不写。
+   - ✅ LLaDA2.0 兄弟槽的同块比例已在当前骨架下重算（`block_share.md`：3.1% / 2.3%）。
+   - 同一参数取最长值的 pilot（17/18）是我们自己的数据，要用的话先在结果里复核。
 6. 实验 B：方案见 `EXP_B_PROMPT.md`，结果推到 `exp-b-agents`，最晚 10-05 22:00。拿到后合并 `results/summary/agents*.md`，填表 2。
    - **B 推迟时的预案**：10-06 中午仍没有结果，§5 只写单画布的 choose-N，删掉表 2 里的 agent 行，把“与 agent 团队一致”改为“与预测一致”，第 1 节和 §1 里提到实验 B 的地方也一并删掉。
 
