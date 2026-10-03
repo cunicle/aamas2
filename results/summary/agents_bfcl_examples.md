@@ -2,7 +2,7 @@
 
 Every agent gets the system message of ptcdiag/prompting.py with the request's functions (shown once per request) and its own user message (`user`). `slots` are the agent's slot lengths [call, parameter, tokens], `output` its decoded text. Greedy decoding; Dream k=1, confidence order.
 
-## Request parallel_14 (sym subset, parallel, n=3)
+## Request parallel_17 (sym subset, parallel, n=3)
 
 System message:
 
@@ -14,21 +14,21 @@ Respond ONLY with a JSON array of function calls, one object per call, in the fo
 If the question needs several calls, include all of them in the array. Do not add any other text.
 
 Here is a list of functions in JSON format that you can invoke:
-[{"name": "calculate_present_value", "description": "Calculate the present value of a future cash flows stream.", "parameters": {"type": "dict", "properties": {"payment_per_year": {"type": "integer", "description": "The payment received per year."}, "interest_rate": {"type": "float", "description": "The interest rate applied per period."}, "years": {"type": "integer", "description": "The total number of years."}}, "required": ["payment_per_year", "interest_rate", "years"]}}]
+[{"name": "get_stock_data", "description": "Retrieve the most recent trading day's closing price and volume for a specified stock.", "parameters": {"type": "dict", "properties": {"symbol": {"type": "string", "description": "The stock symbol of the company."}, "data_points": {"type": "array", "items": {"type": "string", "enum": ["price", "volume"]}, "description": "The type of data you want to retrieve for the stock. This can include closing price, opening price, volume, etc."}}, "required": ["symbol", "data_points"]}}]
 ```
 
-Reference calls: `[{"calculate_present_value": {"payment_per_year": [1000], "interest_rate": [0.05], "years": [20]}}, {"calculate_present_value": {"payment_per_year": [1000], "interest_rate": [0.05], "years": [30]}}, {"calculate_present_value": {"payment_per_year": [1000], "interest_rate": [0.05], "years": [10]}}]`
+Reference calls: `[{"get_stock_data": {"symbol": ["AAPL"], "data_points": [["price", "volume"], ["volume", "price"]]}}, {"get_stock_data": {"symbol": ["GOOG", "GOOGL"], "data_points": [["price", "volume"], ["volume", "price"]]}}, {"get_stock_data": {"symbol": ["MSFT"], "data_points": [["price", "volume"], ["volume", "price"]]}}]`
 
 ### Dream-v0-Instruct-7B / sym / lengths oracle / sim-anon
 
-team output: `[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}, {"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}, {"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}]`
+team output: `[{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}, {"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}, {"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}]`
 
 labels: ['duplicate_call']; flags: ccer, duplicate
 
-**agent 1** slots [[0, 'interest_rate', 5], [0, 'payment_per_year', 5], [0, 'years', 3]], user:
+**agent 1** slots [[0, 'data_points', 6], [0, 'symbol', 2]], user:
 
 ```text
-Calculate the Present Value of an investment paying $1000 per year, with an interest rate of 5%, for 10, 20 and 30 years.
+Get the latest closing prices and volumes for Apple Inc., Google LLC., and Microsoft Corporation in the New York Stock Exchange
 
 You are one of 3 assistants answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. Make your one call.
 ```
@@ -36,13 +36,13 @@ You are one of 3 assistants answering this request at the same time. Each assist
 output:
 
 ```text
-[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}]
+[{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}]
 ```
 
-**agent 2** slots [[0, 'interest_rate', 5], [0, 'payment_per_year', 5], [0, 'years', 3]], user:
+**agent 2** slots [[0, 'data_points', 6], [0, 'symbol', 2]], user:
 
 ```text
-Calculate the Present Value of an investment paying $1000 per year, with an interest rate of 5%, for 10, 20 and 30 years.
+Get the latest closing prices and volumes for Apple Inc., Google LLC., and Microsoft Corporation in the New York Stock Exchange
 
 You are one of 3 assistants answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. Make your one call.
 ```
@@ -50,13 +50,13 @@ You are one of 3 assistants answering this request at the same time. Each assist
 output:
 
 ```text
-[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}]
+[{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}]
 ```
 
-**agent 3** slots [[0, 'interest_rate', 5], [0, 'payment_per_year', 5], [0, 'years', 3]], user:
+**agent 3** slots [[0, 'data_points', 6], [0, 'symbol', 2]], user:
 
 ```text
-Calculate the Present Value of an investment paying $1000 per year, with an interest rate of 5%, for 10, 20 and 30 years.
+Get the latest closing prices and volumes for Apple Inc., Google LLC., and Microsoft Corporation in the New York Stock Exchange
 
 You are one of 3 assistants answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. Make your one call.
 ```
@@ -64,19 +64,19 @@ You are one of 3 assistants answering this request at the same time. Each assist
 output:
 
 ```text
-[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}]
+[{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}]
 ```
 
 ### Dream-v0-Instruct-7B / sym / lengths oracle / sim-label
 
-team output: `[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}, {"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}, {"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}]`
+team output: `[{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}, {"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}, {"name": "get_stock_data", "arguments": {"symbol": "MSFT", "data_points": ["price", "volume"]}}]`
 
 labels: ['duplicate_call']; flags: ccer, duplicate
 
-**agent 1** slots [[0, 'interest_rate', 5], [0, 'payment_per_year', 5], [0, 'years', 3]], user:
+**agent 1** slots [[0, 'data_points', 6], [0, 'symbol', 2]], user:
 
 ```text
-Calculate the Present Value of an investment paying $1000 per year, with an interest rate of 5%, for 10, 20 and 30 years.
+Get the latest closing prices and volumes for Apple Inc., Google LLC., and Microsoft Corporation in the New York Stock Exchange
 
 You are assistant 1 of 3 answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. Make your one call.
 ```
@@ -84,13 +84,13 @@ You are assistant 1 of 3 answering this request at the same time. Each assistant
 output:
 
 ```text
-[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}]
+[{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}]
 ```
 
-**agent 2** slots [[0, 'interest_rate', 5], [0, 'payment_per_year', 5], [0, 'years', 3]], user:
+**agent 2** slots [[0, 'data_points', 6], [0, 'symbol', 2]], user:
 
 ```text
-Calculate the Present Value of an investment paying $1000 per year, with an interest rate of 5%, for 10, 20 and 30 years.
+Get the latest closing prices and volumes for Apple Inc., Google LLC., and Microsoft Corporation in the New York Stock Exchange
 
 You are assistant 2 of 3 answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. Make your one call.
 ```
@@ -98,13 +98,13 @@ You are assistant 2 of 3 answering this request at the same time. Each assistant
 output:
 
 ```text
-[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}]
+[{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}]
 ```
 
-**agent 3** slots [[0, 'interest_rate', 5], [0, 'payment_per_year', 5], [0, 'years', 3]], user:
+**agent 3** slots [[0, 'data_points', 6], [0, 'symbol', 2]], user:
 
 ```text
-Calculate the Present Value of an investment paying $1000 per year, with an interest rate of 5%, for 10, 20 and 30 years.
+Get the latest closing prices and volumes for Apple Inc., Google LLC., and Microsoft Corporation in the New York Stock Exchange
 
 You are assistant 3 of 3 answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. Make your one call.
 ```
@@ -112,19 +112,19 @@ You are assistant 3 of 3 answering this request at the same time. Each assistant
 output:
 
 ```text
-[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}]
+[{"name": "get_stock_data", "arguments": {"symbol": "MSFT", "data_points": ["price", "volume"]}}]
 ```
 
 ### Dream-v0-Instruct-7B / sym / lengths oracle / turn-anon
 
-team output: `[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}, {"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 20}}, {"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 30}}]`
+team output: `[{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}, {"name": "get_stock_data", "arguments": {"symbol": "MSFT", "data_points": ["price", "volume"]}}, {"name": "get_stock_data", "arguments": {"symbol": "GOOG", "data_points": ["price", "volume"]}}]`
 
 labels: ['(none)']; flags: set_acc
 
-**agent 1** slots [[0, 'interest_rate', 5], [0, 'payment_per_year', 5], [0, 'years', 3]], user:
+**agent 1** slots [[0, 'data_points', 6], [0, 'symbol', 2]], user:
 
 ```text
-Calculate the Present Value of an investment paying $1000 per year, with an interest rate of 5%, for 10, 20 and 30 years.
+Get the latest closing prices and volumes for Apple Inc., Google LLC., and Microsoft Corporation in the New York Stock Exchange
 
 You are one of 3 assistants answering this request one after another. Each assistant makes exactly one of the 3 calls. Calls made so far: none. Make your one call.
 ```
@@ -132,47 +132,47 @@ You are one of 3 assistants answering this request one after another. Each assis
 output:
 
 ```text
-[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}]
+[{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}]
 ```
 
-**agent 2** slots [[0, 'interest_rate', 5], [0, 'payment_per_year', 5], [0, 'years', 3]], user:
+**agent 2** slots [[0, 'data_points', 6], [0, 'symbol', 2]], user:
 
 ```text
-Calculate the Present Value of an investment paying $1000 per year, with an interest rate of 5%, for 10, 20 and 30 years.
+Get the latest closing prices and volumes for Apple Inc., Google LLC., and Microsoft Corporation in the New York Stock Exchange
 
-You are one of 3 assistants answering this request one after another. Each assistant makes exactly one of the 3 calls. Calls made so far: [{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}]. Make your one call.
-```
-
-output:
-
-```text
-[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 20}}]
-```
-
-**agent 3** slots [[0, 'interest_rate', 5], [0, 'payment_per_year', 5], [0, 'years', 3]], user:
-
-```text
-Calculate the Present Value of an investment paying $1000 per year, with an interest rate of 5%, for 10, 20 and 30 years.
-
-You are one of 3 assistants answering this request one after another. Each assistant makes exactly one of the 3 calls. Calls made so far: [{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}, {"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 20}}]. Make your one call.
+You are one of 3 assistants answering this request one after another. Each assistant makes exactly one of the 3 calls. Calls made so far: [{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}]. Make your one call.
 ```
 
 output:
 
 ```text
-[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 30}}]
+[{"name": "get_stock_data", "arguments": {"symbol": "MSFT", "data_points": ["price", "volume"]}}]
+```
+
+**agent 3** slots [[0, 'data_points', 6], [0, 'symbol', 2]], user:
+
+```text
+Get the latest closing prices and volumes for Apple Inc., Google LLC., and Microsoft Corporation in the New York Stock Exchange
+
+You are one of 3 assistants answering this request one after another. Each assistant makes exactly one of the 3 calls. Calls made so far: [{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}, {"name": "get_stock_data", "arguments": {"symbol": "MSFT", "data_points": ["price", "volume"]}}]. Make your one call.
+```
+
+output:
+
+```text
+[{"name": "get_stock_data", "arguments": {"symbol": "GOOG", "data_points": ["price", "volume"]}}]
 ```
 
 ### Dream-v0-Instruct-7B / sym / lengths oracle / turn-label
 
-team output: `[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}, {"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 20}}, {"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 30}}]`
+team output: `[{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}, {"name": "get_stock_data", "arguments": {"symbol": "MSFT", "data_points": ["price", "volume"]}}, {"name": "get_stock_data", "arguments": {"symbol": "GOOG", "data_points": ["price", "volume"]}}]`
 
 labels: ['(none)']; flags: set_acc
 
-**agent 1** slots [[0, 'interest_rate', 5], [0, 'payment_per_year', 5], [0, 'years', 3]], user:
+**agent 1** slots [[0, 'data_points', 6], [0, 'symbol', 2]], user:
 
 ```text
-Calculate the Present Value of an investment paying $1000 per year, with an interest rate of 5%, for 10, 20 and 30 years.
+Get the latest closing prices and volumes for Apple Inc., Google LLC., and Microsoft Corporation in the New York Stock Exchange
 
 You are assistant 1 of 3 answering this request one after another. Each assistant makes exactly one of the 3 calls. Calls made so far: none. Make your one call.
 ```
@@ -180,47 +180,47 @@ You are assistant 1 of 3 answering this request one after another. Each assistan
 output:
 
 ```text
-[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}]
+[{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}]
 ```
 
-**agent 2** slots [[0, 'interest_rate', 5], [0, 'payment_per_year', 5], [0, 'years', 3]], user:
+**agent 2** slots [[0, 'data_points', 6], [0, 'symbol', 2]], user:
 
 ```text
-Calculate the Present Value of an investment paying $1000 per year, with an interest rate of 5%, for 10, 20 and 30 years.
+Get the latest closing prices and volumes for Apple Inc., Google LLC., and Microsoft Corporation in the New York Stock Exchange
 
-You are assistant 2 of 3 answering this request one after another. Each assistant makes exactly one of the 3 calls. Calls made so far: [{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}]. Make your one call.
-```
-
-output:
-
-```text
-[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 20}}]
-```
-
-**agent 3** slots [[0, 'interest_rate', 5], [0, 'payment_per_year', 5], [0, 'years', 3]], user:
-
-```text
-Calculate the Present Value of an investment paying $1000 per year, with an interest rate of 5%, for 10, 20 and 30 years.
-
-You are assistant 3 of 3 answering this request one after another. Each assistant makes exactly one of the 3 calls. Calls made so far: [{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}, {"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 20}}]. Make your one call.
+You are assistant 2 of 3 answering this request one after another. Each assistant makes exactly one of the 3 calls. Calls made so far: [{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}]. Make your one call.
 ```
 
 output:
 
 ```text
-[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 30}}]
+[{"name": "get_stock_data", "arguments": {"symbol": "MSFT", "data_points": ["price", "volume"]}}]
+```
+
+**agent 3** slots [[0, 'data_points', 6], [0, 'symbol', 2]], user:
+
+```text
+Get the latest closing prices and volumes for Apple Inc., Google LLC., and Microsoft Corporation in the New York Stock Exchange
+
+You are assistant 3 of 3 answering this request one after another. Each assistant makes exactly one of the 3 calls. Calls made so far: [{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}, {"name": "get_stock_data", "arguments": {"symbol": "MSFT", "data_points": ["price", "volume"]}}]. Make your one call.
+```
+
+output:
+
+```text
+[{"name": "get_stock_data", "arguments": {"symbol": "GOOG", "data_points": ["price", "volume"]}}]
 ```
 
 ### Dream-v0-Instruct-7B / sym / lengths oracle / sim-rule
 
-team output: `[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}, {"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 20}}, {"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 30}}]`
+team output: `[{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}, {"name": "get_stock_data", "arguments": {"symbol": "GOOG", "data_points": ["price", "volume"]}}, {"name": "get_stock_data", "arguments": {"symbol": "MSFT", "data_points": ["price", "volume"]}}]`
 
-labels: ['(none)']; flags: set_acc
+labels: ['(none)']; flags: set_acc, in_order
 
-**agent 1** slots [[0, 'interest_rate', 5], [0, 'payment_per_year', 5], [0, 'years', 3]], user:
+**agent 1** slots [[0, 'data_points', 6], [0, 'symbol', 2]], user:
 
 ```text
-Calculate the Present Value of an investment paying $1000 per year, with an interest rate of 5%, for 10, 20 and 30 years.
+Get the latest closing prices and volumes for Apple Inc., Google LLC., and Microsoft Corporation in the New York Stock Exchange
 
 You are assistant 1 of 3 answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. By convention, assistant 1 makes the first of the calls, in the order in which the request mentions them. Make your one call.
 ```
@@ -228,13 +228,13 @@ You are assistant 1 of 3 answering this request at the same time. Each assistant
 output:
 
 ```text
-[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}]
+[{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}]
 ```
 
-**agent 2** slots [[0, 'interest_rate', 5], [0, 'payment_per_year', 5], [0, 'years', 3]], user:
+**agent 2** slots [[0, 'data_points', 6], [0, 'symbol', 2]], user:
 
 ```text
-Calculate the Present Value of an investment paying $1000 per year, with an interest rate of 5%, for 10, 20 and 30 years.
+Get the latest closing prices and volumes for Apple Inc., Google LLC., and Microsoft Corporation in the New York Stock Exchange
 
 You are assistant 2 of 3 answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. By convention, assistant 2 makes the second of the calls, in the order in which the request mentions them. Make your one call.
 ```
@@ -242,13 +242,13 @@ You are assistant 2 of 3 answering this request at the same time. Each assistant
 output:
 
 ```text
-[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 20}}]
+[{"name": "get_stock_data", "arguments": {"symbol": "GOOG", "data_points": ["price", "volume"]}}]
 ```
 
-**agent 3** slots [[0, 'interest_rate', 5], [0, 'payment_per_year', 5], [0, 'years', 3]], user:
+**agent 3** slots [[0, 'data_points', 6], [0, 'symbol', 2]], user:
 
 ```text
-Calculate the Present Value of an investment paying $1000 per year, with an interest rate of 5%, for 10, 20 and 30 years.
+Get the latest closing prices and volumes for Apple Inc., Google LLC., and Microsoft Corporation in the New York Stock Exchange
 
 You are assistant 3 of 3 answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. By convention, assistant 3 makes the third of the calls, in the order in which the request mentions them. Make your one call.
 ```
@@ -256,19 +256,19 @@ You are assistant 3 of 3 answering this request at the same time. Each assistant
 output:
 
 ```text
-[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 30}}]
+[{"name": "get_stock_data", "arguments": {"symbol": "MSFT", "data_points": ["price", "volume"]}}]
 ```
 
 ### Qwen2.5-7B-Instruct / sym / lengths oracle / sim-anon
 
-team output: `[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}, {"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}, {"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}]`
+team output: `[{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}, {"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}, {"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}]`
 
 labels: ['duplicate_call']; flags: ccer, duplicate
 
-**agent 1** slots [[0, 'interest_rate', 5], [0, 'payment_per_year', 5], [0, 'years', 3]], user:
+**agent 1** slots [[0, 'data_points', 6], [0, 'symbol', 2]], user:
 
 ```text
-Calculate the Present Value of an investment paying $1000 per year, with an interest rate of 5%, for 10, 20 and 30 years.
+Get the latest closing prices and volumes for Apple Inc., Google LLC., and Microsoft Corporation in the New York Stock Exchange
 
 You are one of 3 assistants answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. Make your one call.
 ```
@@ -276,13 +276,13 @@ You are one of 3 assistants answering this request at the same time. Each assist
 output:
 
 ```text
-[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}]
+[{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}]
 ```
 
-**agent 2** slots [[0, 'interest_rate', 5], [0, 'payment_per_year', 5], [0, 'years', 3]], user:
+**agent 2** slots [[0, 'data_points', 6], [0, 'symbol', 2]], user:
 
 ```text
-Calculate the Present Value of an investment paying $1000 per year, with an interest rate of 5%, for 10, 20 and 30 years.
+Get the latest closing prices and volumes for Apple Inc., Google LLC., and Microsoft Corporation in the New York Stock Exchange
 
 You are one of 3 assistants answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. Make your one call.
 ```
@@ -290,13 +290,13 @@ You are one of 3 assistants answering this request at the same time. Each assist
 output:
 
 ```text
-[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}]
+[{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}]
 ```
 
-**agent 3** slots [[0, 'interest_rate', 5], [0, 'payment_per_year', 5], [0, 'years', 3]], user:
+**agent 3** slots [[0, 'data_points', 6], [0, 'symbol', 2]], user:
 
 ```text
-Calculate the Present Value of an investment paying $1000 per year, with an interest rate of 5%, for 10, 20 and 30 years.
+Get the latest closing prices and volumes for Apple Inc., Google LLC., and Microsoft Corporation in the New York Stock Exchange
 
 You are one of 3 assistants answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. Make your one call.
 ```
@@ -304,19 +304,19 @@ You are one of 3 assistants answering this request at the same time. Each assist
 output:
 
 ```text
-[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}]
+[{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}]
 ```
 
 ### Qwen2.5-7B-Instruct / sym / lengths oracle / sim-label
 
-team output: `[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}, {"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}, {"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}]`
+team output: `[{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}, {"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}, {"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}]`
 
 labels: ['duplicate_call']; flags: ccer, duplicate
 
-**agent 1** slots [[0, 'interest_rate', 5], [0, 'payment_per_year', 5], [0, 'years', 3]], user:
+**agent 1** slots [[0, 'data_points', 6], [0, 'symbol', 2]], user:
 
 ```text
-Calculate the Present Value of an investment paying $1000 per year, with an interest rate of 5%, for 10, 20 and 30 years.
+Get the latest closing prices and volumes for Apple Inc., Google LLC., and Microsoft Corporation in the New York Stock Exchange
 
 You are assistant 1 of 3 answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. Make your one call.
 ```
@@ -324,13 +324,13 @@ You are assistant 1 of 3 answering this request at the same time. Each assistant
 output:
 
 ```text
-[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}]
+[{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}]
 ```
 
-**agent 2** slots [[0, 'interest_rate', 5], [0, 'payment_per_year', 5], [0, 'years', 3]], user:
+**agent 2** slots [[0, 'data_points', 6], [0, 'symbol', 2]], user:
 
 ```text
-Calculate the Present Value of an investment paying $1000 per year, with an interest rate of 5%, for 10, 20 and 30 years.
+Get the latest closing prices and volumes for Apple Inc., Google LLC., and Microsoft Corporation in the New York Stock Exchange
 
 You are assistant 2 of 3 answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. Make your one call.
 ```
@@ -338,13 +338,13 @@ You are assistant 2 of 3 answering this request at the same time. Each assistant
 output:
 
 ```text
-[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}]
+[{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}]
 ```
 
-**agent 3** slots [[0, 'interest_rate', 5], [0, 'payment_per_year', 5], [0, 'years', 3]], user:
+**agent 3** slots [[0, 'data_points', 6], [0, 'symbol', 2]], user:
 
 ```text
-Calculate the Present Value of an investment paying $1000 per year, with an interest rate of 5%, for 10, 20 and 30 years.
+Get the latest closing prices and volumes for Apple Inc., Google LLC., and Microsoft Corporation in the New York Stock Exchange
 
 You are assistant 3 of 3 answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. Make your one call.
 ```
@@ -352,19 +352,19 @@ You are assistant 3 of 3 answering this request at the same time. Each assistant
 output:
 
 ```text
-[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}]
+[{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}]
 ```
 
 ### Qwen2.5-7B-Instruct / sym / lengths oracle / turn-anon
 
-team output: `[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}, {"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 20}}, {"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 30}}]`
+team output: `[{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}, {"name": "get_stock_data", "arguments": {"symbol": "GOO", "data_points": ["price", "volume"]}}, {"name": "get_stock_data", "arguments": {"symbol": "MSFT", "data_points": ["price", "volume"]}}]`
 
-labels: ['(none)']; flags: set_acc
+labels: ['wrong_value']; flags: -
 
-**agent 1** slots [[0, 'interest_rate', 5], [0, 'payment_per_year', 5], [0, 'years', 3]], user:
+**agent 1** slots [[0, 'data_points', 6], [0, 'symbol', 2]], user:
 
 ```text
-Calculate the Present Value of an investment paying $1000 per year, with an interest rate of 5%, for 10, 20 and 30 years.
+Get the latest closing prices and volumes for Apple Inc., Google LLC., and Microsoft Corporation in the New York Stock Exchange
 
 You are one of 3 assistants answering this request one after another. Each assistant makes exactly one of the 3 calls. Calls made so far: none. Make your one call.
 ```
@@ -372,47 +372,47 @@ You are one of 3 assistants answering this request one after another. Each assis
 output:
 
 ```text
-[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}]
+[{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}]
 ```
 
-**agent 2** slots [[0, 'interest_rate', 5], [0, 'payment_per_year', 5], [0, 'years', 3]], user:
+**agent 2** slots [[0, 'data_points', 6], [0, 'symbol', 2]], user:
 
 ```text
-Calculate the Present Value of an investment paying $1000 per year, with an interest rate of 5%, for 10, 20 and 30 years.
+Get the latest closing prices and volumes for Apple Inc., Google LLC., and Microsoft Corporation in the New York Stock Exchange
 
-You are one of 3 assistants answering this request one after another. Each assistant makes exactly one of the 3 calls. Calls made so far: [{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}]. Make your one call.
-```
-
-output:
-
-```text
-[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 20}}]
-```
-
-**agent 3** slots [[0, 'interest_rate', 5], [0, 'payment_per_year', 5], [0, 'years', 3]], user:
-
-```text
-Calculate the Present Value of an investment paying $1000 per year, with an interest rate of 5%, for 10, 20 and 30 years.
-
-You are one of 3 assistants answering this request one after another. Each assistant makes exactly one of the 3 calls. Calls made so far: [{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}, {"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 20}}]. Make your one call.
+You are one of 3 assistants answering this request one after another. Each assistant makes exactly one of the 3 calls. Calls made so far: [{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}]. Make your one call.
 ```
 
 output:
 
 ```text
-[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 30}}]
+[{"name": "get_stock_data", "arguments": {"symbol": "GOO", "data_points": ["price", "volume"]}}]
+```
+
+**agent 3** slots [[0, 'data_points', 6], [0, 'symbol', 2]], user:
+
+```text
+Get the latest closing prices and volumes for Apple Inc., Google LLC., and Microsoft Corporation in the New York Stock Exchange
+
+You are one of 3 assistants answering this request one after another. Each assistant makes exactly one of the 3 calls. Calls made so far: [{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}, {"name": "get_stock_data", "arguments": {"symbol": "GOO", "data_points": ["price", "volume"]}}]. Make your one call.
+```
+
+output:
+
+```text
+[{"name": "get_stock_data", "arguments": {"symbol": "MSFT", "data_points": ["price", "volume"]}}]
 ```
 
 ### Qwen2.5-7B-Instruct / sym / lengths oracle / turn-label
 
-team output: `[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}, {"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 20}}, {"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 30}}]`
+team output: `[{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}, {"name": "get_stock_data", "arguments": {"symbol": "GOO", "data_points": ["price", "volume"]}}, {"name": "get_stock_data", "arguments": {"symbol": "MSFT", "data_points": ["price", "volume"]}}]`
 
-labels: ['(none)']; flags: set_acc
+labels: ['wrong_value']; flags: -
 
-**agent 1** slots [[0, 'interest_rate', 5], [0, 'payment_per_year', 5], [0, 'years', 3]], user:
+**agent 1** slots [[0, 'data_points', 6], [0, 'symbol', 2]], user:
 
 ```text
-Calculate the Present Value of an investment paying $1000 per year, with an interest rate of 5%, for 10, 20 and 30 years.
+Get the latest closing prices and volumes for Apple Inc., Google LLC., and Microsoft Corporation in the New York Stock Exchange
 
 You are assistant 1 of 3 answering this request one after another. Each assistant makes exactly one of the 3 calls. Calls made so far: none. Make your one call.
 ```
@@ -420,47 +420,47 @@ You are assistant 1 of 3 answering this request one after another. Each assistan
 output:
 
 ```text
-[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}]
+[{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}]
 ```
 
-**agent 2** slots [[0, 'interest_rate', 5], [0, 'payment_per_year', 5], [0, 'years', 3]], user:
+**agent 2** slots [[0, 'data_points', 6], [0, 'symbol', 2]], user:
 
 ```text
-Calculate the Present Value of an investment paying $1000 per year, with an interest rate of 5%, for 10, 20 and 30 years.
+Get the latest closing prices and volumes for Apple Inc., Google LLC., and Microsoft Corporation in the New York Stock Exchange
 
-You are assistant 2 of 3 answering this request one after another. Each assistant makes exactly one of the 3 calls. Calls made so far: [{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}]. Make your one call.
-```
-
-output:
-
-```text
-[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 20}}]
-```
-
-**agent 3** slots [[0, 'interest_rate', 5], [0, 'payment_per_year', 5], [0, 'years', 3]], user:
-
-```text
-Calculate the Present Value of an investment paying $1000 per year, with an interest rate of 5%, for 10, 20 and 30 years.
-
-You are assistant 3 of 3 answering this request one after another. Each assistant makes exactly one of the 3 calls. Calls made so far: [{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}, {"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 20}}]. Make your one call.
+You are assistant 2 of 3 answering this request one after another. Each assistant makes exactly one of the 3 calls. Calls made so far: [{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}]. Make your one call.
 ```
 
 output:
 
 ```text
-[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 30}}]
+[{"name": "get_stock_data", "arguments": {"symbol": "GOO", "data_points": ["price", "volume"]}}]
+```
+
+**agent 3** slots [[0, 'data_points', 6], [0, 'symbol', 2]], user:
+
+```text
+Get the latest closing prices and volumes for Apple Inc., Google LLC., and Microsoft Corporation in the New York Stock Exchange
+
+You are assistant 3 of 3 answering this request one after another. Each assistant makes exactly one of the 3 calls. Calls made so far: [{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}, {"name": "get_stock_data", "arguments": {"symbol": "GOO", "data_points": ["price", "volume"]}}]. Make your one call.
+```
+
+output:
+
+```text
+[{"name": "get_stock_data", "arguments": {"symbol": "MSFT", "data_points": ["price", "volume"]}}]
 ```
 
 ### Qwen2.5-7B-Instruct / sym / lengths oracle / sim-rule
 
-team output: `[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}, {"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 20}}, {"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 30}}]`
+team output: `[{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}, {"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}, {"name": "get_stock_data", "arguments": {"symbol": "MSFT", "data_points": ["price", "volume"]}}]`
 
-labels: ['(none)']; flags: set_acc
+labels: ['duplicate_call']; flags: ccer, duplicate
 
-**agent 1** slots [[0, 'interest_rate', 5], [0, 'payment_per_year', 5], [0, 'years', 3]], user:
+**agent 1** slots [[0, 'data_points', 6], [0, 'symbol', 2]], user:
 
 ```text
-Calculate the Present Value of an investment paying $1000 per year, with an interest rate of 5%, for 10, 20 and 30 years.
+Get the latest closing prices and volumes for Apple Inc., Google LLC., and Microsoft Corporation in the New York Stock Exchange
 
 You are assistant 1 of 3 answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. By convention, assistant 1 makes the first of the calls, in the order in which the request mentions them. Make your one call.
 ```
@@ -468,13 +468,13 @@ You are assistant 1 of 3 answering this request at the same time. Each assistant
 output:
 
 ```text
-[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 10}}]
+[{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}]
 ```
 
-**agent 2** slots [[0, 'interest_rate', 5], [0, 'payment_per_year', 5], [0, 'years', 3]], user:
+**agent 2** slots [[0, 'data_points', 6], [0, 'symbol', 2]], user:
 
 ```text
-Calculate the Present Value of an investment paying $1000 per year, with an interest rate of 5%, for 10, 20 and 30 years.
+Get the latest closing prices and volumes for Apple Inc., Google LLC., and Microsoft Corporation in the New York Stock Exchange
 
 You are assistant 2 of 3 answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. By convention, assistant 2 makes the second of the calls, in the order in which the request mentions them. Make your one call.
 ```
@@ -482,13 +482,13 @@ You are assistant 2 of 3 answering this request at the same time. Each assistant
 output:
 
 ```text
-[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 20}}]
+[{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}]
 ```
 
-**agent 3** slots [[0, 'interest_rate', 5], [0, 'payment_per_year', 5], [0, 'years', 3]], user:
+**agent 3** slots [[0, 'data_points', 6], [0, 'symbol', 2]], user:
 
 ```text
-Calculate the Present Value of an investment paying $1000 per year, with an interest rate of 5%, for 10, 20 and 30 years.
+Get the latest closing prices and volumes for Apple Inc., Google LLC., and Microsoft Corporation in the New York Stock Exchange
 
 You are assistant 3 of 3 answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. By convention, assistant 3 makes the third of the calls, in the order in which the request mentions them. Make your one call.
 ```
@@ -496,7 +496,7 @@ You are assistant 3 of 3 answering this request at the same time. Each assistant
 output:
 
 ```text
-[{"name": "calculate_present_value", "arguments": {"payment_per_year": 1000, "interest_rate": 0.05, "years": 30}}]
+[{"name": "get_stock_data", "arguments": {"symbol": "MSFT", "data_points": ["price", "volume"]}}]
 ```
 
 ## Request parallel_3 (swap subset, parallel, n=3)
