@@ -221,11 +221,13 @@ swap 时两种线索互相冲突：顺序线索指向自己的值（own），长
 
 ## 7. 待做
 
+**10-03 晚进度**：§1–§9 全部有初稿，正文没有 TBD 和占位。正文（含 AI 使用声明）到第 8 页右栏中部结束，参考文献从那里开始，未超 8 页，约有 1/4 页余量。37 条参考文献全部引用。统计见 `results/summary/stats.md`（`scripts/stats.py`）。
+
 CPU 部分由本会话做，实验 B 由另一个会话做。
 
 1. ✅ `scripts/masquerade.py`（表 4）。
 2. ✅ `scripts/consequences.py`：统计错误动作的后果，按条件分别计算。类别包括：作用到错的实体、同一动作执行两次、数值参数差 10 倍以上、其他错误值。用于 §7.4。
-3. `scripts/stats.py`：对关键比较做配对 bootstrap 置信区间和 McNemar 检验，包括 LLaDA2.0 的子集，以及 B 里各协议之间的比较。
+3. ✅ `scripts/stats.py`：对关键比较做配对 bootstrap 置信区间和 McNemar 检验，包括 LLaDA2.0 的子集，以及 B 里各协议之间的比较。
 4. ✅ 图 1、图 2 的生成脚本，输出到 `paper/figures/`。表 5 由 `paper_tables.py` 的 `table_mitigation` 生成，§8 引用的估计误差分布在 `paper/tables/estimate.md`。
 5. 引用前复核：
    - ✅ 引用清单定稿，见 `paper/references.md`（43 条，均已核对）。
