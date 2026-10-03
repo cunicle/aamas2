@@ -383,6 +383,190 @@ output:
 [{"name": "get_weather", "arguments": {"city": "LA"}}]
 ```
 
+## Dream-v0-Instruct-7B / sim-anon / T=0.7 / choose_35 (list, n=3)
+
+cities: ['Chicago', 'Boston', 'Paris']  (ok)
+
+**agent 1** user:
+
+```text
+Get the current weather in any three of these cities: Boston, Dallas, Toronto, Austin, Chicago and Paris.
+
+You are one of 3 assistants answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. Make your one call.
+```
+
+output:
+
+```text
+[{"name": "get_weather", "arguments": {"city": "Chicago"}}]
+```
+
+**agent 2** user:
+
+```text
+Get the current weather in any three of these cities: Boston, Dallas, Toronto, Austin, Chicago and Paris.
+
+You are one of 3 assistants answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. Make your one call.
+```
+
+output:
+
+```text
+[{"name": "get_weather", "arguments": {"city": "Boston"}}]
+```
+
+**agent 3** user:
+
+```text
+Get the current weather in any three of these cities: Boston, Dallas, Toronto, Austin, Chicago and Paris.
+
+You are one of 3 assistants answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. Make your one call.
+```
+
+output:
+
+```text
+[{"name": "get_weather", "arguments": {"city": "Paris"}}]
+```
+
+## Dream-v0-Instruct-7B / sim-anon / T=0.7 / choose_55 (open, n=3)
+
+cities: ['Chicago', 'Chicago', 'Chicago']  (duplicate, all_same)
+
+**agent 1** user:
+
+```text
+Get the current weather in three different US cities of your choice.
+
+You are one of 3 assistants answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. Make your one call.
+```
+
+output:
+
+```text
+[{"name": "get_weather", "arguments": {"city": "Chicago"}}]
+```
+
+**agent 2** user:
+
+```text
+Get the current weather in three different US cities of your choice.
+
+You are one of 3 assistants answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. Make your one call.
+```
+
+output:
+
+```text
+[{"name": "get_weather", "arguments": {"city": "Chicago"}}]
+```
+
+**agent 3** user:
+
+```text
+Get the current weather in three different US cities of your choice.
+
+You are one of 3 assistants answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. Make your one call.
+```
+
+output:
+
+```text
+[{"name": "get_weather", "arguments": {"city": "Chicago"}}]
+```
+
+## Dream-v0-Instruct-7B / sim-label / T=0.7 / choose_35 (list, n=3)
+
+cities: ['Chicago', 'Dallas', 'Chicago']  (duplicate)
+
+**agent 1** user:
+
+```text
+Get the current weather in any three of these cities: Boston, Dallas, Toronto, Austin, Chicago and Paris.
+
+You are assistant 1 of 3 answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. Make your one call.
+```
+
+output:
+
+```text
+[{"name": "get_weather", "arguments": {"city": "Chicago"}}]
+```
+
+**agent 2** user:
+
+```text
+Get the current weather in any three of these cities: Boston, Dallas, Toronto, Austin, Chicago and Paris.
+
+You are assistant 2 of 3 answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. Make your one call.
+```
+
+output:
+
+```text
+[{"name": "get_weather", "arguments": {"city": "Dallas"}}]
+```
+
+**agent 3** user:
+
+```text
+Get the current weather in any three of these cities: Boston, Dallas, Toronto, Austin, Chicago and Paris.
+
+You are assistant 3 of 3 answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. Make your one call.
+```
+
+output:
+
+```text
+[{"name": "get_weather", "arguments": {"city": "Chicago"}}]
+```
+
+## Dream-v0-Instruct-7B / sim-label / T=0.7 / choose_55 (open, n=3)
+
+cities: ['Chicago', 'Chicago', 'Chicago']  (duplicate, all_same)
+
+**agent 1** user:
+
+```text
+Get the current weather in three different US cities of your choice.
+
+You are assistant 1 of 3 answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. Make your one call.
+```
+
+output:
+
+```text
+[{"name": "get_weather", "arguments": {"city": "Chicago"}}]
+```
+
+**agent 2** user:
+
+```text
+Get the current weather in three different US cities of your choice.
+
+You are assistant 2 of 3 answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. Make your one call.
+```
+
+output:
+
+```text
+[{"name": "get_weather", "arguments": {"city": "Chicago"}}]
+```
+
+**agent 3** user:
+
+```text
+Get the current weather in three different US cities of your choice.
+
+You are assistant 3 of 3 answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. Make your one call.
+```
+
+output:
+
+```text
+[{"name": "get_weather", "arguments": {"city": "Chicago"}}]
+```
+
 ## Qwen2.5-7B-Instruct / sim-anon / T=0.0 / choose_35 (list, n=3)
 
 cities: ['Boston', 'Boston', 'Boston']  (duplicate, all_same)
@@ -749,5 +933,189 @@ output:
 
 ```text
 [{"name": "get_weather", "arguments": {"city": "Los"}}]
+```
+
+## Qwen2.5-7B-Instruct / sim-anon / T=0.7 / choose_35 (list, n=3)
+
+cities: ['Boston', 'Boston', 'Boston']  (duplicate, all_same)
+
+**agent 1** user:
+
+```text
+Get the current weather in any three of these cities: Boston, Dallas, Toronto, Austin, Chicago and Paris.
+
+You are one of 3 assistants answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. Make your one call.
+```
+
+output:
+
+```text
+[{"name": "get_weather", "arguments": {"city": "Boston"}}]
+```
+
+**agent 2** user:
+
+```text
+Get the current weather in any three of these cities: Boston, Dallas, Toronto, Austin, Chicago and Paris.
+
+You are one of 3 assistants answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. Make your one call.
+```
+
+output:
+
+```text
+[{"name": "get_weather", "arguments": {"city": "Boston"}}]
+```
+
+**agent 3** user:
+
+```text
+Get the current weather in any three of these cities: Boston, Dallas, Toronto, Austin, Chicago and Paris.
+
+You are one of 3 assistants answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. Make your one call.
+```
+
+output:
+
+```text
+[{"name": "get_weather", "arguments": {"city": "Boston"}}]
+```
+
+## Qwen2.5-7B-Instruct / sim-anon / T=0.7 / choose_55 (open, n=3)
+
+cities: ['New', 'New', 'New']  (duplicate, all_same, invalid)
+
+**agent 1** user:
+
+```text
+Get the current weather in three different US cities of your choice.
+
+You are one of 3 assistants answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. Make your one call.
+```
+
+output:
+
+```text
+[{"name": "get_weather", "arguments": {"city": "New"}}]
+```
+
+**agent 2** user:
+
+```text
+Get the current weather in three different US cities of your choice.
+
+You are one of 3 assistants answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. Make your one call.
+```
+
+output:
+
+```text
+[{"name": "get_weather", "arguments": {"city": "New"}}]
+```
+
+**agent 3** user:
+
+```text
+Get the current weather in three different US cities of your choice.
+
+You are one of 3 assistants answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. Make your one call.
+```
+
+output:
+
+```text
+[{"name": "get_weather", "arguments": {"city": "New"}}]
+```
+
+## Qwen2.5-7B-Instruct / sim-label / T=0.7 / choose_35 (list, n=3)
+
+cities: ['Boston', 'Boston', 'Boston']  (duplicate, all_same)
+
+**agent 1** user:
+
+```text
+Get the current weather in any three of these cities: Boston, Dallas, Toronto, Austin, Chicago and Paris.
+
+You are assistant 1 of 3 answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. Make your one call.
+```
+
+output:
+
+```text
+[{"name": "get_weather", "arguments": {"city": "Boston"}}]
+```
+
+**agent 2** user:
+
+```text
+Get the current weather in any three of these cities: Boston, Dallas, Toronto, Austin, Chicago and Paris.
+
+You are assistant 2 of 3 answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. Make your one call.
+```
+
+output:
+
+```text
+[{"name": "get_weather", "arguments": {"city": "Boston"}}]
+```
+
+**agent 3** user:
+
+```text
+Get the current weather in any three of these cities: Boston, Dallas, Toronto, Austin, Chicago and Paris.
+
+You are assistant 3 of 3 answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. Make your one call.
+```
+
+output:
+
+```text
+[{"name": "get_weather", "arguments": {"city": "Boston"}}]
+```
+
+## Qwen2.5-7B-Instruct / sim-label / T=0.7 / choose_55 (open, n=3)
+
+cities: ['New', 'New', 'New']  (duplicate, all_same, invalid)
+
+**agent 1** user:
+
+```text
+Get the current weather in three different US cities of your choice.
+
+You are assistant 1 of 3 answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. Make your one call.
+```
+
+output:
+
+```text
+[{"name": "get_weather", "arguments": {"city": "New"}}]
+```
+
+**agent 2** user:
+
+```text
+Get the current weather in three different US cities of your choice.
+
+You are assistant 2 of 3 answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. Make your one call.
+```
+
+output:
+
+```text
+[{"name": "get_weather", "arguments": {"city": "New"}}]
+```
+
+**agent 3** user:
+
+```text
+Get the current weather in three different US cities of your choice.
+
+You are assistant 3 of 3 answering this request at the same time. Each assistant makes exactly one of the 3 calls, and the assistants cannot see each other's calls. Make your one call.
+```
+
+output:
+
+```text
+[{"name": "get_weather", "arguments": {"city": "New"}}]
 ```
 
