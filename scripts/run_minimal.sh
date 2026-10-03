@@ -256,6 +256,9 @@ EOF
     $PY_DREAM scripts/symmetry.py $LLADA2 $L/bfcl_skel_k.jsonl | tee results/summary/symmetry_llada2.md
     $PY_DREAM scripts/choose_analysis.py $D/choose.jsonl $L/choose.jsonl $Q/choose.jsonl \
         --csv results/summary/choose.csv | tee results/summary/choose.md
+    $PY_DREAM scripts/masquerade.py $D/bfcl_skel_k.jsonl $D/bfcl_surplus.jsonl $D/bfcl_swap.jsonl \
+        $D/bfcl_estimate.jsonl $L/bfcl_skel_k.jsonl $L/bfcl_surplus.jsonl $L/bfcl_swap.jsonl $L/bfcl_estimate.jsonl \
+        --csv results/summary/masquerade.csv | tee results/summary/masquerade.md
     for f in $D/length_prior*.txt $L/length_prior*.txt $D/length_estimate.txt $L/length_estimate.txt; do
       if [ -f $f ]; then echo "== $f"; cat $f; fi
     done > results/summary/length_prior.md

@@ -32,6 +32,7 @@
 |---|---|
 | `paper/outline.md` | 论文大纲：贡献、各节内容、全部数字、表和图的清单、摘要草稿 |
 | `paper/reviews.md` | 两份模拟审稿意见原文 |
+| `paper/structure.md` | 论文结构方案 v2（10-03 接手后写，待用户确认后并回 `outline.md`） |
 | `results/summary/*.md, *.csv` | 所有汇总表（由 `bash scripts/run_minimal.sh summary_length` 生成） |
 | `release/results_2026-10-03.tar.gz` | 全部原始结果（10-03 pod 上的 `results/` 目录，解压后约 190 MB）：28 个 JSONL、日志和汇总表 |
 | `release/pod_2026-10-01_raw.tar.gz` | 10-01 旧 pod 的归档，包含原始结果、`aamas2_diag/`（pilot、参数最长长度设计的 pilot、AR 小测试）和 setup 日志 |
@@ -90,6 +91,7 @@ BFCL 指 `bfcl:parallel,parallel_multiple`，共 400 条。“LLaDA2 子集”�
 | `scripts/choose_analysis.py` | choose-N 的重复率、同一步产生的重复、无效率、是否按列出顺序 → `choose.md`。open 变体的无效率反映的是 1 token 槽长的限制，只能看重复率 |
 | `scripts/length_prior.py` | teacher-forced 长度先验探针（用 GPU） |
 | `scripts/length_estimate.py` | 一次前向估计槽长（用 GPU），并输出估计准确度表 |
+| `scripts/masquerade.py` | 协调失败标签（重复、错绑、嵌合、共享参数不一致）：k=1 + 错误槽长 vs k=16 + exact 槽长，在同一批题上比较 → `masquerade.md`。只读诊断标签，不需要 tokenizer |
 
 ## 6. 主要结果
 
