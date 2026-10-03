@@ -12,6 +12,10 @@ The protocol text is appended to the original request after a blank line; the sy
 prompt is the shared one of ptcdiag/prompting.py. Every agent's skeleton holds one call
 (the item's first ground-truth call), so its single city slot has the same length as a
 slot of the one-canvas runs (one token).
+
+Experiment C adds `sim-rule` (RULE_PROTOCOLS): sim-label plus the convention that agent i
+makes the i-th call in the order the request mentions them. The BFCL teams of experiment C
+are built in ptcdiag/data/agents_bfcl.py.
 """
 
 import json
@@ -34,6 +38,28 @@ TURN_LABEL = ("You are assistant {i} of {n} answering this request one after ano
 INSTRUCTIONS = {"sim-anon": SIM_ANON, "sim-label": SIM_LABEL,
                 "turn-anon": TURN_ANON, "turn-label": TURN_LABEL}
 
+# Experiment C's positive control: simultaneous indexed agents that are also told the convention
+# (agent i makes the i-th call in mention order). Kept out of PROTOCOLS, so experiment B's
+# protocols, texts and their order stay exactly as they were.
+SIM_RULE = ("You are assistant {i} of {n} answering this request at the same time. Each assistant "
+            "makes exactly one of the {n} calls, and the assistants cannot see each other's calls. "
+            "By convention, assistant {i} makes the {ordinal} of the calls, in the order in which the "
+            "request mentions them. Make your one call.")
+RULE_PROTOCOLS = {"sim-rule": (False, True)}
+ORDINALS = ("first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth")
+
+
+def ordinal(i):
+    """'first' .. 'eighth' for i = 1..8 (the largest BFCL team has eight agents)."""
+    if not 1 <= i <= len(ORDINALS):
+        raise ValueError(f"no ordinal for agent {i}")
+    return ORDINALS[i - 1]
+
+
+def protocol_flags(protocol):
+    """(observe, label) of an experiment B protocol or of sim-rule."""
+    return PROTOCOLS[protocol] if protocol in PROTOCOLS else RULE_PROTOCOLS[protocol]
+
 
 def format_calls(previous):
     """{calls} of the turn-taking texts: "none", or a JSON array with one entry per earlier
@@ -46,9 +72,11 @@ def format_calls(previous):
 
 
 def instruction(protocol, i, n, previous=()):
-    observe, _ = PROTOCOLS[protocol]
+    observe, _ = protocol_flags(protocol)
     if not observe and previous:
         raise ValueError(f"{protocol}: simultaneous agents see no earlier calls")
+    if protocol in RULE_PROTOCOLS:
+        return SIM_RULE.format(i=i, n=n, ordinal=ordinal(i))
     return INSTRUCTIONS[protocol].format(i=i, n=n, calls=format_calls(previous))
 
 

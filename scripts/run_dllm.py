@@ -7,6 +7,11 @@ Example (dose-response on BFCL parallel categories, oracle skeleton):
       --out results/dream_skeleton_k.jsonl
 
 Re-running with the same --out skips runs that are already there.
+
+Experiment C3 (the closer-in-slot interface variant; one-sided lengthening):
+  python scripts/run_dllm.py --model Dream-org/Dream-v0-Instruct-7B --data bfcl:parallel,parallel_multiple \
+      --mode skeleton --k 1 --closer-in-slot --surplus 1 --out results/dream/bfcl_closer.jsonl
+  python scripts/run_dllm.py ... --mode skeleton --k 1 --length-mode onesided --out results/dream/bfcl_onesided.jsonl
 """
 
 import argparse
@@ -20,7 +25,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from ptcdiag.data import load_examples  # noqa: E402
 from ptcdiag.decoding.adapters import load_adapter  # noqa: E402
-from ptcdiag.decoding.constraints import lengths_from_list, oracle_lengths, swapped_lengths  # noqa: E402
+from ptcdiag.decoding.constraints import (lengths_from_list, onesided_lengths, oracle_lengths,  # noqa: E402
+                                          swapped_lengths)
 from ptcdiag.decoding.sampler import DecodeConfig  # noqa: E402
 from ptcdiag.pipeline import run_example  # noqa: E402
 
@@ -49,11 +55,16 @@ def main():
                     help="extra masks in every skeleton slot beyond its value's length")
     ap.add_argument("--end-bias", type=float, default=0.0,
                     help="logit bonus for padding / closing tokens in skeleton slots")
-    ap.add_argument("--lengths", default="oracle",
+    ap.add_argument("--lengths", "--length-mode", dest="lengths", default="oracle",
                     help="skeleton slot lengths: 'oracle' (each value's own), 'swap' (rotated within "
-                         "sibling groups; only items where that changes a slot), or a JSONL of "
+                         "sibling groups; only items where that changes a slot), 'onesided' (one slot "
+                         "per unequal sibling group gets the longest sibling's length; only items "
+                         "where that changes a slot), or a JSONL of "
                          "per-item lengths from scripts/length_estimate.py (only its items; the file "
                          "name is recorded as the length_mode)")
+    ap.add_argument("--closer-in-slot", action="store_true",
+                    help="skeleton variant: the model writes each value's closer in its slot (one more "
+                         "position per slot), the rest of the slot is filled with spaces")
     ap.add_argument("--out", required=True)
     ap.add_argument("--no-trace", action="store_true")
     ap.add_argument("--device", default="cuda")
@@ -82,15 +93,19 @@ def main():
             for line in f:
                 r = json.loads(line)
                 done.add((r["id"], r["mode"], r["cfg_tag"], r["cfg"]["seed"],
-                          r.get("surplus", 0), r.get("end_bias", 0.0), r.get("length_mode", "oracle")))
+                          r.get("surplus", 0), r.get("end_bias", 0.0), r.get("length_mode", "oracle"),
+                          r.get("closer_in_slot", False)))
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
 
     adapter = load_adapter(args.model, device=args.device)
     per_ex, length_mode = {}, "oracle"
-    if args.mode == "skeleton" and args.lengths == "swap":
-        length_mode = "swap"
+    if args.closer_in_slot and args.mode != "skeleton":
+        raise SystemExit("--closer-in-slot needs --mode skeleton")
+    if args.mode == "skeleton" and args.lengths in ("swap", "onesided"):
+        length_mode = args.lengths
+        lengths_of = swapped_lengths if args.lengths == "swap" else onesided_lengths
         for ex in examples:
-            sw = swapped_lengths(adapter.tokenizer, ex)
+            sw = lengths_of(adapter.tokenizer, ex)
             if sw != oracle_lengths(adapter.tokenizer, ex):
                 per_ex[ex.id] = sw
     elif args.mode == "skeleton" and args.lengths != "oracle":
@@ -111,16 +126,19 @@ def main():
             for ex in examples:
                 key = (ex.id, args.mode, cfg.tag(), cfg.seed,
                        args.surplus if args.mode == "skeleton" else 0,
-                       args.end_bias if args.mode == "skeleton" else 0.0, length_mode)
+                       args.end_bias if args.mode == "skeleton" else 0.0, length_mode, args.closer_in_slot)
                 if key in done:
                     continue
                 try:
                     rec = run_example(adapter, ex, cfg, args.mode, keep_trace=not args.no_trace,
                                       surplus=args.surplus, end_bias=args.end_bias,
-                                      lengths=per_ex.get(ex.id), length_mode=length_mode)
+                                      lengths=per_ex.get(ex.id), length_mode=length_mode,
+                                      closer_in_slot=args.closer_in_slot)
                 except Exception as e:  # keep the sweep going; failures are recorded
                     rec = {"id": ex.id, "category": ex.category, "mode": args.mode,
                            "cfg": cfg.to_dict(), "cfg_tag": cfg.tag(), "error": repr(e)}
+                    if args.closer_in_slot:
+                        rec["closer_in_slot"] = True
                 rec["model_id"] = args.model
                 f.write(json.dumps(rec, ensure_ascii=False) + "\n")
                 f.flush()

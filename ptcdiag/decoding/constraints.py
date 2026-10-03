@@ -35,6 +35,14 @@ Before a non-string value the skeleton stops at '":' and the model writes the sp
 itself, as in natural tokenization (' [', ' true'); number / boolean slots accept
 whitespace-only tokens for it.
 
+Closer-in-slot variant (`closer_in_slot=True`, experiment C3): with the closer written by the
+skeleton after every slot, a value that ends early leaves value, closer, padding and the
+skeleton's closer on the canvas, a form never seen in training; the model's reluctance to end
+early could be reluctance to write two closers. In the variant the skeleton leaves the closer
+out (`closer_in_slot_skeleton`), every slot has one more position for the model to write it,
+and the positions after it get spaces, so ending early reads as plain JSON. Decoding keeps the
+closer. The default (False) path is unchanged.
+
 A grammar constraint for free-form generation (e.g. wrapping the completability check
 of eth-sri/constrained-diffusion) should implement the same interface; see README.
 """
@@ -244,6 +252,32 @@ def swapped_lengths(tokenizer, example):
     return out
 
 
+def onesided_pairs(tokenizer, example):
+    """{(function, param): (i*, j*)} for every sibling group whose values differ in length: j* is
+    the group's call with the longest reference value (the first one on ties), i* the group's
+    first call, in ground-truth order, whose value is shorter than j*'s."""
+    base = oracle_lengths(tokenizer, example)
+    out = {}
+    for (f, p), cis in sibling_groups(example).items():
+        ls = [base[ci, p] for ci in cis]
+        if len(set(ls)) > 1:
+            j = cis[ls.index(max(ls))]
+            out[f, p] = (next(ci for ci in cis if base[ci, p] < base[j, p]), j)
+    return out
+
+
+def onesided_lengths(tokenizer, example):
+    """Oracle lengths with one slot lengthened per sibling group of unequal lengths (experiment
+    C3): slot (i*, p) of `onesided_pairs` gets the length of j*'s value, every other slot keeps
+    its own. Unlike the swap, j*'s slot stays exact, so j* can write its own value; a lengthened
+    slot that takes j*'s value as well gives two calls the same value, which a model avoiding a
+    duplicate would not do. Items without such a group are unchanged."""
+    out = oracle_lengths(tokenizer, example)
+    for (_, p), (i, j) in onesided_pairs(tokenizer, example).items():
+        out[i, p] = out[j, p]
+    return out
+
+
 def lengths_to_list(lengths):
     """{(call, param): n} -> [[call, param, n], ...] for JSON records."""
     return sorted([ci, p, n] for (ci, p), n in lengths.items())
@@ -277,7 +311,8 @@ def length_symmetric(tokenizer, example):
     return {p: len(ns) == 1 for p, ns in by_param.items()}
 
 
-def build_skeleton(tokenizer, example, mask_id, slot_lengths=None, surplus=0, lengths=None):
+def build_skeleton(tokenizer, example, mask_id, slot_lengths=None, surplus=0, lengths=None,
+                   closer_in_slot=False):
     """Oracle skeleton from the ground truth: (gen_ids, slots).
 
     Includes every gold call in gold order and every parameter with at least one
@@ -286,7 +321,10 @@ def build_skeleton(tokenizer, example, mask_id, slot_lengths=None, surplus=0, le
     slot by slot (length swap, estimated lengths), and `slot_lengths` ({bfcl_type: n})
     overrides both per type with fixed lengths. `surplus` adds that many masks to every
     slot (the length-prior experiment: how a slot longer than its value changes the errors).
+    `closer_in_slot` builds the interface variant of `closer_in_slot_skeleton` instead.
     """
+    if closer_in_slot:
+        return closer_in_slot_skeleton(tokenizer, example, mask_id, slot_lengths, surplus, lengths)
     oracle = oracle_lengths(tokenizer, example)
     oracle.update(lengths or {})
     ids, slots, buf = [], [], []
@@ -320,17 +358,71 @@ def build_skeleton(tokenizer, example, mask_id, slot_lengths=None, surplus=0, le
     return ids, slots
 
 
+def closer_in_slot_skeleton(tokenizer, example, mask_id, slot_lengths=None, surplus=0, lengths=None):
+    """The closer-in-slot interface variant of `build_skeleton` (experiment C3): (gen_ids, slots).
+
+    The skeleton no longer writes the token that ends a value; the model writes it inside the
+    slot. A string slot stops at '"param": "' with no closing quote after it, so the fixed text
+    after it still starts with ', "next":' or '}}'. After a non-string slot the ',' (or, after
+    the last parameter, the first '}' of '}}') is left out, so the fixed text after it starts
+    with ' "next":' or '}'. Every slot has one more position, for its closer: the length of
+    `build_skeleton` (oracle, `lengths` or `slot_lengths`) + surplus + 1. A value that ends
+    early then reads as plain JSON once the rest of its slot holds spaces ('"HSBC"   , "amount":'),
+    instead of value, closer, padding and the skeleton's own closer.
+    """
+    oracle = oracle_lengths(tokenizer, example)
+    oracle.update(lengths or {})
+    ids, slots, buf = [], [], []
+
+    def flush():
+        if buf:
+            ids.extend(tokenizer("".join(buf), add_special_tokens=False)["input_ids"])
+            buf.clear()
+
+    buf.append("[")
+    for ci, (fname, params) in enumerate(example.gold_calls):
+        if ci:
+            buf.append(", ")
+        buf.append('{"name": ' + '"' + fname + '", "arguments": {')
+        first, open_value = True, False  # open_value: the last slot's ',' or '}' is the model's
+        for p, acc in params.items():
+            if all(a == "" for a in acc):
+                continue
+            t = _param_type(example, fname, p)
+            string = t in STRING_TYPES
+            sep = "" if first else (" " if open_value else ", ")
+            buf.append(sep + '"' + p + '":' + (' "' if string else ""))
+            first = False
+            flush()
+            n = (slot_lengths or {}).get(t, oracle[ci, p]) + surplus + 1
+            slots.append(Slot(ci, p, t, list(range(len(ids), len(ids) + n))))
+            ids.extend([mask_id] * n)
+            open_value = not string
+        buf.append("}" if open_value else "}}")
+    buf.append("]")
+    flush()
+    return ids, slots
+
+
 class SkeletonConstraint(Constraint):
     early_stop_ok = False  # pad tokens inside slots must not end generation
 
-    def __init__(self, adapter, example, slot_lengths=None, surplus=0, end_bias=0.0, lengths=None):
+    def __init__(self, adapter, example, slot_lengths=None, surplus=0, end_bias=0.0, lengths=None,
+                 closer_in_slot=False):
         """end_bias: added to the logits of padding and closing tokens in every slot, a
         decoding-time counterweight to the length prior (0 = the plain constraint).
-        lengths: per-slot lengths instead of the oracle ones (see `build_skeleton`)."""
+        lengths: per-slot lengths instead of the oracle ones (see `build_skeleton`).
+        closer_in_slot: the interface variant of `closer_in_slot_skeleton`. The slots accept the
+        same tokens, but a value's closer stays in the decoded text, and the masked positions of
+        a slot after its closer get the space token instead of padding (the closer is not a
+        space: writing spaces does not end a value)."""
         self.a = adapter
         self.end_bias = end_bias
+        self.closer_in_slot = closer_in_slot
+        if closer_in_slot:
+            (self.space_id,) = adapter.tokenizer(" ", add_special_tokens=False)["input_ids"]
         self.gen_ids, self.slots = build_skeleton(adapter.tokenizer, example, adapter.mask_id,
-                                                  slot_lengths, surplus, lengths)
+                                                  slot_lengths, surplus, lengths, closer_in_slot)
         self.classes = token_classes(adapter.tokenizer)
         self.texts = token_texts(adapter.tokenizer)
         self.P = None
@@ -394,7 +486,10 @@ class SkeletonConstraint(Constraint):
 
         Returns the canvas positions it filled. `exclude`: positions to leave alone
         (DVS reveals the tokens of one step one at a time and must keep the rest masked).
+        The closer-in-slot variant fills them with the space token instead.
         """
+        if self.closer_in_slot:
+            return self._space_after_closer(x, exclude)
         P = self.P
         gen = x[0, P:P + len(self.gen_ids)].tolist()
         forced = []
@@ -413,7 +508,10 @@ class SkeletonConstraint(Constraint):
 
         The closing token and the rest of the slot map to []; a closer inside a token
         (arrays / dicts, e.g. '],') keeps that token's text before it, re-tokenized.
+        The closer-in-slot variant keeps the closer instead (`_cuts_keep_closer`).
         """
+        if self.closer_in_slot:
+            return self._cuts_keep_closer(gen)
         out = {}
         for s in self.slots:
             texts = ["" if t is None else t for t in self._slot_texts(gen, s)]
@@ -430,3 +528,40 @@ class SkeletonConstraint(Constraint):
     def slot_positions(self):
         """{(call, param): canvas positions} (after initial_gen has been called)."""
         return {(s.call, s.param): [self.P + g for g in s.positions] for s in self.slots}
+
+    # -- the closer-in-slot variant (experiment C3)
+
+    def _space_after_closer(self, x, exclude=()):
+        """`after_commit` of the closer-in-slot variant: the masked positions after every ended
+        value get the space token, so the canvas reads '"HSBC"   , "amount":'."""
+        P = self.P
+        gen = x[0, P:P + len(self.gen_ids)].tolist()
+        forced = []
+        for s in self.slots:
+            end = self._end(gen, s)
+            if end is None:
+                continue
+            forced += [P + g for g in s.positions[end[0] + 1:]
+                       if gen[g] == self.a.mask_id and P + g not in exclude]
+        if forced:
+            x[0, forced] = self.space_id
+        return forced
+
+    def _cuts_keep_closer(self, gen):
+        """`cuts` of the closer-in-slot variant: each value keeps its closer, since the skeleton
+        has none after the slot, and loses the rest of its slot (the space filling). Of a closing
+        token with more text after the closer ('",' for a string, '}}' for the last parameter)
+        only the text up to the closer is kept, re-tokenized, as `cuts` keeps the text before it.
+        A value without a closer keeps the whole slot (the output then does not parse)."""
+        out = {}
+        for s in self.slots:
+            texts = ["" if t is None else t for t in self._slot_texts(gen, s)]
+            end = value_end(texts, slot_closers(s.type), slot_class(s.type) == "generic")
+            if end is None:
+                continue
+            i, off = end
+            if off + 1 < len(texts[i]):
+                out[s.positions[i]] = self.a.tokenizer(texts[i][:off + 1], add_special_tokens=False)["input_ids"]
+            for g in s.positions[i + 1:]:
+                out[g] = []
+        return out
