@@ -32,7 +32,8 @@
 |---|---|
 | `paper/outline.md` | 论文大纲：贡献、各节内容、全部数字、表和图的清单、摘要草稿 |
 | `paper/reviews.md` | 两份模拟审稿意见原文 |
-| `paper/structure.md` | 论文结构方案 v2（10-03 接手后写，待用户确认后并回 `outline.md`） |
+| `paper/structure.md` | 论文结构方案 v3（10-03 定稿：agent 论文框架 + 实验 B）。写作以它为准，`outline.md` 只作为旧数字的来源 |
+| `EXP_B_PROMPT.md` | 实验 B（n 个 LLM agent 在四种协议下做 choose-N）的执行方案，交给另一个会话运行，结果推到 `exp-b-agents` |
 | `results/summary/*.md, *.csv` | 所有汇总表（由 `bash scripts/run_minimal.sh summary_length` 生成） |
 | `release/results_2026-10-03.tar.gz` | 全部原始结果（10-03 pod 上的 `results/` 目录，解压后约 190 MB）：28 个 JSONL、日志和汇总表 |
 | `release/pod_2026-10-01_raw.tar.gz` | 10-01 旧 pod 的归档，包含原始结果、`aamas2_diag/`（pilot、参数最长长度设计的 pilot、AR 小测试）和 setup 日志 |
