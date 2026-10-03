@@ -324,6 +324,98 @@ EOF
           --csv results/summary/choose_sample.csv | tee results/summary/choose_sample.md
     fi
     ;;
+  # Experiment C: C1 / C2 teams of agents on the BFCL parallel requests (order cue: the 104
+  # team-symmetric requests; length cue: the 165 swap requests) and the choose-N sim-rule
+  # control; C3 the closer-in-slot skeleton variant and one-sided lengthening (Dream, one
+  # canvas); C4 confidence threshold / left-to-right on choose-N. Sub-phases closer_dream_main /
+  # closer_dream_side write different files, so two chains can run them side by side.
+  agents_bfcl_ar)
+    mkdir -p results/qwen
+    $PY_DREAM scripts/run_agents_bfcl.py --model $QWEN --backend ar --subset sym \
+        --protocols sim-anon,sim-label,sim-rule,turn-anon,turn-label --out results/qwen/agents_c1.jsonl
+    $PY_DREAM scripts/run_agents_bfcl.py --model $QWEN --backend ar --subset swap \
+        --protocols sim-anon,sim-label,turn-anon,turn-label --out results/qwen/agents_c2.jsonl
+    ;;
+  agents_bfcl_dream)
+    mkdir -p results/dream
+    $PY_DREAM scripts/run_agents_bfcl.py --model $DREAM --backend dllm --subset sym \
+        --protocols sim-anon,sim-label,sim-rule,turn-anon,turn-label --out results/dream/agents_c1.jsonl
+    $PY_DREAM scripts/run_agents_bfcl.py --model $DREAM --backend dllm --subset swap \
+        --protocols sim-anon,sim-label,turn-anon,turn-label --out results/dream/agents_c2.jsonl
+    ;;
+  agents_bfcl_swap)
+    mkdir -p results/dream
+    $PY_DREAM scripts/run_agents_bfcl.py --model $DREAM --backend dllm --subset swap --length-mode swap \
+        --protocols sim-anon,sim-label,turn-anon,turn-label --out results/dream/agents_c2_swap.jsonl
+    ;;
+  agents_rule)
+    # choose-N list items, simultaneous agents told the convention (new files, not agents.jsonl)
+    choose_data
+    mkdir -p results/qwen results/dream
+    $PY_DREAM scripts/run_agents.py --model $QWEN --backend ar --data probe:data/choose.jsonl --variant list \
+        --protocols sim-rule --out results/qwen/agents_rule.jsonl
+    $PY_DREAM scripts/run_agents.py --model $DREAM --backend dllm --data probe:data/choose.jsonl --variant list \
+        --protocols sim-rule --out results/dream/agents_rule.jsonl
+    ;;
+  closer_dream)
+    bash "$0" closer_dream_main
+    bash "$0" closer_dream_side
+    ;;
+  closer_dream_main)
+    # the closer-in-slot variant on every BFCL item: s = 0 (exact), 1, 2, 8 at k=1; s = 0, 1 at k=16
+    mkdir -p results/dream
+    for s in 0 1 2 8; do
+      $PY_DREAM scripts/run_dllm.py --model $DREAM --data $BFCL --mode skeleton --closer-in-slot --surplus $s \
+          --k 1 --order confidence --out results/dream/bfcl_closer.jsonl
+    done
+    for s in 0 1; do
+      $PY_DREAM scripts/run_dllm.py --model $DREAM --data $BFCL --mode skeleton --closer-in-slot --surplus $s \
+          --k 16 --order confidence --out results/dream/bfcl_closer.jsonl
+    done
+    ;;
+  closer_dream_side)
+    # the 165 swap items, k=1: the variant with swapped lengths, one-sided lengthening in both interfaces
+    mkdir -p results/dream
+    $PY_DREAM scripts/run_dllm.py --model $DREAM --data $BFCL --mode skeleton --closer-in-slot --length-mode swap \
+        --k 1 --order confidence --out results/dream/bfcl_closer_swap.jsonl
+    $PY_DREAM scripts/run_dllm.py --model $DREAM --data $BFCL --mode skeleton --length-mode onesided \
+        --k 1 --order confidence --out results/dream/bfcl_onesided.jsonl
+    $PY_DREAM scripts/run_dllm.py --model $DREAM --data $BFCL --mode skeleton --closer-in-slot --length-mode onesided \
+        --k 1 --order confidence --out results/dream/bfcl_closer_onesided.jsonl
+    ;;
+  closer_probe)
+    # teacher-forced P(closer) right after the gold value in the variant (1 + s positions left)
+    mkdir -p results/dream
+    for s in 0 1 2 8; do
+      $PY_DREAM scripts/length_prior.py --model $DREAM --data $BFCL --closer-in-slot --surplus $s \
+          --out results/dream/length_prior_closer_s$s.jsonl | tee results/dream/length_prior_closer_s$s.txt
+    done
+    ;;
+  choose_tau_ltr)
+    # one canvas on choose-N: confidence threshold 0.9 and left-to-right (a new file, not choose.jsonl)
+    choose_data
+    mkdir -p results/dream
+    $PY_DREAM scripts/run_dllm.py --model $DREAM --data probe:data/choose.jsonl --mode skeleton --k 1 \
+        --threshold 0.9 --out results/dream/choose_tau_ltr.jsonl
+    $PY_DREAM scripts/run_dllm.py --model $DREAM --data probe:data/choose.jsonl --mode skeleton --k 1 \
+        --order left_to_right --out results/dream/choose_tau_ltr.jsonl
+    ;;
+  summary_c)
+    # tables of experiment C (CPU); the one-canvas rows come from the 10-03 raw results
+    mkdir -p results/summary
+    REL=results/release_2026-10-03
+    [ -d $REL/results ] || { mkdir -p $REL && tar xzf release/results_2026-10-03.tar.gz -C $REL; }
+    D=results/dream; Q=results/qwen
+    $PY_DREAM scripts/agents_bfcl_analysis.py --teams $Q/agents_c1.jsonl $D/agents_c1.jsonl \
+        $Q/agents_c2.jsonl $D/agents_c2.jsonl $D/agents_c2_swap.jsonl \
+        --rule $Q/agents_rule.jsonl $D/agents_rule.jsonl --canvas-root $REL/results \
+        --agents-csv results/summary/agents.csv --csv results/summary/agents_bfcl.csv \
+        --examples results/summary/agents_bfcl_examples.md | tee results/summary/agents_bfcl.md
+    $PY_DREAM scripts/closer_analysis.py --results results --original $REL/results \
+        --csv results/summary/closer.csv | tee results/summary/closer.md
+    $PY_DREAM scripts/choose_analysis.py $D/choose_tau_ltr.jsonl $REL/results/dream/choose.jsonl \
+        --csv results/summary/choose_tau_ltr.csv | tee results/summary/choose_tau_ltr.md
+    ;;
   *)
     sed -n '2,20p' "$0"; exit 1 ;;
 esac
