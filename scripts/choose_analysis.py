@@ -8,6 +8,10 @@ Per model x decoding config x variant (list / open), over the items of data/choo
   invalid     a city outside the allowed set (or no parse)
   in_order    list variant: the calls take the first N listed cities, in listed order
 
+In the open variant the one-token slots cut multi-token cities ("New", "Los") or make the
+models abbreviate ("LA", "NY"), so `invalid` there measures the slot, not the model; only
+the duplicate rates of that variant are informative.
+
   python scripts/choose_analysis.py results/dream/choose.jsonl results/llada2/choose.jsonl \
       results/qwen/choose.jsonl --csv results/summary/choose.csv
 """
