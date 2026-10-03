@@ -2,7 +2,7 @@
 
 free:     greedy generation of the whole answer.
 skeleton: the oracle skeleton is teacher-forced; each value slot is generated
-          greedily with the same per-type token restrictions as for dLLMs, until the
+          greedily (or sampled, `temperature`) with the same per-type token restrictions as for dLLMs, until the
           model emits the slot's closing token (a quote for strings, ',' '}' for the
           rest; for arrays / dicts only outside brackets and strings, the same
           `value_end` rule as for dLLMs) or the slot length is reached.
@@ -78,8 +78,20 @@ def _class_mask(tok, V, cls, device, _cache={}):
     return _cache[key]
 
 
+def _pick(logits, allowed, temperature, gen):
+    """Greedy (temperature 0) or sampled token among the allowed ones."""
+    logits = logits.masked_fill(~allowed, float("-inf"))
+    if not temperature:
+        return int(logits.argmax())
+    probs = torch.softmax(logits / temperature, dim=-1)
+    return int(torch.multinomial(probs.cpu(), 1, generator=gen))
+
+
 @torch.no_grad()
-def generate_skeleton(ar, prompt_ids, example, slot_lengths=None, surplus=0):
+def generate_skeleton(ar, prompt_ids, example, slot_lengths=None, surplus=0, temperature=0.0, seed=0):
+    """temperature > 0 samples every slot token (seeded CPU generator, as the dLLM sampler);
+    the default is greedy."""
+    gen = torch.Generator(device="cpu").manual_seed(seed) if temperature else None
     tok = ar.tokenizer
     MASK = -1
     gen_ids, slots = build_skeleton(tok, example, MASK, slot_lengths, surplus)
@@ -106,7 +118,7 @@ def generate_skeleton(ar, prompt_ids, example, slot_lengths=None, surplus=0):
         allowed = _class_mask(tok, V, slot_class(s.type), logits.device) | closer
         slot_texts = []
         for _ in range(len(s.positions)):
-            t = int(logits.masked_fill(~allowed, float("-inf")).argmax())
+            t = _pick(logits, allowed, temperature, gen)
             slot_texts.append(texts[t] if t < len(texts) else "")
             end = value_end(slot_texts, closers, nested)
             if end is not None:
@@ -125,14 +137,19 @@ def generate_skeleton(ar, prompt_ids, example, slot_lengths=None, surplus=0):
     return tok.decode(out, skip_special_tokens=True), nfe
 
 
-def run_example_ar(ar, example, mode="free", slot_lengths=None, max_new_tokens=256, surplus=0):
+def run_example_ar(ar, example, mode="free", slot_lengths=None, max_new_tokens=256, surplus=0,
+                   temperature=0.0, seed=0):
+    """temperature / seed: sampling in the skeleton mode (default greedy, the only option
+    for the free mode)."""
+    if temperature and mode != "skeleton":
+        raise ValueError("sampling is implemented for the skeleton mode only")
     prompt = render_prompt(ar.tokenizer, example)
     prompt_ids = ar.encode(prompt)
     t0 = time.time()
     if mode == "free":
         text, nfe = generate_free(ar, prompt_ids, max_new_tokens)
     else:
-        text, nfe = generate_skeleton(ar, prompt_ids, example, slot_lengths, surplus)
+        text, nfe = generate_skeleton(ar, prompt_ids, example, slot_lengths, surplus, temperature, seed)
     parsed = parse_tool_calls(text)
     rec = {
         "id": example.id, "category": example.category, "meta": example.meta,
@@ -143,4 +160,7 @@ def run_example_ar(ar, example, mode="free", slot_lengths=None, max_new_tokens=2
     }
     if mode == "skeleton":
         rec["surplus"] = surplus
+    if temperature:  # greedy records stay as they were
+        rec["cfg"] = {"ar": True, "temperature": temperature, "seed": seed}
+        rec["cfg_tag"] = f"ar_T{temperature}"
     return rec
