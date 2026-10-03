@@ -21,6 +21,7 @@
 # Length-prior study (slots longer than their value; README "已知限制" 4):
 #   lenprior_dream / lenprior_llada2   teacher-forced: what the model wants right after the
 #                                      gold value when the slot has 4 more masks
+#   lensweep_dream / lensweep_llada2   the same with 1, 2, 8 more masks (Dream) / 1, 8 (LLaDA2.0)
 #   surplus_dream     BFCL, every slot s in {1,2,4,8} masks too long, k in {4,1,16}
 #   surplus_llada2    100 BFCL items, s in {2,8}, k in {4,1}   (s=0 is in bfcl_skel_k.jsonl)
 #   surplus_ar        Qwen2.5 skeleton with s=8 (AR stops at the closer; finishes s=0 first)
@@ -162,6 +163,16 @@ EOF
     ;;
   lenprior_llada2)
     $PY_LLADA2 scripts/length_prior.py --model $LLADA2 --data $BFCL --surplus 4 --block-length 32         --out results/llada2/length_prior.jsonl | tee results/llada2/length_prior.txt
+    ;;
+  lensweep_dream)
+    for s in 1 2 8; do
+      $PY_DREAM scripts/length_prior.py --model $DREAM --data $BFCL --surplus $s           --out results/dream/length_prior_s$s.jsonl | tee results/dream/length_prior_s$s.txt
+    done
+    ;;
+  lensweep_llada2)
+    for s in 1 8; do
+      $PY_LLADA2 scripts/length_prior.py --model $LLADA2 --data $BFCL --surplus $s --block-length 32           --out results/llada2/length_prior_s$s.jsonl | tee results/llada2/length_prior_s$s.txt
+    done
     ;;
   surplus_dream)
     for s in 1 2 4 8; do
