@@ -5,6 +5,8 @@
       --out results/qwen/agents.jsonl
   python scripts/run_agents.py --data probe:data/choose.jsonl --protocols sim-anon,turn-label \
       --dry-run --limit 3      # only print the agents' user texts (no model)
+  python scripts/run_agents.py --model Qwen/Qwen2.5-7B-Instruct --backend ar --variant list \
+      --protocols sim-rule --out results/qwen/agents_rule.jsonl     # experiment C's control
 
 Per item x protocol x seed, agents 1..n are built (ptcdiag/data/agents.py) and decoded
 one after another with the oracle skeleton of one call: Qwen with `run_example_ar`, Dream
@@ -24,7 +26,7 @@ import time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from ptcdiag.data import load_examples  # noqa: E402
-from ptcdiag.data.agents import PROTOCOLS, agent_example  # noqa: E402
+from ptcdiag.data.agents import PROTOCOLS, RULE_PROTOCOLS, agent_example, protocol_flags  # noqa: E402
 
 
 def as_list(s, typ):
@@ -43,7 +45,7 @@ def run_team(ex, protocol, decode):
     decode(agent_example) -> (text, syntax_ok, calls). An agent passes on its parsed call,
     or its raw text when the output does not parse into exactly one call."""
     n = ex.meta["n"]
-    observe, _ = PROTOCOLS[protocol]
+    observe, _ = protocol_flags(protocol)
     previous, agents = [], []
     for i in range(1, n + 1):
         aex = agent_example(ex, i, n, protocol, previous if observe else ())
@@ -105,7 +107,10 @@ def main():
     ap.add_argument("--model")
     ap.add_argument("--backend", choices=["dllm", "ar"])
     ap.add_argument("--data", default="probe:data/choose.jsonl")
-    ap.add_argument("--protocols", default=",".join(PROTOCOLS))
+    ap.add_argument("--protocols", default=",".join(PROTOCOLS),
+                    help="comma list of experiment B's protocols, or sim-rule (experiment C)")
+    ap.add_argument("--variant", choices=["list", "open"], default=None,
+                    help="only the items of this choose-N variant (default: all)")
     ap.add_argument("--temperature", type=float, default=0.0)
     ap.add_argument("--seeds", default="0")
     ap.add_argument("--out")
@@ -115,12 +120,14 @@ def main():
     args = ap.parse_args()
 
     examples = load_examples(args.data)
+    if args.variant:
+        examples = [ex for ex in examples if ex.meta["variant"] == args.variant]
     if args.limit:
         examples = examples[: args.limit]
     protocols = args.protocols.split(",")
     for p in protocols:
-        if p not in PROTOCOLS:
-            raise SystemExit(f"unknown protocol {p!r} (one of {', '.join(PROTOCOLS)})")
+        if p not in PROTOCOLS and p not in RULE_PROTOCOLS:
+            raise SystemExit(f"unknown protocol {p!r} (one of {', '.join([*PROTOCOLS, *RULE_PROTOCOLS])})")
     seeds = as_list(args.seeds, int)
 
     if args.dry_run:
