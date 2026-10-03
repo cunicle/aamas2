@@ -154,3 +154,23 @@ def test_team_stats():
     assert s["invalid"] and not s["duplicate"]
     s = aa.team_stats(OPEN4, rec("Chicago", "chicago", "Boston", "Miami"))  # standardized
     assert s["duplicate"] and not s["in_order"]
+
+
+def test_agent_seeds_differ_within_and_across_teams():
+    ra = load_script("run_agents")
+    seeds = [ra.agent_seed(s, i) for s in range(5) for i in range(1, 5)]
+    assert len(set(seeds)) == len(seeds) and ra.agent_seed(0, 1) == 1 and ra.agent_seed(3, 2) == 3002
+
+
+def test_ar_pick_greedy_default_and_seeded_sampling():
+    import torch
+
+    from ptcdiag.decoding.ar import _pick
+
+    logits = torch.tensor([5.0, 4.0, 3.0, 9.0])
+    allowed = torch.tensor([True, True, True, False])
+    assert _pick(logits, allowed, 0.0, None) == 0  # greedy among the allowed tokens
+    draws = [_pick(logits, allowed, 5.0, torch.Generator().manual_seed(s)) for s in range(50)]
+    assert set(draws) <= {0, 1, 2} and len(set(draws)) > 1
+    again = [_pick(logits, allowed, 5.0, torch.Generator().manual_seed(s)) for s in range(50)]
+    assert draws == again
