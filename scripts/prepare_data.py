@@ -1,4 +1,4 @@
-"""Download BFCL v4 (Python single-turn categories) and generate ParaProbe.
+"""Download BFCL v4 (Python single-turn categories) and generate ParaProbe and the choose-N probes.
 
   python scripts/prepare_data.py --bfcl-dir data/bfcl --probe-out data/paraprobe.jsonl
 """
@@ -10,6 +10,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from ptcdiag.data import bfcl, save_jsonl  # noqa: E402
+from ptcdiag.data import choose  # noqa: E402
 from ptcdiag.data.paraprobe import generate  # noqa: E402
 
 
@@ -19,6 +20,7 @@ def main():
     ap.add_argument("--probe-out", default="data/paraprobe.jsonl")
     ap.add_argument("--per-cell", type=int, default=10)
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--choose-out", default="data/choose.jsonl")
     args = ap.parse_args()
 
     bfcl.download(args.bfcl_dir)
@@ -28,6 +30,9 @@ def main():
     os.makedirs(os.path.dirname(args.probe_out) or ".", exist_ok=True)
     save_jsonl(probes, args.probe_out)
     print(f"paraprobe: {len(probes)} examples -> {args.probe_out}")
+    chosen = choose.generate(seed=args.seed)
+    save_jsonl(chosen, args.choose_out)
+    print(f"choose: {len(chosen)} examples -> {args.choose_out}")
 
 
 if __name__ == "__main__":

@@ -31,6 +31,8 @@
 #                     where that changes a slot; LLaDA2.0 on its 100 items), k in {4,1,16} / {4,1}
 #   estimate_dream / estimate_llada2   slot lengths from one forward pass (no gold lengths),
 #                     then decoding with them, k in {4,1,16} / {4,1}
+#   choose_dream / choose_llada2 / choose_ar   choose-N probes (data/choose.jsonl): requests
+#                     that leave open which N cities to call; duplicates vs k
 # e.g. lenprior_llada2 -> surplus_llada2  alongside  lenprior_dream -> surplus_dream -> surplus_ar -> endbias_dream
 #
 # Every run appends to its JSONL and skips finished items, so any phase can be
@@ -53,6 +55,10 @@ LING=inclusionAI/Ling-mini-2.0
 # k=4 first: attribution and DVS use it, so it is available earliest
 K_BFCL=4,1,2,8,16
 K_PROBE=4,1,2,8
+
+choose_data() {  # the choose-N probes, generated once (deterministic)
+  [ -f data/choose.jsonl ] ||     $PY_DREAM -c "from ptcdiag.data import choose, save_jsonl; save_jsonl(choose.generate(), 'data/choose.jsonl')"
+}
 
 dllm_runs() {  # $1 python  $2 model  $3 tag  $4 extra args (block length)
   local py=$1 m=$2 t=$3 extra=$4
@@ -217,6 +223,18 @@ EOF
   estimate_llada2)
     $PY_LLADA2 scripts/length_estimate.py --model $LLADA2 --data bfcl:parallel --data bfcl:parallel_multiple         --per-data 50 --block-length 32 --out results/llada2/length_estimate.jsonl         | tee results/llada2/length_estimate.txt
     $PY_LLADA2 scripts/run_dllm.py --model $LLADA2 --data bfcl:parallel --data bfcl:parallel_multiple         --per-data 50 --mode skeleton --block-length 32 --lengths results/llada2/length_estimate.jsonl         --k 4,1 --order confidence --out results/llada2/bfcl_estimate.jsonl
+    ;;
+  choose_dream)
+    choose_data
+    $PY_DREAM scripts/run_dllm.py --model $DREAM --data probe:data/choose.jsonl --mode skeleton         --k 1,2,4,16 --order confidence --out results/dream/choose.jsonl
+    ;;
+  choose_llada2)
+    choose_data
+    $PY_LLADA2 scripts/run_dllm.py --model $LLADA2 --data probe:data/choose.jsonl --mode skeleton         --block-length 32 --k 1,4,16 --order confidence --out results/llada2/choose.jsonl
+    ;;
+  choose_ar)
+    choose_data
+    $PY_DREAM scripts/run_ar.py --model $QWEN --data probe:data/choose.jsonl --mode skeleton         --out results/qwen/choose.jsonl
     ;;
   summary)
     mkdir -p results/summary
