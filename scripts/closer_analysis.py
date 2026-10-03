@@ -43,9 +43,9 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.dirname(__file__))
 
 from ptcdiag.data import load_examples  # noqa: E402
-from ptcdiag.decoding.constraints import (build_skeleton, lengths_from_list, onesided_pairs,  # noqa: E402
-                                          oracle_lengths, sibling_groups, slot_class, slot_closers,
-                                          swapped_lengths, token_texts, value_end)
+from ptcdiag.decoding.constraints import (STRING_TYPES, build_skeleton, lengths_from_list,  # noqa: E402
+                                          onesided_pairs, oracle_lengths, sibling_groups, slot_class,
+                                          slot_closers, swapped_lengths, token_texts, value_end)
 from ptcdiag.eval.taxonomy import is_cross_call, value_ok  # noqa: E402
 
 DREAM = "Dream-org/Dream-v0-Instruct-7B"
@@ -161,6 +161,86 @@ def closer_stats(tok, ex, r):
         else:
             i, off = end
             out.append((True, len(st[i]) == off + 1 and (off == 0 or slot_class(s.type) == "generic"), False))
+    return out
+
+
+def slot_contents(tok, ex, r, closer_in_slot):
+    """{(call, param): (value, closed)} read from each slot's own tokens, whether or not the whole
+    output parses: the text before the slot's closer (the whole slot when it has none; closed =
+    False), as a string for string slots, else as JSON when it parses and as text otherwise. In
+    the variant a single unclosed slot makes the output unparseable, so the item-level parse that
+    scripts/slot_errors.py reads marks every slot of that item unparsed; this reads them one by one."""
+    texts = token_texts(tok)
+    special = set(tok.all_special_ids)
+    lens = lengths_from_list(r["lengths"]) if r.get("lengths") else None
+    ids, slots = build_skeleton(tok, ex, tok.mask_token_id, None, r.get("surplus", 0), lens, closer_in_slot)
+    gen = r["gen_ids"]
+    if len(gen) != len(ids):
+        return {}
+    out = {}
+    for s in slots:
+        st = ["" if gen[g] in special or gen[g] >= len(texts) else texts[gen[g]] for g in s.positions]
+        end = value_end(st, slot_closers(s.type), slot_class(s.type) == "generic")
+        text = "".join(st) if end is None else "".join(st[:end[0]]) + st[end[0]][:end[1]]
+        if s.type in STRING_TYPES:
+            v = text
+        else:
+            try:
+                v = json.loads(text.strip())
+            except ValueError:
+                v = text.strip()
+        out[s.call, s.param] = (v, end is not None)
+    return out
+
+
+def classify_value(ex, ci, p, v, slot_len, oracle):
+    """scripts/slot_errors.py's classes for a value read from its slot (no 'unparsed')."""
+    se = load_slot_errors()
+    fname, params = ex.gold_calls[ci]
+    desc = ex.function(fname)
+    if value_ok(desc, p, v, params[p]):
+        return "own"
+    for cj in [cj for cj in sibling_groups(ex).get((fname, p), []) if cj != ci]:
+        if value_ok(desc, p, v, ex.gold_calls[cj][1][p]):
+            return "sibling_fit" if oracle.get((cj, p)) == slot_len else "sibling"
+    fv = se._flat(v)
+    for a in params[p]:
+        if a == "":
+            continue
+        fa = se._flat(a)
+        if fv != fa and fv.startswith(fa):
+            return "overfill"
+        if fv and fv != fa and fa.startswith(fv):
+            return "truncated"
+    return "other"
+
+
+def bare_vs_content(tok, ex, r):
+    """Variant record with a trace: for every scalar slot closed with a longer token ('",', '}}'),
+    whether the step's top-5 candidates rank a bare closer above every content token ('bare'),
+    a content token above every bare closer ('content'), or show neither ('top5_closers')."""
+    texts = token_texts(tok)
+    special = set(tok.all_special_ids)
+    bare = {t: tok(t, add_special_tokens=False)["input_ids"][0] for t in ('"', ",", "}")}
+    lens = lengths_from_list(r["lengths"]) if r.get("lengths") else None
+    ids, slots = build_skeleton(tok, ex, tok.mask_token_id, None, r.get("surplus", 0), lens, closer_in_slot=True)
+    gen, P = r["gen_ids"], r["trace"]["gen_start"]
+    at = {p: (st, j) for st in r["trace"]["steps"] for j, p in enumerate(st["positions"])}
+    out = []
+    for s in slots:
+        if slot_class(s.type) == "generic":
+            continue
+        st_ = ["" if gen[g] in special or gen[g] >= len(texts) else texts[gen[g]] for g in s.positions]
+        end = value_end(st_, slot_closers(s.type), False)
+        if end is None or len(st_[end[0]]) == 1 or P + s.positions[end[0]] not in at:
+            continue
+        step, j = at[P + s.positions[end[0]]]
+        top = step["topk_ids"][j]
+        ok = {bare['"']} if s.type in STRING_TYPES else {bare[","], bare["}"]}
+        rb = next((k for k, t in enumerate(top) if t in ok), None)
+        rc = next((k for k, t in enumerate(top) if not texts[t].startswith(slot_closers(s.type))), None)
+        out.append("bare" if rb is not None and (rc is None or rb < rc)
+                   else "content" if rc is not None else "top5_closers")
     return out
 
 
@@ -326,6 +406,79 @@ def main():
                                  "bare_closer": sum(s[1] for s in ended) / max(len(ended), 1),
                                  "no_closer": sum(s[2] for s in st) / len(st)})
 
+    # supplementary: every slot read from its own tokens (both interfaces), so that an unclosed slot
+    # does not turn the other slots of its item into "unparsed"
+    rows_content, rows_content_swap, rows_content_one, rows_bare = [], [], [], []
+    content_kinds = [k for k in se.KINDS if k != "unparsed"]
+    for c in CONDS:
+        ids = common(c)
+        for f in IFACES:
+            kinds, unclosed = Counter(), Counter()
+            for i in sorted(ids):
+                r = recs[f, c].get(i)
+                if r is None:
+                    continue
+                lens = slot_lengths_of(r, oracle[i])
+                for (ci, p), (v, closed) in slot_contents(tok, exs[i], r, f == "variant").items():
+                    k = classify_value(exs[i], ci, p, v, lens[ci, p] + c[1], oracle[i])
+                    kinds[k] += 1
+                    unclosed[k] += not closed
+            tot = sum(kinds.values())
+            if tot:
+                row = {"lengths": cond_label(c), "interface": f, "n_slots": tot,
+                       **{k: kinds[k] / tot for k in content_kinds}}
+                if f == "variant":
+                    row["unclosed"] = sum(unclosed.values()) / tot
+                    row["unclosed_overfill"] = unclosed["overfill"] / tot
+                rows_content.append(row)
+    for c in [("oracle", 0, 1), ("swap", 0, 1)]:
+        for f in IFACES:
+            kinds = Counter()
+            for i in sorted(swap_ids):
+                r = recs[f, c].get(i)
+                if r is None:
+                    continue
+                lens, sw = slot_lengths_of(r, oracle[i]), swapped_lengths(tok, exs[i])
+                for (ci, p), (v, closed) in slot_contents(tok, exs[i], r, f == "variant").items():
+                    if sw[ci, p] != oracle[i][ci, p]:
+                        kinds[classify_value(exs[i], ci, p, v, lens[ci, p] + c[1], oracle[i])] += 1
+            tot = sum(kinds.values())
+            if tot:
+                rows_content_swap.append({"lengths": cond_label(c), "interface": f, "n_slots": tot,
+                                          **{k: kinds[k] / tot for k in content_kinds}})
+    for f in IFACES:
+        kinds, jown = Counter(), 0
+        for i in sorted(one_ids):
+            r = recs[f, ("onesided", 0, 1)].get(i)
+            if r is None:
+                continue
+            ex, vals = exs[i], slot_contents(tok, exs[i], r, f == "variant")
+            for (fname, p), (ii, jj) in onesided_pairs(tok, ex).items():
+                v = vals[ii, p][0]
+                desc = ex.function(fname)
+                if value_ok(desc, p, v, ex.gold_calls[ii][1][p]):
+                    k = "own"
+                elif value_ok(desc, p, v, ex.gold_calls[jj][1][p]):
+                    k = "sibling_fit"
+                else:
+                    k = classify_value(ex, ii, p, v, oracle[i][jj, p], oracle[i])
+                    k = k if k == "overfill" else "other"
+                kinds[k] += 1
+                jown += value_ok(desc, p, vals[jj, p][0], ex.gold_calls[jj][1][p])
+        tot = sum(kinds.values())
+        if tot:
+            rows_content_one.append({"interface": f, "n_slots": tot, **{k: kinds[k] / tot for k in ONESIDED},
+                                     "jstar_own": jown / tot})
+    for c in CONDS:
+        verdicts = Counter()
+        for i, r in sorted(recs["variant", c].items()):
+            if r.get("trace"):
+                verdicts.update(bare_vs_content(tok, exs[i], r))
+        tot = sum(verdicts.values())
+        if tot:
+            rows_bare.append({"lengths": cond_label(c), "longer_closers": tot,
+                              **{k: verdicts[k] / tot for k in ("bare", "content", "top5_closers")}})
+
     print("# Experiment C3: closer in the slot vs closer in the skeleton (Dream, one canvas)\n")
     print("Original: the skeleton writes each value's closer after its slot, the model ends a value early "
           "with its own closer and padding. Variant: no closer in the skeleton, one more position per slot, "
@@ -361,18 +514,37 @@ def main():
           "extra text stays on the canvas, decoding keeps the closer only); no_closer: the slot was filled "
           "to the end without one.\n")
     print(table(rows_closers, ["lengths", "n_slots", "ended", "bare_closer", "no_closer"]))
+    print("\nWhat a bare-closer-only constraint would have done where the variant closed a number / boolean / "
+          "string slot with a longer token: the committing step's top-5 candidates rank a bare closer above "
+          "every content token (bare), a content token above every bare closer (content: the restriction "
+          "would likely have made it write more content instead of closing), or only longer closers (top5_closers).\n")
+    print(table(rows_bare, ["lengths", "longer_closers", "bare", "content", "top5_closers"]))
+
+    print("\n## Supplementary: slots read one by one\n")
+    print("The tables above use the parsed output, as the paper does: in the variant one slot filled without a "
+          "closer makes the whole output unparseable, and slot_errors.py then counts every slot of that item as "
+          "unparsed. Here each slot's value is read from its own tokens (the text before its closer, or the whole "
+          "slot if it has none) in both interfaces and classified the same way. unclosed: variant slots without "
+          "a closer (they make the output fail to parse); unclosed_overfill: of all slots, the unclosed ones whose "
+          "content is the own value followed by more.\n")
+    print(table(rows_content, ["lengths", "interface", "n_slots"] + content_kinds + ["unclosed", "unclosed_overfill"]))
+    print("\nSwapped slots, read one by one:\n")
+    print(table(rows_content_swap, ["lengths", "interface", "n_slots"] + content_kinds))
+    print("\nOne-sided lengthening, the lengthened slot read on its own (own / overfill / sibling_fit = j*'s "
+          "value / other), and j*'s slot holding j*'s value:\n")
+    print(table(rows_content_one, ["interface", "n_slots"] + ONESIDED + ["jstar_own"]))
 
     print("\n## Canvas samples (variant, k=1)\n")
     print("⟦ ⟧ mark the slots, ␣ a space token inside a slot, ∅ padding. The same item in the original "
           "interface below each.\n")
     shown = 0
     for c in [("oracle", 0, 1), ("oracle", 1, 1)]:
-        for i, r in sorted(recs["variant", c].items(), key=lambda kv: list(exs).index(kv[0])):
-            orig = recs["original", c].get(i)
-            st = closer_stats(tok, exs[i], r)
-            want_early = c[1] > 0
-            if orig is None or not r["syntax_ok"] or (want_early and not all(s[0] for s in st)):
-                continue
+        cands = [(i, r) for i, r in sorted(recs["variant", c].items(), key=lambda kv: list(exs).index(kv[0]))
+                 if i in recs["original", c]]
+        # prefer an output that parses and, at +1, has every value closed early; else the first one
+        good = [(i, r) for i, r in cands if r["syntax_ok"] and (c[1] == 0 or all(s[0] for s in closer_stats(tok, exs[i], r)))]
+        for i, r in (good or cands)[:1]:
+            orig = recs["original", c][i]
             print(f"### {i}, {cond_label(c)}: variant {'correct' if r['diagnosis']['correct'] else r['diagnosis']['labels']}, "
                   f"original {'correct' if orig['diagnosis']['correct'] else orig['diagnosis']['labels']}\n")
             print("```text")
@@ -382,7 +554,6 @@ def main():
             print("decoded:  " + orig["text"])
             print("```\n")
             shown += 1
-            break
     if not shown:
         print("TBD (no variant records yet)\n")
 
@@ -390,7 +561,11 @@ def main():
         os.makedirs(os.path.dirname(args.csv) or ".", exist_ok=True)
         rows = ([{"table": "items", **r} for r in rows_items] + [{"table": "slots", **r} for r in rows_slots]
                 + [{"table": "swap_slots", **r} for r in rows_swap] + [{"table": "onesided", **r} for r in rows_one]
-                + [{"table": "probe", **r} for r in rows_probe] + [{"table": "variant_closers", **r} for r in rows_closers])
+                + [{"table": "probe", **r} for r in rows_probe] + [{"table": "variant_closers", **r} for r in rows_closers]
+                + [{"table": "bare_vs_content", **r} for r in rows_bare]
+                + [{"table": "slots_read_alone", **r} for r in rows_content]
+                + [{"table": "swap_slots_read_alone", **r} for r in rows_content_swap]
+                + [{"table": "onesided_read_alone", **r} for r in rows_content_one])
         cols = []
         for r in rows:
             cols += [k for k in r if k not in cols]
