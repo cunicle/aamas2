@@ -275,6 +275,48 @@ EOF
       done
     done
     ;;
+  # Experiment B (EXP_B_PROMPT.md): teams of n agents answer the choose-N items, one call
+  # each, under four protocols (simultaneous / turn-taking x anonymous / indexed)
+  agents_ar)
+    choose_data
+    mkdir -p results/qwen
+    $PY_DREAM scripts/run_agents.py --model $QWEN --backend ar --data probe:data/choose.jsonl \
+        --protocols sim-anon,sim-label,turn-anon,turn-label --out results/qwen/agents.jsonl
+    ;;
+  agents_dream)
+    choose_data
+    mkdir -p results/dream
+    $PY_DREAM scripts/run_agents.py --model $DREAM --backend dllm --data probe:data/choose.jsonl \
+        --protocols sim-anon,sim-label,turn-anon,turn-label --out results/dream/agents.jsonl
+    ;;
+  agents_sample)
+    # B2: simultaneous agents that sample (T=0.7, seeds 0-4)
+    choose_data
+    mkdir -p results/qwen results/dream
+    $PY_DREAM scripts/run_agents.py --model $QWEN --backend ar --data probe:data/choose.jsonl \
+        --protocols sim-anon,sim-label --temperature 0.7 --seeds 0,1,2,3,4 --out results/qwen/agents_sample.jsonl
+    $PY_DREAM scripts/run_agents.py --model $DREAM --backend dllm --data probe:data/choose.jsonl \
+        --protocols sim-anon,sim-label --temperature 0.7 --seeds 0,1,2,3,4 --out results/dream/agents_sample.jsonl
+    ;;
+  choose_sample_dream)
+    # B2 one-canvas contrast: Dream writes all n calls with sampling (a new file, not choose.jsonl)
+    choose_data
+    mkdir -p results/dream
+    $PY_DREAM scripts/run_dllm.py --model $DREAM --data probe:data/choose.jsonl --mode skeleton \
+        --k 1,16 --order confidence --temperature 0.7 --seeds 0,1,2,3,4 --out results/dream/choose_sample.jsonl
+    ;;
+  summary_agents)
+    # tables of experiment B (CPU): results/summary/agents.md, .csv, agents_examples.md
+    mkdir -p results/summary
+    $PY_DREAM scripts/agents_analysis.py results/qwen/agents.jsonl results/dream/agents.jsonl \
+        results/qwen/agents_sample.jsonl results/dream/agents_sample.jsonl \
+        --canvas results/summary/choose.csv --csv results/summary/agents.csv \
+        --examples results/summary/agents_examples.md | tee results/summary/agents.md
+    if [ -f results/dream/choose_sample.jsonl ]; then
+      $PY_DREAM scripts/choose_analysis.py results/dream/choose_sample.jsonl \
+          --csv results/summary/choose_sample.csv | tee results/summary/choose_sample.md
+    fi
+    ;;
   *)
     sed -n '2,20p' "$0"; exit 1 ;;
 esac
