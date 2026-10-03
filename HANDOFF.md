@@ -2,7 +2,7 @@
 
 本文供接手的人（或 Claude）阅读，说明这个项目做到了哪一步、数据在哪里、怎么复现，以及还剩什么没做。
 
-- 工作分支是 `gpu-run`。
+- 工作分支是 `gpu-run`，2026-10-03 已快进合并进默认分支 `claude/wonderful-wozniak-9f67th`，两者内容相同。
 - `LOCAL_CLAUDE_PROMPT.md` 是最初的实验 runbook，已经过时：论文的论点和实验设计都改了，以本文和 `paper/outline.md` 为准。
 
 ## 1. 现状
