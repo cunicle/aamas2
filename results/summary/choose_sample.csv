@@ -1,0 +1,5 @@
+model,cfg,variant,n,ok,duplicate,same_step,invalid,in_order
+Dream-v0-Instruct-7B,confidence_k16_tnone_bfull_T0.7,list,300,0.8233333333333334,0.17333333333333334,0.17333333333333334,0.0033333333333333335,0.11
+Dream-v0-Instruct-7B,confidence_k16_tnone_bfull_T0.7,open,225,0.0,1.0,1.0,0.0,0.0
+Dream-v0-Instruct-7B,confidence_k1_tnone_bfull_T0.7,list,300,1.0,0.0,0.0,0.0,0.48333333333333334
+Dream-v0-Instruct-7B,confidence_k1_tnone_bfull_T0.7,open,225,0.1511111111111111,0.0044444444444444444,0.0,0.8444444444444444,0.0
