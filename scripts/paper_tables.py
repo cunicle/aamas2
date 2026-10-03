@@ -17,6 +17,7 @@ import sys
 from collections import defaultdict
 from decimal import ROUND_HALF_UP, Decimal
 from fractions import Fraction
+import re
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
@@ -147,6 +148,100 @@ def table_ksweep(res, summ):
     return "\n".join(lines) + "\n"
 
 
+def pct(rate, n):
+    """An exact percentage from a rate that the summaries store as count / n."""
+    return Fraction(100 * round(float(rate) * int(n)), int(n))
+
+
+def csv_rows(path):
+    import csv
+    with open(path) as f:
+        return list(csv.DictReader(f))
+
+
+def table_swap(summ):
+    """Swapped slots only, against the same slots with exact lengths (scripts/slot_errors.py --swap-slots)."""
+    rows = []
+    for model, tag, label, cfgs in [("dream", "\\dream", "dream", [("oracle", 1), ("swap", 1), ("swap", 4), ("swap", 16)]),
+                                    ("llada2", "\\llada", "llada2", [("oracle", 1), ("swap", 1), ("swap", 4)])]:
+        recs = {(r["length_mode"], int(re.search(r"_k(\d+)_", r["cfg"]).group(1))): r
+                for r in csv_rows(f"{summ}/swap_{model}.csv") if r["slots"] == "all"}
+        first = True
+        for mode, k in cfgs:
+            r = recs[mode, k]
+            n, items = int(r["n_slots"]), int(r["n_items"])
+            other = pct(float(r["other"]) + float(r["unparsed"]) + float(r["sibling"]), n)
+            name = (f"{tag}, " if first else "") + ("exact" if mode == "oracle" else "swap") + f", $k{{=}}{k}$"
+            cells = [pct(r["own"], n), pct(r["sibling_fit"], n), pct(r["overfill"], n), pct(r["truncated"], n),
+                     other, pct(r["set_acc"], items), pct(r["ccer"], items)]
+            rows.append(name + " & " + " & ".join(fmt(c) for c in cells) + r" \\")
+            first = False
+        rows.append(r"\midrule")
+    rows.pop()
+    d = {r["length_mode"]: r for r in csv_rows(f"{summ}/swap_dream.csv") if r["slots"] == "all" and "_k1_" in r["cfg"]}
+    l_ = {r["length_mode"]: r for r in csv_rows(f"{summ}/swap_llada2.csv") if r["slots"] == "all" and "_k1_" in r["cfg"]}
+    lines = [
+        r"\begin{table}[t]",
+        r"\caption{Swapped slot lengths. Only the slots whose length the swap changes "
+        rf"({d['swap']['n_slots']} slots in {d['swap']['n_items']} requests for \dream, "
+        rf"{l_['swap']['n_slots']} in {l_['swap']['n_items']} for \llada), next to the same slots with exact lengths. "
+        r"Slot shares in \%: the slot's own value, a sibling's value whose length equals the slot's, "
+        r"the own value followed by more, a prefix of it, anything else or nothing. "
+        r"Set accuracy and \ccer in \% of the same requests.}",
+        r"\label{tab:swap}",
+        r"\small\setlength{\tabcolsep}{2.6pt}",
+        r"\begin{tabular}{@{}lrrrrrrr@{}}",
+        r"\toprule",
+        r" & Own & Sibling & Over- & Trun- & Other & Set & \ccer \\",
+        r" & & that fits & fill & cated & & acc. & \\",
+        r"\midrule",
+    ] + rows + [r"\bottomrule", r"\end{tabular}", r"\end{table}"]
+    return "\n".join(lines) + "\n"
+
+
+MASQ_KEEP = ["exact, k=16", "estimate, k=1", "surplus +1, k=1", "surplus +8, k=1", "swap, k=1"]
+
+
+def table_masquerade(summ):
+    """Cross-call labels: 16 tokens per step with exact lengths vs one token per step with wrong ones."""
+    out, model_prev = [], None
+    names = {"exact, k=16": "exact, $k{=}16$", "estimate, k=1": "estimate, $k{=}1$",
+             "surplus +1, k=1": "$+1$, $k{=}1$", "surplus +2, k=1": "$+2$, $k{=}1$",
+             "surplus +4, k=1": "$+4$, $k{=}1$", "surplus +8, k=1": "$+8$, $k{=}1$", "swap, k=1": "swap, $k{=}1$"}
+    for r in csv_rows(f"{summ}/masquerade.csv"):
+        if r["condition"] not in MASQ_KEEP:
+            continue
+        model = "\\dream" if r["model"].startswith("Dream") else "\\llada"
+        if model != model_prev:
+            if model_prev:
+                out.append(r"\midrule")
+            out.append(rf"\multicolumn{{7}}{{@{{}}l}}{{\emph{{{model}}}}} \\")
+            model_prev = model
+        n = r["n"]
+        cells = [pct(r[c], n) for c in ("duplicate_call", "cross_binding", "chimera_value",
+                                         "inconsistent_shared_arg", "ccer")]
+        ref = r["condition"].startswith("exact")
+        name = names[r["condition"]]
+        line = f"{name} & {n} & " + " & ".join(fmt(c) for c in cells) + r" \\"
+        out.append(r"\rowcolor{refrow}" + line if ref else line)
+    lines = [
+        r"\begin{table}[t]",
+        r"\caption{What an evaluator sees. Requests (\%) with each kind of cross-call error, when the agent "
+        r"commits 16 tokens per step with exact slot lengths (shaded) and when it commits one token per step "
+        r"with wrong slot lengths, on the same requests. Estimate: lengths predicted by the model in one forward "
+        r"pass (Section~\ref{sec:design}). Dup.: a duplicated call; bound: a value that belongs to another call; "
+        r"chim.: a string spliced from two calls' values; shared: an argument that the reference shares across "
+        r"calls and the prediction does not.}",
+        r"\label{tab:masquerade}",
+        r"\small\setlength{\tabcolsep}{3.4pt}",
+        r"\begin{tabular}{@{}lrrrrrr@{}}",
+        r"\toprule",
+        r"Slot lengths & $n$ & Dup. & Bound & Chim. & Shared & \ccer \\",
+        r"\midrule",
+    ] + out + [r"\bottomrule", r"\end{tabular}", r"\end{table}"]
+    return "\n".join(lines) + "\n"
+
+
 def kcost_breakdown(res):
     """Why requests fail at k=1 and k=16 (exact lengths): output that does not parse, a
     cross-call error, or single-call errors only. Markdown, for the numbers quoted in the text."""
@@ -170,9 +265,11 @@ def main():
     ap.add_argument("--out", default="paper/tables")
     args = ap.parse_args()
     os.makedirs(args.out, exist_ok=True)
-    for name, fn in [("ksweep", table_ksweep)]:
+    for name, fn in [("ksweep", lambda: table_ksweep(args.results, args.summary)),
+                     ("swap", lambda: table_swap(args.summary)),
+                     ("masquerade", lambda: table_masquerade(args.summary))]:
         with open(f"{args.out}/{name}.tex", "w") as f:
-            f.write(fn(args.results, args.summary))
+            f.write(fn())
         print(f"wrote {args.out}/{name}.tex")
     with open(f"{args.out}/kcost.md", "w") as f:
         f.write(kcost_breakdown(args.results))

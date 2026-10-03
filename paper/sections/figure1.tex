@@ -1,0 +1,19 @@
+% Figure 1 (teaser). Outputs of Dream-v0-Instruct-7B on BFCL parallel_20, one token per
+% step (k=1, confidence order), from results/dream/bfcl_{skel_k,surplus,swap}.jsonl.
+% Slot lengths in tokens: institution 2 (HSBC) / 3 (Wells Fargo), amounts 7 each.
+\begin{teaserfigure}
+  \centering\small
+  \emph{``Can you check my loan eligibility for a home loan of amount \$500,000 from HSBC with annual income \$100,000 and for Wells Fargo for a amount of \$700,000 with annual income of \$120,000?''}\\[4pt]
+  \setlength{\tabcolsep}{5pt}
+  \begin{tabular}{@{}lllll@{}}
+    \toprule
+    Slot lengths & Call 1: institution, amount, income & Call 2: institution, amount, income & BFCL verdict & What went wrong \\
+    \midrule
+    exact & \texttt{HSBC}, \texttt{500000}, \texttt{100000} & \texttt{Wells Fargo}, \texttt{700000}, \texttt{120000} & correct & --- \\
+    one extra mask & \texttt{HSBC\bad{ Bank}}, \texttt{500000\bad{0}}, \texttt{100000\bad{0}} & \texttt{Wells Fargo\bad{ Bank}}, \texttt{700000\bad{0}}, \texttt{120000\bad{0}} & wrong & every value is lengthened; amounts $\times 10$ \\
+    swapped & \texttt{\bad{Wells Fargo}}, \texttt{500000}, \texttt{100000} & \texttt{\bad{HSBC}}, \texttt{700000}, \texttt{120000} & wrong & the banks are bound to the wrong calls \\
+    \bottomrule
+  \end{tabular}
+  \caption{A dLLM agent's parallel turn under three slot lengths. \dream fills the value slots of a fixed call skeleton committing \emph{one token per step}, so no two decisions are ever made at once. With exact slot lengths the turn is correct. With one extra mask per slot, every value grows to fill its slot. With the two institutions' slot lengths swapped, each call takes the bank whose name fits its slot: an error that looks like a coordination failure of parallel decoding, made without any parallel decoding.}
+  \label{fig:example}
+\end{teaserfigure}

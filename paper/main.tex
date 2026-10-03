@@ -6,6 +6,9 @@
 \usepackage{balance}
 \usepackage{multirow}
 \usepackage{xspace}
+\usepackage{colortbl}
+\definecolor{badred}{HTML}{C0362C}
+\definecolor{refrow}{HTML}{EDF1F7}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% AAMAS-2027 copyright block (do not change!)
@@ -58,11 +61,14 @@ on Autonomous Agents and Multiagent Systems (AAMAS 2027)}{3--7 May 2027}{Hanoi, 
 \newcommand{\ccer}{CCER\xspace}
 \newcommand{\tbd}[1]{\textcolor{red}{TBD#1}}  % numbers not run yet; must not survive submission
 \newcommand{\pred}[1]{\textbf{P#1}}
+\newcommand{\bad}[1]{\textcolor{badred}{\textbf{#1}}}  % wrong parts of an output
 \newcommand{\plan}[1]{\par\noindent\textcolor{gray}{\emph{[Planned: #1]}}\par}  % draft placeholders
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \begin{document}
+
+\input{sections/figure1}
 
 \maketitle
 

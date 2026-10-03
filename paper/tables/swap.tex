@@ -1,0 +1,20 @@
+\begin{table}[t]
+\caption{Swapped slot lengths. Only the slots whose length the swap changes (514 slots in 165 requests for \dream, 120 in 34 for \llada), next to the same slots with exact lengths. Slot shares in \%: the slot's own value, a sibling's value whose length equals the slot's, the own value followed by more, a prefix of it, anything else or nothing. Set accuracy and \ccer in \% of the same requests.}
+\label{tab:swap}
+\small\setlength{\tabcolsep}{2.6pt}
+\begin{tabular}{@{}lrrrrrrr@{}}
+\toprule
+ & Own & Sibling & Over- & Trun- & Other & Set & \ccer \\
+ & & that fits & fill & cated & & acc. & \\
+\midrule
+\dream, exact, $k{=}1$ & 96.3 & 0.0 & 0.2 & 0.0 & 3.5 & 93.3 & 0.6 \\
+swap, $k{=}1$ & 5.4 & 79.4 & 2.3 & 2.3 & 10.5 & 67.3 & 16.4 \\
+swap, $k{=}4$ & 6.2 & 77.2 & 2.3 & 2.3 & 11.9 & 64.8 & 19.4 \\
+swap, $k{=}16$ & 4.3 & 73.3 & 2.9 & 2.1 & 17.3 & 55.8 & 23.6 \\
+\midrule
+\llada, exact, $k{=}1$ & 96.7 & 0.8 & 0.0 & 0.0 & 2.5 & 88.2 & 5.9 \\
+swap, $k{=}1$ & 12.5 & 47.5 & 6.7 & 13.3 & 20.0 & 17.6 & 44.1 \\
+swap, $k{=}4$ & 9.2 & 40.0 & 6.7 & 11.7 & 32.5 & 14.7 & 50.0 \\
+\bottomrule
+\end{tabular}
+\end{table}
