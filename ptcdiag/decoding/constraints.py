@@ -25,7 +25,8 @@ longer than the value gets filled ("HSBC for home loan of $500,000", 5000000000)
 slot therefore has the token length of its own reference gold value. This is part of
 the oracle: siblings of different lengths (the same parameter in other calls) can be
 told apart by length, so cross-call errors are analysed on length-symmetric sibling
-groups (`length_symmetric`). One shared length per parameter (the longest value) was
+groups (`length_symmetric`), and the length-swap run (`swapped_lengths`) gives each slot
+a sibling's length instead. One shared length per parameter (the longest value) was
 tried and rejected: the models then wrote the longer sibling's value into the shorter
 slot (sea_level 0 -> 1000), producing artificial duplicates / cross-bindings (17 of 18
 cross-call errors in a 20-item pilot sat in such slots).
@@ -217,6 +218,56 @@ def oracle_lengths(tokenizer, example):
     return out
 
 
+def sibling_groups(example):
+    """{(function, param): [call indices]} for parameters filled by several calls of the
+    same function, in ground-truth order (parameters whose only acceptable value is ""
+    are left out, as in the skeleton)."""
+    groups = defaultdict(list)
+    for ci, (fname, params) in enumerate(example.gold_calls):
+        for p, acc in params.items():
+            if any(a != "" for a in acc):
+                groups[fname, p].append(ci)
+    return {k: v for k, v in groups.items() if len(v) > 1}
+
+
+def swapped_lengths(tokenizer, example):
+    """Oracle lengths with every sibling group's lengths rotated by one call: the slot of
+    the group's i-th call gets the length of the (i+1)-th call's value, the last one the
+    first's. Groups whose values have equal lengths are unchanged. The length-swap run: a
+    model that binds values to slots by length writes the sibling's value into such a
+    slot, one that binds by position writes its own value (cut short or padded out)."""
+    base = oracle_lengths(tokenizer, example)
+    out = dict(base)
+    for (_, p), cis in sibling_groups(example).items():
+        for i, ci in enumerate(cis):
+            out[ci, p] = base[cis[(i + 1) % len(cis)], p]
+    return out
+
+
+def lengths_to_list(lengths):
+    """{(call, param): n} -> [[call, param, n], ...] for JSON records."""
+    return sorted([ci, p, n] for (ci, p), n in lengths.items())
+
+
+def lengths_from_list(rows):
+    return {(ci, p): n for ci, p, n in rows}
+
+
+def length_from_hazard(h):
+    """Mode of a value-length distribution given per-position end probabilities.
+
+    h[j] (j >= 1): probability that a value of length j ends there; h[0] is unused (values
+    are never empty). P(length = j) = h[j] * prod_{i<j} (1 - h[i]) for j < len(h); the
+    remaining mass is a value that fills all len(h) positions."""
+    cap, surv, best, arg = len(h), 1.0, -1.0, len(h)
+    for j in range(1, cap):
+        pj = surv * h[j]
+        if pj > best:
+            best, arg = pj, j
+        surv *= 1 - h[j]
+    return cap if surv > best else arg
+
+
 def length_symmetric(tokenizer, example):
     """{param: bool}: every call's slot for this parameter has the same length, so the
     canvas gives no hint which value belongs to which call (parameters used once: True)."""
@@ -226,16 +277,18 @@ def length_symmetric(tokenizer, example):
     return {p: len(ns) == 1 for p, ns in by_param.items()}
 
 
-def build_skeleton(tokenizer, example, mask_id, slot_lengths=None, surplus=0):
+def build_skeleton(tokenizer, example, mask_id, slot_lengths=None, surplus=0, lengths=None):
     """Oracle skeleton from the ground truth: (gen_ids, slots).
 
     Includes every gold call in gold order and every parameter with at least one
     non-empty acceptable value. Parameters whose only acceptable value is "" are left out.
-    Slot lengths come from `oracle_lengths`; `slot_lengths` ({bfcl_type: n}) overrides
-    them per type with fixed lengths. `surplus` adds that many masks to every slot (the
-    length-prior experiment: how a slot longer than its value changes the errors).
+    Slot lengths come from `oracle_lengths`; `lengths` ({(call, param): n}) replaces them
+    slot by slot (length swap, estimated lengths), and `slot_lengths` ({bfcl_type: n})
+    overrides both per type with fixed lengths. `surplus` adds that many masks to every
+    slot (the length-prior experiment: how a slot longer than its value changes the errors).
     """
     oracle = oracle_lengths(tokenizer, example)
+    oracle.update(lengths or {})
     ids, slots, buf = [], [], []
 
     def flush():
@@ -270,13 +323,14 @@ def build_skeleton(tokenizer, example, mask_id, slot_lengths=None, surplus=0):
 class SkeletonConstraint(Constraint):
     early_stop_ok = False  # pad tokens inside slots must not end generation
 
-    def __init__(self, adapter, example, slot_lengths=None, surplus=0, end_bias=0.0):
+    def __init__(self, adapter, example, slot_lengths=None, surplus=0, end_bias=0.0, lengths=None):
         """end_bias: added to the logits of padding and closing tokens in every slot, a
-        decoding-time counterweight to the length prior (0 = the plain constraint)."""
+        decoding-time counterweight to the length prior (0 = the plain constraint).
+        lengths: per-slot lengths instead of the oracle ones (see `build_skeleton`)."""
         self.a = adapter
         self.end_bias = end_bias
         self.gen_ids, self.slots = build_skeleton(adapter.tokenizer, example, adapter.mask_id,
-                                                  slot_lengths, surplus)
+                                                  slot_lengths, surplus, lengths)
         self.classes = token_classes(adapter.tokenizer)
         self.texts = token_texts(adapter.tokenizer)
         self.P = None

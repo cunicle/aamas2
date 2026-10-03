@@ -26,6 +26,11 @@
 #   surplus_llada2    100 BFCL items, s in {2,8}, k in {4,1}   (s=0 is in bfcl_skel_k.jsonl)
 #   surplus_ar        Qwen2.5 skeleton with s=8 (AR stops at the closer; finishes s=0 first)
 #   endbias_dream     logit bonus b in {2,4,8} for padding/closers, s in {2,8}, k=4
+#   surplus1_llada2   the 100 LLaDA2.0 items with s=1, k in {4,1,16}
+#   swap_dream / swap_llada2   length swap: sibling slots get each other's lengths (items
+#                     where that changes a slot; LLaDA2.0 on its 100 items), k in {4,1,16} / {4,1}
+#   estimate_dream / estimate_llada2   slot lengths from one forward pass (no gold lengths),
+#                     then decoding with them, k in {4,1,16} / {4,1}
 # e.g. lenprior_llada2 -> surplus_llada2  alongside  lenprior_dream -> surplus_dream -> surplus_ar -> endbias_dream
 #
 # Every run appends to its JSONL and skips finished items, so any phase can be
@@ -195,6 +200,23 @@ EOF
         $PY_DREAM scripts/run_dllm.py --model $DREAM --data $BFCL --mode skeleton --surplus $s --end-bias $b             --k 4 --order confidence --out results/dream/bfcl_endbias.jsonl
       done
     done
+    ;;
+  surplus1_llada2)
+    $PY_LLADA2 scripts/run_dllm.py --model $LLADA2 --data bfcl:parallel --data bfcl:parallel_multiple         --per-data 50 --mode skeleton --block-length 32 --surplus 1 --k 4,1,16 --order confidence         --out results/llada2/bfcl_surplus.jsonl
+    ;;
+  swap_dream)
+    $PY_DREAM scripts/run_dllm.py --model $DREAM --data $BFCL --mode skeleton --lengths swap         --k 4,1,16 --order confidence --out results/dream/bfcl_swap.jsonl
+    ;;
+  swap_llada2)
+    $PY_LLADA2 scripts/run_dllm.py --model $LLADA2 --data bfcl:parallel --data bfcl:parallel_multiple         --per-data 50 --mode skeleton --block-length 32 --lengths swap --k 4,1 --order confidence         --out results/llada2/bfcl_swap.jsonl
+    ;;
+  estimate_dream)
+    $PY_DREAM scripts/length_estimate.py --model $DREAM --data $BFCL         --out results/dream/length_estimate.jsonl | tee results/dream/length_estimate.txt
+    $PY_DREAM scripts/run_dllm.py --model $DREAM --data $BFCL --mode skeleton         --lengths results/dream/length_estimate.jsonl --k 4,1,16 --order confidence         --out results/dream/bfcl_estimate.jsonl
+    ;;
+  estimate_llada2)
+    $PY_LLADA2 scripts/length_estimate.py --model $LLADA2 --data bfcl:parallel --data bfcl:parallel_multiple         --per-data 50 --block-length 32 --out results/llada2/length_estimate.jsonl         | tee results/llada2/length_estimate.txt
+    $PY_LLADA2 scripts/run_dllm.py --model $LLADA2 --data bfcl:parallel --data bfcl:parallel_multiple         --per-data 50 --mode skeleton --block-length 32 --lengths results/llada2/length_estimate.jsonl         --k 4,1 --order confidence --out results/llada2/bfcl_estimate.jsonl
     ;;
   summary)
     mkdir -p results/summary

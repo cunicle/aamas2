@@ -11,10 +11,11 @@ from ptcdiag.analysis.counterfactual import reproduces
 from ptcdiag.analysis.dependency import step_dvs
 from ptcdiag.decoding.adapters import ToyAdapter
 from ptcdiag.decoding.ar import generate_skeleton
-from ptcdiag.decoding.constraints import (SLOT_LENGTHS, build_skeleton, length_symmetric, token_classes,
+from ptcdiag.decoding.constraints import (SLOT_LENGTHS, build_skeleton, length_from_hazard, length_symmetric,
+                                          oracle_lengths, sibling_groups, swapped_lengths, token_classes,
                                           token_texts, value_end)
 from ptcdiag.decoding.sampler import DecodeConfig, Sampler, Trace
-from ptcdiag.pipeline import decode_region, make_constraint, run_example
+from ptcdiag.pipeline import decode_region, make_constraint, record_constraint, run_example
 from ptcdiag.prompting import render_prompt
 from ptcdiag.types import Example
 
@@ -59,7 +60,7 @@ def one_token(tok, s):
 class SlotToy:
     """Writes each value, then its closer, then junk; closers can be made the most confident."""
 
-    def __init__(self, tok, closer_bonus=0.0, slot_lengths=FIXED, surplus=0):
+    def __init__(self, tok, closer_bonus=0.0, slot_lengths=FIXED, surplus=0, lengths=None):
         t = lambda s: one_token(tok, s)  # noqa: E731
         self.tok = tok
         self.scripts = {"city": ([t("Paris"), t('",')], t("x")),
@@ -71,7 +72,7 @@ class SlotToy:
         self.adapter = ToyAdapter(self.fn, len(tok), mask_id=self.mask, pad_id=self.eos,
                                   eos_ids=[self.eos], tokenizer=tok)
         self.P = len(self.adapter.encode(render_prompt(tok, EXAMPLE)))
-        gen, slots = build_skeleton(tok, EXAMPLE, self.mask, slot_lengths, surplus)
+        gen, slots = build_skeleton(tok, EXAMPLE, self.mask, slot_lengths, surplus, lengths)
         self.G = len(gen)
         self.slot_at = {g: (s.param, o) for s in slots for o, g in enumerate(s.positions)}
 
@@ -219,3 +220,71 @@ def test_end_bias_raises_padding_and_closers(dream_tokenizer):
     assert out[toy.eos] == 3.0 and out[t('",')] == 3.0 and out[t('"')] == 3.0  # padding, closers
     assert out[t("Paris")] == 0.0                                                 # value tokens
     assert torch.isinf(out[t("\n")])                                              # not allowed at all
+
+
+def test_swapped_lengths_rotate_within_sibling_groups(dream_tokenizer):
+    """Each slot of a sibling group (same function, same parameter) gets the next call's
+    length; other functions' slots and single-use parameters keep their own."""
+    tok = dream_tokenizer
+    g = {"name": "g", "description": "", "parameters": {"type": "dict", "properties": {
+        "city": {"type": "string"}, "n": {"type": "integer"}, "unit": {"type": "string"}}}}
+    h = {"name": "h", "description": "", "parameters": {"type": "dict", "properties": {
+        "city": {"type": "string"}}}}
+    ex = Example(id="swap", category="parallel_multiple", messages=[{"role": "user", "content": "x"}],
+                 functions=[g, h],
+                 ground_truth=[{"g": {"city": ["Paris"], "n": [5], "unit": ["celsius", ""]}},
+                               {"g": {"city": ["New York City"], "n": [7], "unit": [""]}},
+                               {"h": {"city": ["Rio de Janeiro, Brazil"]}},
+                               {"g": {"city": ["Rome"], "n": [1234]}}])
+    assert sibling_groups(ex) == {("g", "city"): [0, 1, 3], ("g", "n"): [0, 1, 3]}
+    orc, sw = oracle_lengths(tok, ex), swapped_lengths(tok, ex)
+    assert [sw[c, "city"] for c in (0, 1, 3)] == [orc[1, "city"], orc[3, "city"], orc[0, "city"]]
+    assert [sw[c, "n"] for c in (0, 1, 3)] == [orc[1, "n"], orc[3, "n"], orc[0, "n"]]
+    assert sw[2, "city"] == orc[2, "city"] and sw[0, "unit"] == orc[0, "unit"]
+    assert sw != orc
+    _, slots = build_skeleton(tok, ex, tok.mask_token_id, lengths=sw)
+    assert {(s.call, s.param): len(s.positions) for s in slots} == sw
+
+
+def test_per_slot_lengths_record_and_replay(dream_tokenizer):
+    """Runs with per-slot lengths record them, and replay rebuilds the same skeleton."""
+    tok = dream_tokenizer
+    orc = oracle_lengths(tok, EXAMPLE)
+    lengths = {k: n + (2 if k[1] == "city" else 0) for k, n in orc.items()}
+    toy = SlotToy(tok, slot_lengths=None, lengths=lengths)
+    cfg = DecodeConfig(gen_length=toy.G, k=1, order="left_to_right", eos_early_stop=False)
+    rec = run_example(toy.adapter, EXAMPLE, cfg, "skeleton", lengths=lengths, length_mode="test")
+    assert rec["text"] == TARGET and rec["length_mode"] == "test"
+    assert rec["lengths"] == sorted([ci, p, n] for (ci, p), n in lengths.items())
+    assert record_constraint(toy.adapter, EXAMPLE, rec).gen_ids == make_constraint(
+        toy.adapter, EXAMPLE, "skeleton", lengths=lengths).gen_ids
+    assert reproduces(toy.adapter, EXAMPLE, rec, step=1)
+    toy0 = SlotToy(tok, slot_lengths=None)
+    plain = run_example(toy0.adapter, EXAMPLE, cfg, "skeleton")
+    assert plain["length_mode"] == "oracle" and "lengths" not in plain
+
+
+def test_length_from_hazard():
+    assert length_from_hazard([0.9, 0.1, 0.8, 0.9, 1.0]) == 2  # h[0] unused; the first likely end
+    assert length_from_hazard([0.0, 0.3, 0.3, 0.9, 0.9]) == 3
+    assert length_from_hazard([0.0, 0.0, 0.0, 0.0]) == 4      # never ends: fills the slot
+    assert length_from_hazard([0.0, 1.0, 1.0]) == 1
+
+
+def test_length_estimate_reads_closers(dream_tokenizer):
+    """One forward over capped slots: the estimate is where the toy model puts each closer."""
+    import importlib.util
+    import os
+
+    path = os.path.join(os.path.dirname(__file__), "..", "scripts", "length_estimate.py")
+    spec = importlib.util.spec_from_file_location("length_estimate", path)
+    le = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(le)
+    tok = dream_tokenizer
+    assert le.caps(EXAMPLE) == SLOT_LENGTHS
+    toy = SlotToy(tok, slot_lengths=le.caps(EXAMPLE))
+    r = le.estimate(toy.adapter, EXAMPLE, None)
+    est = {(ci, p): n for ci, p, n in r["lengths"]}
+    assert est[0, "city"] == 1 and est[0, "days"] == 2  # "Paris" | '",' ; " ", "3" | "}}"
+    assert est[0, "tags"] == 6                          # " [", "1", ",", " ", "2", "]," (the bracket token)
+    assert r["oracle"] == sorted([ci, p, n] for (ci, p), n in oracle_lengths(tok, EXAMPLE).items())

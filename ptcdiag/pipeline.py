@@ -3,7 +3,7 @@
 import dataclasses
 import time
 
-from ptcdiag.decoding.constraints import NoConstraint, SkeletonConstraint
+from ptcdiag.decoding.constraints import NoConstraint, SkeletonConstraint, lengths_from_list, lengths_to_list
 from ptcdiag.decoding.sampler import Sampler
 from ptcdiag.eval.taxonomy import diagnose
 from ptcdiag.prompting import parse_tool_calls, render_prompt
@@ -11,18 +11,19 @@ from ptcdiag.prompting import parse_tool_calls, render_prompt
 MODES = ("free", "skeleton")
 
 
-def make_constraint(adapter, example, mode, slot_lengths=None, surplus=0, end_bias=0.0):
+def make_constraint(adapter, example, mode, slot_lengths=None, surplus=0, end_bias=0.0, lengths=None):
     if mode == "free":
         return NoConstraint()
     if mode == "skeleton":
-        return SkeletonConstraint(adapter, example, slot_lengths, surplus, end_bias)
+        return SkeletonConstraint(adapter, example, slot_lengths, surplus, end_bias, lengths)
     raise ValueError(mode)
 
 
 def record_constraint(adapter, example, record):
     """The constraint a result record was decoded under (for replay, attribution, DVS)."""
+    lengths = lengths_from_list(record["lengths"]) if record.get("lengths") else None
     return make_constraint(adapter, example, record["mode"], record.get("slot_lengths"),
-                           record.get("surplus", 0), record.get("end_bias", 0.0))
+                           record.get("surplus", 0), record.get("end_bias", 0.0), lengths)
 
 
 def decode_region(adapter, canvas, trace, mode, constraint=None):
@@ -57,10 +58,12 @@ def decode_region(adapter, canvas, trace, mode, constraint=None):
 
 
 def run_example(adapter, example, cfg, mode="free", slot_lengths=None, keep_trace=True,
-                surplus=0, end_bias=0.0):
+                surplus=0, end_bias=0.0, lengths=None, length_mode="oracle"):
+    """lengths / length_mode: per-slot lengths replacing the oracle ones, and the name of
+    where they came from ("swap", an estimate file); recorded with the skeleton runs."""
     prompt = render_prompt(adapter.tokenizer, example)
     prompt_ids = adapter.encode(prompt)
-    constraint = make_constraint(adapter, example, mode, slot_lengths, surplus, end_bias)
+    constraint = make_constraint(adapter, example, mode, slot_lengths, surplus, end_bias, lengths)
     if mode == "skeleton":
         # the canvas only needs to hold the skeleton; the recorded cfg keeps the real length
         cfg = dataclasses.replace(cfg, gen_length=len(constraint.gen_ids))
@@ -91,7 +94,9 @@ def run_example(adapter, example, cfg, mode="free", slot_lengths=None, keep_trac
     if slot_lengths:  # replay must rebuild the same skeleton
         rec["slot_lengths"] = slot_lengths
     if mode == "skeleton":
-        rec["surplus"], rec["end_bias"] = surplus, end_bias
+        rec["surplus"], rec["end_bias"], rec["length_mode"] = surplus, end_bias, length_mode
+        if lengths:
+            rec["lengths"] = lengths_to_list(lengths)
     if keep_trace:
         rec["trace"] = trace.to_dict()
     return rec

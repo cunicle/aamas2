@@ -20,6 +20,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from ptcdiag.data import load_examples  # noqa: E402
 from ptcdiag.decoding.adapters import load_adapter  # noqa: E402
+from ptcdiag.decoding.constraints import lengths_from_list, oracle_lengths, swapped_lengths  # noqa: E402
 from ptcdiag.decoding.sampler import DecodeConfig  # noqa: E402
 from ptcdiag.pipeline import run_example  # noqa: E402
 
@@ -48,6 +49,11 @@ def main():
                     help="extra masks in every skeleton slot beyond its value's length")
     ap.add_argument("--end-bias", type=float, default=0.0,
                     help="logit bonus for padding / closing tokens in skeleton slots")
+    ap.add_argument("--lengths", default="oracle",
+                    help="skeleton slot lengths: 'oracle' (each value's own), 'swap' (rotated within "
+                         "sibling groups; only items where that changes a slot), or a JSONL of "
+                         "per-item lengths from scripts/length_estimate.py (only its items; the file "
+                         "name is recorded as the length_mode)")
     ap.add_argument("--out", required=True)
     ap.add_argument("--no-trace", action="store_true")
     ap.add_argument("--device", default="cuda")
@@ -76,10 +82,25 @@ def main():
             for line in f:
                 r = json.loads(line)
                 done.add((r["id"], r["mode"], r["cfg_tag"], r["cfg"]["seed"],
-                          r.get("surplus", 0), r.get("end_bias", 0.0)))
+                          r.get("surplus", 0), r.get("end_bias", 0.0), r.get("length_mode", "oracle")))
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
 
     adapter = load_adapter(args.model, device=args.device)
+    per_ex, length_mode = {}, "oracle"
+    if args.mode == "skeleton" and args.lengths == "swap":
+        length_mode = "swap"
+        for ex in examples:
+            sw = swapped_lengths(adapter.tokenizer, ex)
+            if sw != oracle_lengths(adapter.tokenizer, ex):
+                per_ex[ex.id] = sw
+    elif args.mode == "skeleton" and args.lengths != "oracle":
+        length_mode = os.path.splitext(os.path.basename(args.lengths))[0]
+        with open(args.lengths) as f:
+            for line in f:
+                r = json.loads(line)
+                per_ex[r["id"]] = lengths_from_list(r["lengths"])
+    if length_mode != "oracle":
+        examples = [ex for ex in examples if ex.id in per_ex]
     total = len(examples) * len(configs)
     print(f"{len(examples)} examples x {len(configs)} configs = {total} runs "
           f"({len(done)} already done)", flush=True)
@@ -90,12 +111,13 @@ def main():
             for ex in examples:
                 key = (ex.id, args.mode, cfg.tag(), cfg.seed,
                        args.surplus if args.mode == "skeleton" else 0,
-                       args.end_bias if args.mode == "skeleton" else 0.0)
+                       args.end_bias if args.mode == "skeleton" else 0.0, length_mode)
                 if key in done:
                     continue
                 try:
                     rec = run_example(adapter, ex, cfg, args.mode, keep_trace=not args.no_trace,
-                                      surplus=args.surplus, end_bias=args.end_bias)
+                                      surplus=args.surplus, end_bias=args.end_bias,
+                                      lengths=per_ex.get(ex.id), length_mode=length_mode)
                 except Exception as e:  # keep the sweep going; failures are recorded
                     rec = {"id": ex.id, "category": ex.category, "mode": args.mode,
                            "cfg": cfg.to_dict(), "cfg_tag": cfg.tag(), "error": repr(e)}
