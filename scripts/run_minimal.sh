@@ -328,6 +328,8 @@ EOF
         results/qwen/agents_sample.jsonl results/dream/agents_sample.jsonl | tee results/summary/choose_focal.md
     # Table 2 of the paper (one canvas next to the teams of agents)
     $PY_DREAM scripts/paper_tables.py --results results --summary results/summary --out paper/tables
+    # bootstrap intervals and McNemar tests for the paper's main comparisons
+    $PY_DREAM scripts/stats.py --results results --out results/summary/stats.md
     ;;
   *)
     sed -n '2,20p' "$0"; exit 1 ;;
