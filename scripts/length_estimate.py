@@ -8,9 +8,10 @@ arrays and dicts, whose values contain ',' themselves, a closing bracket (']', '
 ...) at position j-1 (an inner bracket of a nested value also counts: a known
 underestimate for nested values). Read as a hazard, P(length = j) = h_j * prod_{i<j}(1 - h_i)
 for j = 1 .. cap-1 (values are never empty), and the rest of the mass is a value that
-fills the slot; the estimate is the mode (`length_from_hazard`). This is the first-step
-length estimate of CAL (Diffusion LMs can approximate optimal infilling lengths
-implicitly, arXiv 2602.00476) done per slot. The output feeds `run_dllm.py --lengths <file>`.
+fills the slot; the estimate is the mode (`length_from_hazard`). This is a one-forward
+closing-hazard estimate, not CAL (Diffusion LMs can approximate optimal infilling lengths
+implicitly, arXiv 2602.00476), which searches the length of a single span with extra
+forward passes. The output feeds `run_dllm.py --lengths <file>`.
 
 Records per item the estimated and oracle lengths and every slot's hazard, and prints
 how often the estimate equals the oracle length, by slot class.

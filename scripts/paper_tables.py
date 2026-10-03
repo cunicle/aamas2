@@ -242,6 +242,108 @@ def table_masquerade(summ):
     return "\n".join(lines) + "\n"
 
 
+def runs_by(paths):
+    """{(length_mode, surplus, end_bias, cfg_tag): [records]} of the skeleton runs."""
+    runs = defaultdict(list)
+    for p in paths:
+        with open(p) as f:
+            for r in map(json.loads, f):
+                if r.get("mode") == "skeleton" and "diagnosis" in r:
+                    runs[r.get("length_mode") or "oracle", int(r.get("surplus") or 0),
+                         float(r.get("end_bias") or 0), r["cfg_tag"]].append(r)
+    return runs
+
+
+def estimate_slots(path):
+    """Estimated minus reference length, one entry per slot (scripts/length_estimate.py output)."""
+    diffs, items, exact_items = [], set(), 0
+    with open(path) as f:
+        for r in map(json.loads, f):
+            orc = {(c, p): n for c, p, n in r["oracle"]}
+            d = [n - orc[c, p] for c, p, n in r["lengths"]]
+            diffs += d
+            items.add(r["id"])
+            exact_items += all(x == 0 for x in d)
+    return diffs, len(items), exact_items
+
+
+def table_mitigation(res):
+    """(a) closing bias x surplus, Dream k=4; (b) one-forward length estimate vs exact lengths."""
+    d = runs_by([f"{res}/dream/{f}.jsonl" for f in ("bfcl_skel_k", "bfcl_surplus", "bfcl_endbias", "bfcl_estimate")])
+    l_ = runs_by([f"{res}/llada2/{f}.jsonl" for f in ("bfcl_skel_k", "bfcl_estimate")])
+
+    def acc(rs):
+        return Fraction(100 * sum(bool(r["diagnosis"]["correct"]) for r in rs), len(rs))
+
+    def parses(rs):
+        return Fraction(100 * sum(bool(r["syntax_ok"]) for r in rs), len(rs))
+
+    k4, betas = DREAM_K[4], (0.0, 2.0, 4.0, 8.0)
+    for b in betas:
+        assert len(d["oracle", 2, b, k4]) == len(d["oracle", 8, b, k4]) == 400, b
+    bias = [label + " & " + " & ".join(fmt(f(d["oracle", s, b, k4])) for b in betas) + r" & & \\"
+            for label, s, f in [(r"Set acc., $s{=}2$", 2, acc), (r"Set acc., $s{=}8$", 8, acc),
+                                (r"Parses, $s{=}8$", 8, parses)]]
+    exact4 = d["oracle", 0, 0.0, k4]
+
+    est_rows = []
+    for tag, runs, ks, tags, model in [(r"\dream", d, (1, 4, 16), DREAM_K, "dream"),
+                                       (r"\llada", l_, (1, 4), LLADA_K, "llada2")]:
+        diffs, n_items, _ = estimate_slots(f"{res}/{model}/length_estimate.jsonl")
+        n = len(diffs)
+        slot = [Fraction(100 * sum(x == 0 for x in diffs), n), Fraction(100 * sum(x > 0 for x in diffs), n),
+                Fraction(100 * sum(x < 0 for x in diffs), n)]
+        est = {k: runs["length_estimate", 0, 0.0, tags[k]] for k in ks}
+        ids = {r["id"] for r in est[1]}
+        assert len(ids) == n_items, (model, len(ids), n_items)
+        ex = {k: [r for r in runs["oracle", 0, 0.0, tags[k]] if r["id"] in ids] for k in ks}
+        cells = [fmt(v) for v in slot] + [fmt(acc(est[k])) if k in est else "--" for k in (1, 4, 16)]
+        est_rows.append(f"{tag} ({len(ids)}) & " + " & ".join(cells) + r" \\")
+        cells = ["--"] * 3 + [fmt(acc(ex[k])) if k in ex else "--" for k in (1, 4, 16)]
+        est_rows.append(r"\rowcolor{refrow}\quad exact lengths & " + " & ".join(cells) + r" \\")
+    lines = [
+        r"\begin{table}[t]",
+        r"\caption{Coping with unknown value lengths. (a) A logit bias $\beta$ toward the closing and padding "
+        rf"tokens of every slot, \dream at $k{{=}}4$ with $s$ surplus masks per slot (exact lengths: "
+        rf"{fmt(acc(exact4))}\% set accuracy). Parses: share of output that parses. (b) Slot lengths that the model "
+        r"predicts in one forward pass: share of slots whose estimate is exact, too long, or too short, and set "
+        r"accuracy when the agent decodes with the estimates, next to exact lengths on the same requests (shaded). "
+        r"All values in \%.}",
+        r"\label{tab:mitigation}",
+        r"\small\setlength{\tabcolsep}{3.4pt}",
+        r"\begin{tabular}{@{}lrrrrrr@{}}",
+        r"\toprule",
+        r"\multicolumn{7}{@{}l}{\emph{(a) Closing bias, \dream, $k{=}4$}} \\",
+        r"$\beta$ & 0 & 2 & 4 & 8 & & \\",
+        r"\cmidrule(lr){2-5}",
+    ] + bias + [
+        r"\midrule",
+        r"\multicolumn{7}{@{}l}{\emph{(b) One-forward length estimate}} \\",
+        r" & \multicolumn{3}{c}{Slots} & \multicolumn{3}{c}{Set acc.} \\",
+        r"\cmidrule(lr){2-4}\cmidrule(l){5-7}",
+        r" & Exact & Long & Short & $k{=}1$ & 4 & 16 \\",
+        r"\midrule",
+    ] + est_rows + [r"\bottomrule", r"\end{tabular}", r"\end{table}"]
+    return "\n".join(lines) + "\n"
+
+
+def estimate_errors(res):
+    """How far the one-forward estimates miss, per model. Markdown, for the numbers quoted in the text."""
+    out = ["| model | slots | requests | requests all exact | exact | +1 | +2 | +3..7 | >=+8 | -1 | <=-2 | "
+           "median overshoot |", "|---|---|---|---|---|---|---|---|---|---|---|---|"]
+    for model in ("dream", "llada2"):
+        diffs, n_items, exact_items = estimate_slots(f"{res}/{model}/length_estimate.jsonl")
+        n = len(diffs)
+        bins = [sum(x == 0 for x in diffs), sum(x == 1 for x in diffs), sum(x == 2 for x in diffs),
+                sum(3 <= x <= 7 for x in diffs), sum(x >= 8 for x in diffs), sum(x == -1 for x in diffs),
+                sum(x <= -2 for x in diffs)]
+        over = sorted(x for x in diffs if x > 0)
+        med = (over[(len(over) - 1) // 2] + over[len(over) // 2]) / 2
+        out.append(f"| {model} | {n} | {n_items} | {exact_items} ({fmt(Fraction(100 * exact_items, n_items))}%) | "
+                   + " | ".join(f"{fmt(Fraction(100 * b, n))}%" for b in bins) + f" | {med:g} |")
+    return "\n".join(out) + "\n"
+
+
 def kcost_breakdown(res):
     """Why requests fail at k=1 and k=16 (exact lengths): output that does not parse, a
     cross-call error, or single-call errors only. Markdown, for the numbers quoted in the text."""
@@ -267,13 +369,15 @@ def main():
     os.makedirs(args.out, exist_ok=True)
     for name, fn in [("ksweep", lambda: table_ksweep(args.results, args.summary)),
                      ("swap", lambda: table_swap(args.summary)),
-                     ("masquerade", lambda: table_masquerade(args.summary))]:
+                     ("masquerade", lambda: table_masquerade(args.summary)),
+                     ("mitigation", lambda: table_mitigation(args.results))]:
         with open(f"{args.out}/{name}.tex", "w") as f:
             f.write(fn())
         print(f"wrote {args.out}/{name}.tex")
-    with open(f"{args.out}/kcost.md", "w") as f:
-        f.write(kcost_breakdown(args.results))
-    print(f"wrote {args.out}/kcost.md")
+    for name, fn in [("kcost", kcost_breakdown), ("estimate", estimate_errors)]:
+        with open(f"{args.out}/{name}.md", "w") as f:
+            f.write(fn(args.results))
+        print(f"wrote {args.out}/{name}.md")
 
 
 if __name__ == "__main__":

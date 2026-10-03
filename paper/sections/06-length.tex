@@ -5,6 +5,7 @@
   \centering
   \includegraphics[width=\textwidth]{figures/surplus}
   \caption{Every slot gets $s$ masks more than its reference value has tokens. (a, b) Set accuracy against the surplus $s$, one line per number of tokens committed per step; \llada on its 100-request subset, where $s=4$ was not run. The AR agent stops at the closing token and cannot be affected by surplus masks (Section~\ref{sec:interface}). (c) Teacher-forced probe over all 3,063 slots: with the reference value written into the slot and $s$ masks left, the mean probability that the next token closes the value.}
+  \Description{Three line charts against the number of surplus masks per slot, 0 to 8. Set accuracy of both diffusion models falls from between 84 and 92 percent at zero surplus to 16 percent or less at one or two surplus masks and recovers partly at eight, for every number of tokens per step; the autoregressive agent stays between 86 and 89 percent. The probe panel shows the probability of a closing token rising from near zero at one or two masks left to 74 percent for Dream and 92 percent for LLaDA2.0 at eight.}
   \label{fig:surplus}
 \end{figure*}
 

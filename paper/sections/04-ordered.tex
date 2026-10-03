@@ -13,5 +13,4 @@ We first test \pred{1} on the BFCL requests with exact slot lengths (Table~\ref{
 
 \paragraph{Where the cost of parallelism lies.} The cost falls mostly inside single values, not between calls. \dream gets 62 requests wrong at $k=16$ against 41 at $k=1$. Output that no longer parses grows from 4 to 21 requests: tokens of one value committed together that do not fit together. Requests with cross-call errors grow only from 5 to 8. \llada's calls take turns at any $k$, because its sibling slots almost never share a block (Section~\ref{sec:protocol}). Of its 32 additional failures, 18 are single-call value errors, 8 cross-call errors, and 6 output that does not parse.
 
-\smallskip\noindent
 When the request orders its entities, simultaneous moves need no communication: the order is a convention that every slot shares, as \pred{1} predicts.
