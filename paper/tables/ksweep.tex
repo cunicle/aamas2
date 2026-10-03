@@ -1,0 +1,24 @@
+\begin{table}[t]
+\caption{Committing more tokens per step, with exact slot lengths (BFCL parallel and parallel\_multiple, 400 requests). Set accuracy and \ccer in \%; \ccer{} (sym.) on the requests whose slot lengths cannot tell the calls apart (213 for \dream, 216 for \llada); order: share of symmetric \texttt{parallel} requests whose $i$-th call took the $i$-th mentioned entity; fwd: forward passes per request. LTR: left to right, one token per step; $\tau$: commit every position above confidence 0.9. \qwen (autoregressive) in the same skeleton: 86.5\% set accuracy, 1.3\% \ccer.}
+\label{tab:ksweep}
+\small\setlength{\tabcolsep}{3.2pt}
+\begin{tabular}{@{}lrrrrrrr@{}}
+\toprule
+ & $k{=}1$ & 2 & 4 & 8 & 16 & LTR & $\tau$ \\
+\midrule
+\multicolumn{8}{@{}l}{\emph{\dream (full attention)}} \\
+Set acc. & 89.8 & 88.0 & 87.0 & 86.3 & 84.5 & 89.3 & 89.0 \\
+\ccer & 1.3 & 1.3 & 1.5 & 1.8 & 2.0 & 1.0 & 1.3 \\
+\ccer (sym.) & 1.9 & 1.9 & 2.3 & 2.8 & 2.8 & 1.4 & 1.9 \\
+Order & 95.2 & 95.2 & 95.0 & 96.1 & 96.1 & 97.5 & 95.1 \\
+Fwd & 28.0 & 14.2 & 7.3 & 3.9 & 2.2 & 27.8 & 1.9 \\
+\midrule
+\multicolumn{8}{@{}l}{\emph{\llada (32-token blocks)}} \\
+Set acc. & 87.8 & 87.5 & 86.5 & 83.3 & 79.8 & -- & -- \\
+\ccer & 2.5 & 2.8 & 3.3 & 4.0 & 4.5 & -- & -- \\
+\ccer (sym.) & 0.9 & 0.9 & 1.4 & 1.4 & 1.9 & -- & -- \\
+Order & 95.1 & 96.3 & 96.3 & 95.1 & 93.8 & -- & -- \\
+Fwd & 27.8 & 14.8 & 8.3 & 5.1 & 3.9 & -- & -- \\
+\bottomrule
+\end{tabular}
+\end{table}

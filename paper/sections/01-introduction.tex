@@ -1,0 +1,7 @@
+\section{Introduction}
+\label{sec:intro}
+
+\plan{(1) Agents issue several tool calls per turn, a joint action; dLLMs commit many tokens per step and look like natural decision cores; the worry in coordination terms: same-step tokens are simultaneous moves without communication, so calls may collide or cross-bind. Lu et al.\ (ACL 2026) report that dLLM agents fail at tool calling and blame diffusion noise, without a controlled test.
+(2) The uncontrolled confound: a skeleton interface must fix slot lengths before decoding, and value lengths are unknown, so mismatch is the norm (fixed budgets $\to$ surplus; per-argument maximum $\to$ a sibling fits; estimates $\to$ both).
+(3) Our approach: a parallel turn as simultaneous decisions; predictions from coordination cues; independent control of the protocol ($k$, blocks) and the interface (slot length); a team-of-agents control.
+(4) Findings and contributions (structure.md \S2). Figure~1: \texttt{parallel\_20} under exact / $+1$ / swap lengths, one token per step.}

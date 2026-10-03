@@ -1,0 +1,49 @@
+\section{A dLLM Agent's Parallel Turn as Simultaneous Decisions}
+\label{sec:setup}
+
+\subsection{The Agent and Its Action Interface}
+\label{sec:interface}
+
+A tool-calling agent receives a request $q$ and a set of tool schemas $\mathcal{F}$, and acts by issuing a set of calls $A=\{a_1,\dots,a_n\}$, where each call $a_i=(f_i,\theta_i)$ names a tool $f_i\in\mathcal{F}$ and binds its arguments $\theta_i$. When $n>1$, the turn is a joint action. We score it as a set, as BFCL does~\cite{patil2025bfcl}: the turn is correct if its calls can be matched one to one with the reference calls, whatever their order.
+
+The agent's decision core is a masked diffusion language model (dLLM). It writes $A$ as a JSON array onto a canvas of mask tokens and fills the canvas over several denoising steps. To make every action well formed, the agent's interface fixes the syntax of the turn in advance with a \emph{skeleton}: the number of calls, the tool names, the argument names, and all brackets and quotes are written onto the canvas, and only the argument values are masked. Each value occupies a \emph{slot} of $\ell$ mask tokens. The slots that hold the same argument in different calls of the same tool form a \emph{sibling group}; these are the slots that can be confused with each other. Our skeleton is an oracle, built from the reference calls, so that every remaining error is an error in a value. Section~\ref{sec:discussion} discusses what the oracle hides.
+
+A slot need not be filled. A value ends when the model writes its closing token (the closing quote for a string; for other types, a comma or closing brace outside any bracket of the value), and the rest of the slot is filled with padding. Padding is forced and is not counted as a decision. The autoregressive (AR) reference agent uses the same skeleton and the same rule: it writes each value until its closing token and is cut off at the slot length, but it is never made to fill a slot. Surplus masks therefore cannot change its output; this is a property of the design, not a finding.
+
+\subsection{Decoding as a Protocol Among Slot-Level Deciders}
+\label{sec:protocol}
+
+At each denoising step, the dLLM predicts every masked position from the current canvas and commits some of them. A position committed in a step is chosen from its own predicted distribution given the canvas \emph{before} that step, so the positions committed in the same step cannot see each other's choices. We call the masked positions \emph{slot-level deciders}. The decoding schedule then acts as a protocol that says which deciders move when:
+\begin{itemize}
+\item With $k$ tokens per step in confidence order, the $k$ most confident masked positions move together. With $k=1$, one decider moves at a time and sees every earlier commitment; we call this \emph{one token per step}. With $k\ge 2$, several deciders, possibly in different calls, move simultaneously.
+\item Left-to-right decoding ($k=1$) fixes the order of moves instead of letting confidence choose it. A confidence threshold $\tau$~\cite{wu2025fastdllm} lets every position whose top probability exceeds $\tau$ move at once.
+\item \llada decodes in blocks of 32 tokens, with bidirectional attention inside a block and causal attention across blocks; a block is finished before the next one starts. Slots in different blocks are never committed together, and the later slot sees the earlier one. In our skeletons only 3.1\% (\texttt{parallel}) and 2.3\% (\texttt{parallel\_multiple}) of the pairs of sibling slots share a block, so \llada's calls take turns at any~$k$.
+\end{itemize}
+
+\subsection{Coordination Cues and Predictions}
+\label{sec:predictions}
+
+The sibling slots of a turn face a coordination problem. Each slot must take the value that belongs to its own call, for instance the $i$-th of several cities, and a slot moving in the same step as its siblings cannot see what they take. Under greedy decoding, deciders with near-identical views make identical choices. What can set them apart is a cue that every slot can read from the shared canvas and that tells each slot which value is its own. We consider three such cues:
+\begin{enumerate}
+\item \emph{Mention order.} The request names the entities in some order, and each slot sees the position of its call on the canvas. Taking the $i$-th mentioned entity for the $i$-th call is a convention that all slots can follow without communicating, a focal point in the sense of Schelling~\cite{schelling1960strategy}.
+\item \emph{Slot position.} A slot's position on the canvas is a role label. A label helps only if something orders the candidate values: ``you are the second call'' does not say which of all US cities is the second.
+\item \emph{Slot length.} Sibling values usually differ in length, so the number of masks in a slot can tell the slot which value it holds, provided the model reads the mask count as the length of the value.
+\end{enumerate}
+
+\noindent These cues give three predictions, which Sections~\ref{sec:ordered}--\ref{sec:masquerade} test.
+\begin{itemize}
+\item[\pred{1}] \emph{Order is a focal point.} When the request orders its entities, the slots take the $i$-th entity for the $i$-th call at any $k$, so committing many tokens per step costs little, even when slot lengths cannot tell the calls apart.
+\item[\pred{2}] \emph{Symmetric calls collide.} When nothing tells the calls apart, slots committed in the same step take the same value, while slots that take turns do not. A team of LLM agents that act at the same time without seeing each other should collide in the same way.
+\item[\pred{3}] \emph{Length is a promise.} A slot reads its mask count as the length of its value. A slot of the wrong length therefore receives a value of the length it promises: a longer version of its own value, or a sibling's value that fits. This happens at any $k$, including one token per step.
+\end{itemize}
+
+\subsection{Models, Data, and Measures}
+\label{sec:models}
+
+\paragraph{Models.} \dream~\cite{ye2025dream} (Dream-v0-Instruct-7B) is a dLLM with full bidirectional attention, initialized from \qwen-7B. \llada~\cite{bie2025llada2} (LLaDA2.0-mini, a mixture of experts with 16B parameters, 1.4B active) is a block-diffusion dLLM trained for tool use. The AR reference agent is \qwen-7B-Instruct~\cite{qwen2025qwen25}, the model \dream starts from. All models see the same system prompt, which lists the tools as JSON and asks for a JSON array of calls, and all decode greedily.
+
+\paragraph{Data.} We use the \texttt{parallel} and \texttt{parallel\_multiple} categories of BFCL v4~\cite{patil2025bfcl}: 400 requests with 2 to 8 calls (2.9 on average) and 3,063 value slots. \llada's experiments with wrong slot lengths use a subset of 100 requests, 50 evenly spaced in each category. For requests in which nothing tells the calls apart, we add 105 \emph{choose-N} requests (Section~\ref{sec:symmetric}).
+
+\paragraph{Slot lengths.} \emph{Exact}: each slot has as many masks as its own reference value has tokens. \emph{Surplus} $+s$: every slot gets $s\in\{1,2,4,8\}$ extra masks. \emph{Swap}: slot lengths are rotated by one position within each sibling group, on the requests where this changes at least one slot (165 for \dream, 34 for \llada). \emph{Estimate}: lengths predicted by the model itself in one forward pass, without reference values (Section~\ref{sec:design}).
+
+\paragraph{Measures.} \emph{Set accuracy} is the BFCL verdict. The \emph{cross-call error rate} (\ccer) is the share of requests with at least one cross-call error, found by an optimal one-to-one matching of predicted and reference calls: a duplicated or missing call, a value that belongs to another call (cross-binding), a string spliced from two calls' values (chimera), or an argument that the reference shares across calls but the prediction does not. At the slot level, we classify each value as the slot's own reference value, a sibling's value (\emph{fit} if the sibling's value has exactly the slot's length), an \emph{overfill} (the own value followed by more), a truncation of the own value, another value, or missing.
