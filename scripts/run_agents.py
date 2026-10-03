@@ -10,7 +10,8 @@ Per item x protocol x seed, agents 1..n are built (ptcdiag/data/agents.py) and d
 one after another with the oracle skeleton of one call: Qwen with `run_example_ar`, Dream
 with `run_example` (k=1, confidence order, no blocks). Turn-taking agents see the calls of
 the agents before them; simultaneous agents see none. One JSONL record per team, with
-every agent's user text, output and city. Re-running with the same --out skips the teams
+every agent's user text, output and city. With --temperature > 0, agent i of the team
+run with seed s samples with seed 1000 s + i. Re-running with the same --out skips the teams
 that are already there.
 """
 
@@ -28,6 +29,12 @@ from ptcdiag.data.agents import PROTOCOLS, agent_example  # noqa: E402
 
 def as_list(s, typ):
     return [typ(v) for v in s.split(",")]
+
+
+def agent_seed(seed, i):
+    """Agent i's own sampling seed in the team run with `seed`: agents that see the same
+    input must not share their random draws."""
+    return 1000 * seed + i
 
 
 def run_team(ex, protocol, decode):
@@ -66,15 +73,19 @@ def load_model(backend, model_id, device):
 
 
 def make_decoder(model, backend, temperature, seed):
-    """(decode, decoding tag) for one temperature / seed."""
+    """(decode, decoding tag) for one temperature / team seed; agent i samples with
+    agent_seed(seed, i) (greedy decoding ignores it)."""
     if backend == "ar":
         from ptcdiag.decoding.ar import run_example_ar
 
         def decode(aex):
-            r = run_example_ar(model, aex, mode="skeleton")
+            r = run_example_ar(model, aex, mode="skeleton", temperature=temperature,
+                               seed=agent_seed(seed, aex.meta["agent"]))
             return r["text"], r["syntax_ok"], r["calls"]
 
-        return decode, "ar_greedy"
+        return decode, f"ar_T{temperature}" if temperature else "ar_greedy"
+
+    import dataclasses
 
     from ptcdiag.decoding.sampler import DecodeConfig
     from ptcdiag.pipeline import run_example
@@ -82,7 +93,8 @@ def make_decoder(model, backend, temperature, seed):
     cfg = DecodeConfig(block_length=None, k=1, order="confidence", temperature=temperature, seed=seed)
 
     def decode(aex):
-        r = run_example(model, aex, cfg, mode="skeleton", keep_trace=False)
+        acfg = dataclasses.replace(cfg, seed=agent_seed(seed, aex.meta["agent"]))
+        r = run_example(model, aex, acfg, mode="skeleton", keep_trace=False)
         return r["text"], r["syntax_ok"], r["calls"]
 
     return decode, cfg.tag()
@@ -120,8 +132,6 @@ def main():
         return
     if not (args.model and args.backend and args.out):
         raise SystemExit("--model, --backend and --out are required (except with --dry-run)")
-    if args.backend == "ar" and args.temperature:
-        raise SystemExit("the AR skeleton decoding is greedy only")
 
     done = set()
     if os.path.exists(args.out):
@@ -150,6 +160,8 @@ def main():
                     t1 = time.time()
                     try:
                         rec["agents"] = run_team(ex, p, decode)
+                        for a in rec["agents"]:
+                            a["seed"] = agent_seed(seed, a["i"])
                         rec["cities"] = [a["city"] for a in rec["agents"]]
                         n_agents += len(rec["agents"])
                     except Exception as e:  # keep the sweep going; failures are recorded
