@@ -44,6 +44,10 @@ def main():
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--per-data", type=int, default=None,
                     help="N evenly spaced examples from each --data spec (pilot runs)")
+    ap.add_argument("--surplus", type=int, default=0,
+                    help="extra masks in every skeleton slot beyond its value's length")
+    ap.add_argument("--end-bias", type=float, default=0.0,
+                    help="logit bonus for padding / closing tokens in skeleton slots")
     ap.add_argument("--out", required=True)
     ap.add_argument("--no-trace", action="store_true")
     ap.add_argument("--device", default="cuda")
@@ -71,7 +75,8 @@ def main():
         with open(args.out) as f:
             for line in f:
                 r = json.loads(line)
-                done.add((r["id"], r["mode"], r["cfg_tag"], r["cfg"]["seed"]))
+                done.add((r["id"], r["mode"], r["cfg_tag"], r["cfg"]["seed"],
+                          r.get("surplus", 0), r.get("end_bias", 0.0)))
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
 
     adapter = load_adapter(args.model, device=args.device)
@@ -83,11 +88,14 @@ def main():
     with open(args.out, "a") as f:
         for cfg in configs:
             for ex in examples:
-                key = (ex.id, args.mode, cfg.tag(), cfg.seed)
+                key = (ex.id, args.mode, cfg.tag(), cfg.seed,
+                       args.surplus if args.mode == "skeleton" else 0,
+                       args.end_bias if args.mode == "skeleton" else 0.0)
                 if key in done:
                     continue
                 try:
-                    rec = run_example(adapter, ex, cfg, args.mode, keep_trace=not args.no_trace)
+                    rec = run_example(adapter, ex, cfg, args.mode, keep_trace=not args.no_trace,
+                                      surplus=args.surplus, end_bias=args.end_bias)
                 except Exception as e:  # keep the sweep going; failures are recorded
                     rec = {"id": ex.id, "category": ex.category, "mode": args.mode,
                            "cfg": cfg.to_dict(), "cfg_tag": cfg.tag(), "error": repr(e)}

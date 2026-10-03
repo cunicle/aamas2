@@ -21,7 +21,7 @@ import torch
 
 from ptcdiag.decoding.sampler import DecodeConfig, Sampler, Trace, state_before_step
 from ptcdiag.eval.taxonomy import diagnose
-from ptcdiag.pipeline import decode_region, make_constraint
+from ptcdiag.pipeline import decode_region, record_constraint
 from ptcdiag.prompting import parse_tool_calls, render_prompt, token_char_offsets, tokens_in_span
 
 LOCALIZABLE = {"cross_binding", "chimera_value", "wrong_value", "type_error",
@@ -35,7 +35,7 @@ def _canvas(prompt_ids, record):
 def error_positions(adapter, record, detail, trace, canvas, constraint=None):
     """Canvas positions responsible for one taxonomy detail, or [] if not localisable.
 
-    constraint: the record's constraint (`make_constraint`); needed in skeleton mode.
+    constraint: the record's constraint (`record_constraint`); needed in skeleton mode.
     """
     text, kept_ids, kept_pos = decode_region(adapter, canvas, trace, record["mode"], constraint)
     parsed = parse_tool_calls(text)
@@ -88,7 +88,7 @@ def replay(adapter, example, record, step, sequentialize=True):
     trace = Trace.from_dict(record["trace"])
     canvas = _canvas(prompt_ids, record)
     init = state_before_step(trace, canvas, step, adapter.mask_id)
-    constraint = make_constraint(adapter, example, record["mode"], record.get("slot_lengths"))
+    constraint = record_constraint(adapter, example, record)
     new_canvas, new_trace = Sampler(adapter, cfg, constraint).generate(
         prompt_ids, init_gen=init, start_step=step)
     text, _, _ = decode_region(adapter, new_canvas.cpu(), new_trace, record["mode"], constraint)
@@ -111,7 +111,7 @@ def attribute(adapter, example, record, labels=LOCALIZABLE, max_steps=6):
     prompt_ids = adapter.encode(render_prompt(adapter.tokenizer, example))
     trace = Trace.from_dict(record["trace"])
     canvas = _canvas(prompt_ids, record)
-    constraint = make_constraint(adapter, example, record["mode"], record.get("slot_lengths"))
+    constraint = record_constraint(adapter, example, record)
     results = []
     for det in record["diagnosis"]["details"]:
         if det["label"] not in labels:
@@ -141,7 +141,7 @@ def placebo(adapter, example, record, rng=None, max_steps=6):
     prompt_ids = adapter.encode(render_prompt(adapter.tokenizer, example))
     trace = Trace.from_dict(record["trace"])
     canvas = _canvas(prompt_ids, record)
-    constraint = make_constraint(adapter, example, record["mode"], record.get("slot_lengths"))
+    constraint = record_constraint(adapter, example, record)
     calls = record["calls"]
     choices = [(i, p) for i, c in enumerate(calls) for p in c["arguments"]]
     rng.shuffle(choices)

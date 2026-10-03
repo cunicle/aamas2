@@ -79,10 +79,10 @@ def _class_mask(tok, V, cls, device, _cache={}):
 
 
 @torch.no_grad()
-def generate_skeleton(ar, prompt_ids, example, slot_lengths=None):
+def generate_skeleton(ar, prompt_ids, example, slot_lengths=None, surplus=0):
     tok = ar.tokenizer
     MASK = -1
-    gen_ids, slots = build_skeleton(tok, example, MASK, slot_lengths)
+    gen_ids, slots = build_skeleton(tok, example, MASK, slot_lengths, surplus)
     slot_at = {s.positions[0]: s for s in slots}
     texts = token_texts(tok)
 
@@ -125,19 +125,22 @@ def generate_skeleton(ar, prompt_ids, example, slot_lengths=None):
     return tok.decode(out, skip_special_tokens=True), nfe
 
 
-def run_example_ar(ar, example, mode="free", slot_lengths=None, max_new_tokens=256):
+def run_example_ar(ar, example, mode="free", slot_lengths=None, max_new_tokens=256, surplus=0):
     prompt = render_prompt(ar.tokenizer, example)
     prompt_ids = ar.encode(prompt)
     t0 = time.time()
     if mode == "free":
         text, nfe = generate_free(ar, prompt_ids, max_new_tokens)
     else:
-        text, nfe = generate_skeleton(ar, prompt_ids, example, slot_lengths)
+        text, nfe = generate_skeleton(ar, prompt_ids, example, slot_lengths, surplus)
     parsed = parse_tool_calls(text)
-    return {
+    rec = {
         "id": example.id, "category": example.category, "meta": example.meta,
         "model": ar.name, "mode": mode, "cfg": {"ar": True}, "cfg_tag": "ar_greedy",
         "prompt_len": int(prompt_ids.shape[1]), "text": text, "syntax_ok": parsed.syntax_ok,
         "calls": parsed.calls, "diagnosis": diagnose(example, parsed).to_dict(),
         "nfe": nfe, "seconds": round(time.time() - t0, 3),
     }
+    if mode == "skeleton":
+        rec["surplus"] = surplus
+    return rec

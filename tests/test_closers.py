@@ -59,7 +59,7 @@ def one_token(tok, s):
 class SlotToy:
     """Writes each value, then its closer, then junk; closers can be made the most confident."""
 
-    def __init__(self, tok, closer_bonus=0.0):
+    def __init__(self, tok, closer_bonus=0.0, slot_lengths=FIXED, surplus=0):
         t = lambda s: one_token(tok, s)  # noqa: E731
         self.tok = tok
         self.scripts = {"city": ([t("Paris"), t('",')], t("x")),
@@ -71,7 +71,7 @@ class SlotToy:
         self.adapter = ToyAdapter(self.fn, len(tok), mask_id=self.mask, pad_id=self.eos,
                                   eos_ids=[self.eos], tokenizer=tok)
         self.P = len(self.adapter.encode(render_prompt(tok, EXAMPLE)))
-        gen, slots = build_skeleton(tok, EXAMPLE, self.mask, FIXED)
+        gen, slots = build_skeleton(tok, EXAMPLE, self.mask, slot_lengths, surplus)
         self.G = len(gen)
         self.slot_at = {g: (s.param, o) for s in slots for o, g in enumerate(s.positions)}
 
@@ -181,3 +181,41 @@ def test_oracle_slot_lengths(dream_tokenizer):
     space = tok(" ", add_special_tokens=False)["input_ids"][0]
     cls = token_classes(tok)
     assert all(space in cls[c] for c in ("integer", "float", "boolean"))
+
+
+def test_ar_ignores_surplus(dream_tokenizer):
+    """The AR baseline stops at the closer, so longer slots change nothing."""
+    text, _ = generate_skeleton(FakeAR(dream_tokenizer), torch.tensor([[1, 2, 3]]), EXAMPLE, surplus=3)
+    assert text == TARGET
+
+
+def test_surplus_adds_masks_to_every_slot(dream_tokenizer):
+    tok = dream_tokenizer
+    _, base = build_skeleton(tok, EXAMPLE, tok.mask_token_id)
+    _, more = build_skeleton(tok, EXAMPLE, tok.mask_token_id, surplus=3)
+    assert [len(s.positions) + 3 for s in base] == [len(s.positions) for s in more]
+
+
+def test_surplus_run_records_and_replays(dream_tokenizer):
+    """Oracle lengths + surplus: each value ends at its closer, the record carries the
+    surplus, and replay rebuilds the same (longer) skeleton."""
+    toy = SlotToy(dream_tokenizer, slot_lengths=None, surplus=2)
+    cfg = DecodeConfig(gen_length=toy.G, k=1, order="left_to_right", eos_early_stop=False)
+    rec = run_example(toy.adapter, EXAMPLE, cfg, "skeleton", surplus=2)
+    assert rec["text"] == TARGET and rec["surplus"] == 2 and rec["end_bias"] == 0.0
+    assert any(s["forced"] for s in rec["trace"]["steps"])
+    assert reproduces(toy.adapter, EXAMPLE, rec, step=2)
+
+
+def test_end_bias_raises_padding_and_closers(dream_tokenizer):
+    tok = dream_tokenizer
+    t = lambda s: one_token(tok, s)  # noqa: E731
+    toy = SlotToy(tok)
+    c = make_constraint(toy.adapter, EXAMPLE, "skeleton", FIXED, end_bias=3.0)
+    c.initial_gen(toy.G, toy.P)
+    city = next(s for s in c.slots if s.param == "city")
+    x = torch.zeros(1, toy.P + toy.G, dtype=torch.long)
+    out = c.filter(x, torch.tensor([toy.P + city.positions[0]]), torch.zeros(1, len(tok)))[0]
+    assert out[toy.eos] == 3.0 and out[t('",')] == 3.0 and out[t('"')] == 3.0  # padding, closers
+    assert out[t("Paris")] == 0.0                                                 # value tokens
+    assert torch.isinf(out[t("\n")])                                              # not allowed at all

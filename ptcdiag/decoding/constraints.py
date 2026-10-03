@@ -226,13 +226,14 @@ def length_symmetric(tokenizer, example):
     return {p: len(ns) == 1 for p, ns in by_param.items()}
 
 
-def build_skeleton(tokenizer, example, mask_id, slot_lengths=None):
+def build_skeleton(tokenizer, example, mask_id, slot_lengths=None, surplus=0):
     """Oracle skeleton from the ground truth: (gen_ids, slots).
 
     Includes every gold call in gold order and every parameter with at least one
     non-empty acceptable value. Parameters whose only acceptable value is "" are left out.
     Slot lengths come from `oracle_lengths`; `slot_lengths` ({bfcl_type: n}) overrides
-    them per type with fixed lengths.
+    them per type with fixed lengths. `surplus` adds that many masks to every slot (the
+    length-prior experiment: how a slot longer than its value changes the errors).
     """
     oracle = oracle_lengths(tokenizer, example)
     ids, slots, buf = [], [], []
@@ -256,7 +257,7 @@ def build_skeleton(tokenizer, example, mask_id, slot_lengths=None):
             buf.append(("" if first else ", ") + '"' + p + '":' + (' "' if q else ""))
             first = False
             flush()
-            n = (slot_lengths or {}).get(t, oracle[ci, p])
+            n = (slot_lengths or {}).get(t, oracle[ci, p]) + surplus
             slots.append(Slot(ci, p, t, list(range(len(ids), len(ids) + n))))
             ids.extend([mask_id] * n)
             buf.append(q)
@@ -269,9 +270,13 @@ def build_skeleton(tokenizer, example, mask_id, slot_lengths=None):
 class SkeletonConstraint(Constraint):
     early_stop_ok = False  # pad tokens inside slots must not end generation
 
-    def __init__(self, adapter, example, slot_lengths=None):
+    def __init__(self, adapter, example, slot_lengths=None, surplus=0, end_bias=0.0):
+        """end_bias: added to the logits of padding and closing tokens in every slot, a
+        decoding-time counterweight to the length prior (0 = the plain constraint)."""
         self.a = adapter
-        self.gen_ids, self.slots = build_skeleton(adapter.tokenizer, example, adapter.mask_id, slot_lengths)
+        self.end_bias = end_bias
+        self.gen_ids, self.slots = build_skeleton(adapter.tokenizer, example, adapter.mask_id,
+                                                  slot_lengths, surplus)
         self.classes = token_classes(adapter.tokenizer)
         self.texts = token_texts(adapter.tokenizer)
         self.P = None
@@ -287,23 +292,35 @@ class SkeletonConstraint(Constraint):
         self.P = P
         return self.gen_ids + [self.a.pad_id] * (G - len(self.gen_ids))
 
+    def _end_mask(self, cls, V, device):
+        """Tokens that end a value of this class: its closers and padding."""
+        key = ("end", cls, V, str(device))
+        if key not in self._masks:
+            m = torch.zeros(V, dtype=torch.bool, device=device)
+            ends = [i for i, t in enumerate(self.texts[:V]) if t.startswith(slot_closers(cls))]
+            m[torch.tensor(ends, dtype=torch.long, device=device)] = True
+            m[self.a.pad_id] = True  # unused slot positions are filled with padding
+            self._masks[key] = m
+        return self._masks[key]
+
     def _mask(self, cls, V, device):
         key = (cls, V, str(device))
         if key not in self._masks:
-            m = torch.zeros(V, dtype=torch.bool, device=device)
+            m = self._end_mask(cls, V, device).clone()  # a value may end anywhere
             ids = torch.tensor([i for i in self.classes[cls] if i < V], dtype=torch.long, device=device)
             m[ids] = True
-            ends = [i for i, t in enumerate(self.texts[:V]) if t.startswith(slot_closers(cls))]
-            m[torch.tensor(ends, dtype=torch.long, device=device)] = True  # a value may end anywhere
-            m[self.a.pad_id] = True  # unused slot positions are filled with padding
             self._masks[key] = m
         return self._masks[key]
 
     def filter(self, x, cand, logits):
         V = logits.shape[-1]
-        rows = [self._mask(self._pos_class.get(int(p) - self.P, "generic"), V, logits.device) for p in cand]
-        allowed = torch.stack(rows)
-        return logits.masked_fill(~allowed, float("-inf"))
+        classes = [self._pos_class.get(int(p) - self.P, "generic") for p in cand]
+        allowed = torch.stack([self._mask(c, V, logits.device) for c in classes])
+        logits = logits.masked_fill(~allowed, float("-inf"))
+        if self.end_bias:
+            ends = torch.stack([self._end_mask(c, V, logits.device) for c in classes])
+            logits = logits + self.end_bias * ends.to(logits.dtype)
+        return logits
 
     def _slot_texts(self, gen, s):
         special, out = self.a.special_ids, []

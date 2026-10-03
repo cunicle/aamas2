@@ -20,7 +20,7 @@ import dataclasses
 import torch
 
 from ptcdiag.decoding.sampler import DecodeConfig, Trace, _block_bounds, state_before_step
-from ptcdiag.pipeline import make_constraint
+from ptcdiag.pipeline import record_constraint
 from ptcdiag.prompting import render_prompt
 
 
@@ -31,7 +31,7 @@ def _setup(adapter, example, record, step):
     trace = Trace.from_dict(record["trace"])
     canvas = torch.cat([prompt_ids, torch.tensor(record["gen_ids"], dtype=torch.long)])
     rec = next(s for s in trace.steps if s.step == step)
-    constraint = make_constraint(adapter, example, record["mode"], record.get("slot_lengths"))
+    constraint = record_constraint(adapter, example, record)
     G = adapter.canvas_length(len(prompt_ids), cfg.gen_length, cfg.block_length) - len(prompt_ids)
     constraint.initial_gen(G, len(prompt_ids))
     state = state_before_step(trace, canvas, step, adapter.mask_id)

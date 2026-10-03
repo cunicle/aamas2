@@ -11,12 +11,18 @@ from ptcdiag.prompting import parse_tool_calls, render_prompt
 MODES = ("free", "skeleton")
 
 
-def make_constraint(adapter, example, mode, slot_lengths=None):
+def make_constraint(adapter, example, mode, slot_lengths=None, surplus=0, end_bias=0.0):
     if mode == "free":
         return NoConstraint()
     if mode == "skeleton":
-        return SkeletonConstraint(adapter, example, slot_lengths)
+        return SkeletonConstraint(adapter, example, slot_lengths, surplus, end_bias)
     raise ValueError(mode)
+
+
+def record_constraint(adapter, example, record):
+    """The constraint a result record was decoded under (for replay, attribution, DVS)."""
+    return make_constraint(adapter, example, record["mode"], record.get("slot_lengths"),
+                           record.get("surplus", 0), record.get("end_bias", 0.0))
 
 
 def decode_region(adapter, canvas, trace, mode, constraint=None):
@@ -50,10 +56,11 @@ def decode_region(adapter, canvas, trace, mode, constraint=None):
     return text, kept_ids, kept_pos
 
 
-def run_example(adapter, example, cfg, mode="free", slot_lengths=None, keep_trace=True):
+def run_example(adapter, example, cfg, mode="free", slot_lengths=None, keep_trace=True,
+                surplus=0, end_bias=0.0):
     prompt = render_prompt(adapter.tokenizer, example)
     prompt_ids = adapter.encode(prompt)
-    constraint = make_constraint(adapter, example, mode, slot_lengths)
+    constraint = make_constraint(adapter, example, mode, slot_lengths, surplus, end_bias)
     if mode == "skeleton":
         # the canvas only needs to hold the skeleton; the recorded cfg keeps the real length
         cfg = dataclasses.replace(cfg, gen_length=len(constraint.gen_ids))
@@ -83,6 +90,8 @@ def run_example(adapter, example, cfg, mode="free", slot_lengths=None, keep_trac
     }
     if slot_lengths:  # replay must rebuild the same skeleton
         rec["slot_lengths"] = slot_lengths
+    if mode == "skeleton":
+        rec["surplus"], rec["end_bias"] = surplus, end_bias
     if keep_trace:
         rec["trace"] = trace.to_dict()
     return rec

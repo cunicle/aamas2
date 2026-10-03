@@ -22,6 +22,8 @@ def main():
     ap.add_argument("--mode", default="free", choices=["free", "skeleton"])
     ap.add_argument("--max-new-tokens", type=int, default=256)
     ap.add_argument("--limit", type=int, default=None)
+    ap.add_argument("--surplus", type=int, default=0,
+                    help="extra masks in every skeleton slot (the AR baseline stops at the closer)")
     ap.add_argument("--out", required=True)
     ap.add_argument("--device", default="cuda")
     ap.add_argument("--bfcl-dir", default="data/bfcl")
@@ -33,16 +35,17 @@ def main():
     done = set()
     if os.path.exists(args.out):
         with open(args.out) as f:
-            done = {(r["id"], r["mode"]) for r in map(json.loads, f)}
+            done = {(r["id"], r["mode"], r.get("surplus", 0)) for r in map(json.loads, f)}
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
 
     ar = ARModel(args.model, device=args.device)
     with open(args.out, "a") as f:
         for i, ex in enumerate(examples):
-            if (ex.id, args.mode) in done:
+            if (ex.id, args.mode, args.surplus if args.mode == "skeleton" else 0) in done:
                 continue
             try:
-                rec = run_example_ar(ar, ex, args.mode, max_new_tokens=args.max_new_tokens)
+                rec = run_example_ar(ar, ex, args.mode, max_new_tokens=args.max_new_tokens,
+                                     surplus=args.surplus)
             except Exception as e:
                 rec = {"id": ex.id, "category": ex.category, "mode": args.mode, "error": repr(e)}
             rec["model_id"] = args.model

@@ -18,6 +18,15 @@
 #   llada2 -> attr_llada2   alongside   dream -> ar_qwen -> ar_ling -> attr_dream
 #   summary   tables into results/summary/
 #
+# Length-prior study (slots longer than their value; README "已知限制" 4):
+#   lenprior_dream / lenprior_llada2   teacher-forced: what the model wants right after the
+#                                      gold value when the slot has 4 more masks
+#   surplus_dream     BFCL, every slot s in {1,2,4,8} masks too long, k in {4,1,16}
+#   surplus_llada2    100 BFCL items, s in {2,8}, k in {4,1}   (s=0 is in bfcl_skel_k.jsonl)
+#   surplus_ar        Qwen2.5 skeleton with s=8 (AR stops at the closer; finishes s=0 first)
+#   endbias_dream     logit bonus b in {2,4,8} for padding/closers, s in {2,8}, k=4
+# e.g. lenprior_llada2 -> surplus_llada2  alongside  lenprior_dream -> surplus_dream -> surplus_ar -> endbias_dream
+#
 # Every run appends to its JSONL and skips finished items, so any phase can be
 # re-run after an interruption. Environments: PY_DREAM / PY_LLADA2 point to the
 # python of the env for each model family (Dream needs transformers 4.46.x,
@@ -147,6 +156,34 @@ EOF
     $PY_LLADA2 scripts/attribute.py --model $LLADA2 --results results/llada2/bfcl_skel_bfull.jsonl --data $BFCL \
         --cfg-tag confidence_k4_tnone_bfull_T0.0 --out results/llada2/attr_k4_bfull.jsonl \
         | tee results/llada2/attr_k4_bfull.txt
+    ;;
+  lenprior_dream)
+    $PY_DREAM scripts/length_prior.py --model $DREAM --data $BFCL --surplus 4         --out results/dream/length_prior.jsonl | tee results/dream/length_prior.txt
+    ;;
+  lenprior_llada2)
+    $PY_LLADA2 scripts/length_prior.py --model $LLADA2 --data $BFCL --surplus 4 --block-length 32         --out results/llada2/length_prior.jsonl | tee results/llada2/length_prior.txt
+    ;;
+  surplus_dream)
+    for s in 1 2 4 8; do
+      $PY_DREAM scripts/run_dllm.py --model $DREAM --data $BFCL --mode skeleton --surplus $s           --k 4,1,16 --order confidence --out results/dream/bfcl_surplus.jsonl
+    done
+    ;;
+  surplus_llada2)
+    for s in 2 8; do
+      $PY_LLADA2 scripts/run_dllm.py --model $LLADA2 --data bfcl:parallel --data bfcl:parallel_multiple           --per-data 50 --mode skeleton --block-length 32 --surplus $s --k 4,1 --order confidence           --out results/llada2/bfcl_surplus.jsonl
+    done
+    ;;
+  surplus_ar)
+    mkdir -p results/qwen
+    $PY_DREAM scripts/run_ar.py --model $QWEN --data $BFCL --mode skeleton --out results/qwen/bfcl_skeleton.jsonl
+    $PY_DREAM scripts/run_ar.py --model $QWEN --data $BFCL --mode skeleton --surplus 8         --out results/qwen/bfcl_surplus.jsonl
+    ;;
+  endbias_dream)
+    for b in 2 4 8; do
+      for s in 2 8; do
+        $PY_DREAM scripts/run_dllm.py --model $DREAM --data $BFCL --mode skeleton --surplus $s --end-bias $b             --k 4 --order confidence --out results/dream/bfcl_endbias.jsonl
+      done
+    done
     ;;
   summary)
     mkdir -p results/summary
