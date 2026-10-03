@@ -1,13 +1,19 @@
-% Every entry checked against arXiv / the publisher on 2026-10-03 (title, authors, year).
+% Verified 2026-10-03 against the publisher or arXiv record of every entry: title, authors, year,
+% venue (PMLR, ACL Anthology, AAMAS 2026 contents and Crossref, iclr.cc / neurips.cc accepted-paper
+% data, proceedings.neurips.cc, HathiTrust). Published versions replace arXiv where they exist.
+% How the paper describes each work was checked against its text (paper/structure.md, section 6.4).
 % Add new entries only after checking them the same way.
 
 @inproceedings{patil2025bfcl,
   title     = {The {Berkeley} Function Calling Leaderboard ({BFCL}): From Tool Use to Agentic Evaluation of Large Language Models},
   author    = {Patil, Shishir G. and Mao, Huanzhi and Yan, Fanjia and Ji, Charlie Cheng-Jie and Suresh, Vishnu and Stoica, Ion and Gonzalez, Joseph E.},
-  booktitle = {Proceedings of the 42nd International Conference on Machine Learning (ICML)},
-  series    = {PMLR},
+  booktitle = {Proceedings of the 42nd International Conference on Machine Learning (ICML 2025)},
+  series    = {Proceedings of Machine Learning Research},
   volume    = {267},
-  year      = {2025}
+  pages     = {48371--48392},
+  publisher = {PMLR},
+  year      = {2025},
+  url       = {https://proceedings.mlr.press/v267/patil25a.html}
 }
 
 @article{ye2025dream,
@@ -24,46 +30,59 @@
   year    = {2025}
 }
 
-@article{nie2025llada,
-  title   = {Large Language Diffusion Models},
-  author  = {Nie, Shen and Zhu, Fengqi and You, Zebin and Zhang, Xiaolu and Ou, Jingyang and Hu, Jun and Zhou, Jun and Lin, Yankai and others},
-  journal = {arXiv preprint arXiv:2502.09992},
-  year    = {2025}
+@inproceedings{nie2025llada,
+  title     = {Large Language Diffusion Models},
+  author    = {Nie, Shen and Zhu, Fengqi and You, Zebin and Zhang, Xiaolu and Ou, Jingyang and Hu, Jun and Zhou, Jun and Lin, Yankai and Wen, Ji-Rong and Li, Chongxuan},
+  booktitle = {Advances in Neural Information Processing Systems 38 (NeurIPS 2025)},
+  year      = {2025},
+  doi       = {10.52202/085713-1689}
 }
 
-@article{qwen2025qwen25,
+@article{qwen2024qwen25,
   title   = {{Qwen2.5} Technical Report},
   author  = {{Qwen Team}},
   journal = {arXiv preprint arXiv:2412.15115},
   year    = {2024}
 }
 
-@article{wu2025fastdllm,
-  title   = {Fast-d{LLM}: Training-free Acceleration of Diffusion {LLM} by Enabling {KV} Cache and Parallel Decoding},
-  author  = {Wu, Chengyue and Zhang, Hao and Xue, Shuchen and Liu, Zhijian and Diao, Shizhe and Zhu, Ligeng and Luo, Ping and Han, Song and others},
-  journal = {arXiv preprint arXiv:2505.22618},
-  year    = {2025}
+@inproceedings{wu2026fastdllm,
+  title     = {Fast-d{LLM}: Training-free Acceleration of Diffusion {LLM} by Enabling {KV} Cache and Parallel Decoding},
+  author    = {Wu, Chengyue and Zhang, Hao and Xue, Shuchen and Liu, Zhijian and Diao, Shizhe and Zhu, Ligeng and Luo, Ping and Han, Song and Xie, Enze},
+  booktitle = {The Fourteenth International Conference on Learning Representations (ICLR 2026)},
+  year      = {2026},
+  url       = {https://openreview.net/forum?id=3Z3Is6hnOT}
 }
 
-@article{kang2025parallelbench,
-  title   = {{ParallelBench}: Understanding the Trade-offs of Parallel Decoding in Diffusion {LLMs}},
-  author  = {Kang, Wonjun and Galim, Kevin and Oh, Seunghyuk and Lee, Minjae and Zeng, Yuchen and Zhang, Shuibai and Hooper, Coleman and Hu, Yuezhou and others},
-  journal = {arXiv preprint arXiv:2510.04767},
-  year    = {2025}
+@inproceedings{kang2026parallelbench,
+  title     = {{ParallelBench}: Understanding the Trade-offs of Parallel Decoding in Diffusion {LLMs}},
+  author    = {Kang, Wonjun and Galim, Kevin and Oh, Seunghyuk and Lee, Minjae and Zeng, Yuchen and Zhang, Shuibai and Hooper, Coleman and Hu, Yuezhou and others},
+  booktitle = {The Fourteenth International Conference on Learning Representations (ICLR 2026)},
+  year      = {2026},
+  url       = {https://openreview.net/forum?id=OsZr5T7Cd0}
 }
 
-@article{kim2023llmcompiler,
-  title   = {An {LLM} Compiler for Parallel Function Calling},
-  author  = {Kim, Sehoon and Moon, Suhong and Tabrizi, Ryan and Lee, Nicholas and Mahoney, Michael W. and Keutzer, Kurt and Gholami, Amir},
-  journal = {arXiv preprint arXiv:2312.04511},
-  year    = {2023}
+@inproceedings{kim2024llmcompiler,
+  title     = {An {LLM} Compiler for Parallel Function Calling},
+  author    = {Kim, Sehoon and Moon, Suhong and Tabrizi, Ryan and Lee, Nicholas and Mahoney, Michael W. and Keutzer, Kurt and Gholami, Amir},
+  booktitle = {Proceedings of the 41st International Conference on Machine Learning (ICML 2024)},
+  series    = {Proceedings of Machine Learning Research},
+  volume    = {235},
+  pages     = {24370--24391},
+  publisher = {PMLR},
+  year      = {2024},
+  url       = {https://proceedings.mlr.press/v235/kim24y.html}
 }
 
-@article{hu2020otherplay,
-  title   = {``{Other-Play}'' for Zero-Shot Coordination},
-  author  = {Hu, Hengyuan and Lerer, Adam and Peysakhovich, Alex and Foerster, Jakob},
-  journal = {arXiv preprint arXiv:2003.02979},
-  year    = {2020}
+@inproceedings{hu2020otherplay,
+  title     = {``{Other-Play}'' for Zero-Shot Coordination},
+  author    = {Hu, Hengyuan and Lerer, Adam and Peysakhovich, Alex and Foerster, Jakob},
+  booktitle = {Proceedings of the 37th International Conference on Machine Learning (ICML 2020)},
+  series    = {Proceedings of Machine Learning Research},
+  volume    = {119},
+  pages     = {4399--4410},
+  publisher = {PMLR},
+  year      = {2020},
+  url       = {https://proceedings.mlr.press/v119/hu20a.html}
 }
 
 @book{schelling1960strategy,
@@ -82,20 +101,25 @@
   year      = {1969}
 }
 
-@article{lu2026bitter,
-  title   = {The Bitter Lesson of Diffusion Language Models for Agentic Workflows: A Comprehensive Reality Check},
-  author  = {Lu, Qingyu and Ding, Liang and Zhang, Kanjian and Zhang, Jinxia and Tao, Dacheng},
-  journal = {arXiv preprint arXiv:2601.12979},
-  note    = {ACL 2026},
-  year    = {2026}
+@inproceedings{lu2026bitter,
+  title     = {The Bitter Lesson of Diffusion Language Models for Agentic Workflows: A Comprehensive Reality Check},
+  author    = {Lu, Qingyu and Ding, Liang and Zhang, Kanjian and Zhang, Jinxia and Tao, Dacheng},
+  booktitle = {Proceedings of the 64th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers)},
+  pages     = {43997--44020},
+  publisher = {Association for Computational Linguistics},
+  address   = {San Diego, California, United States},
+  year      = {2026},
+  doi       = {10.18653/v1/2026.acl-long.2036}
 }
 
-@article{khanal2026agents,
-  title   = {Agents of Diffusion: Enhancing Diffusion Language Models with Multi-Agent Reinforcement Learning for Structured Data Generation},
-  author  = {Khanal, Aja and Ranade, Kaushik T. and Agrawal, Rishabh and Basu, Kalyan S. and Narayan, Apurva},
-  journal = {arXiv preprint arXiv:2601.07152},
-  note    = {AAMAS 2026},
-  year    = {2026}
+@inproceedings{khanal2026agents,
+  title     = {Agents of Diffusion: Enhancing Diffusion Language Models with Multi-Agent Reinforcement Learning for Structured Data Generation},
+  author    = {Khanal, Aja and Ranade, Kaushik T. and Agrawal, Rishabh and Basu, Kalyan S. and Narayan, Apurva},
+  booktitle = {Proceedings of the 25th International Conference on Autonomous Agents and Multiagent Systems (AAMAS 2026)},
+  pages     = {449--458},
+  publisher = {International Foundation for Autonomous Agents and Multiagent Systems},
+  year      = {2026},
+  doi       = {10.65109/GGJL7344}
 }
 
 @article{liu2026cal,
@@ -112,30 +136,35 @@
   year    = {2026}
 }
 
-@article{li2025daedal,
-  title   = {Beyond Fixed: Training-Free Variable-Length Denoising for Diffusion Large Language Models},
-  author  = {Li, Jinsong and Dong, Xiaoyi and Zang, Yuhang and Cao, Yuhang and Wang, Jiaqi and Lin, Dahua},
-  journal = {arXiv preprint arXiv:2508.00819},
-  year    = {2025}
+@inproceedings{li2026daedal,
+  title     = {Beyond Fixed: Training-Free Variable-Length Denoising for Diffusion Large Language Models},
+  author    = {Li, Jinsong and Dong, Xiaoyi and Zang, Yuhang and Cao, Yuhang and Wang, Jiaqi and Lin, Dahua},
+  booktitle = {The Fourteenth International Conference on Learning Representations (ICLR 2026)},
+  year      = {2026},
+  url       = {https://openreview.net/forum?id=Ic2A2gCseC}
 }
 
-@article{xiong2025s3,
-  title   = {Unveiling the Potential of Diffusion Large Language Model in Controllable Generation},
-  author  = {Xiong, Zhen and Cai, Yujun and Li, Zhecheng and Wang, Yiwei},
-  journal = {arXiv preprint arXiv:2507.04504},
-  year    = {2025}
+@inproceedings{xiong2026s3,
+  title     = {Unveiling the Potential of Diffusion Large Language Model in Controllable Generation},
+  author    = {Xiong, Zhen and Cai, Yujun and Li, Zhecheng and Wang, Yiwei},
+  booktitle = {The Fourteenth International Conference on Learning Representations (ICLR 2026)},
+  year      = {2026},
+  url       = {https://openreview.net/forum?id=qhd0qv6L0k}
 }
 
-@article{dang2026constrained,
-  title   = {Constrained Decoding for Diffusion Language Models via Efficient Inference over Finite Automata},
-  author  = {Dang, Meihua and Ermon, Stefano},
-  journal = {arXiv preprint arXiv:2607.07026},
-  year    = {2026}
+@inproceedings{dang2026constrained,
+  title     = {Constrained Decoding for Diffusion Language Models via Efficient Inference over Finite Automata},
+  author    = {Dang, Meihua and Ermon, Stefano},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS 2026)},
+  year      = {2026},
+  note      = {To appear},
+  url       = {https://openreview.net/forum?id=ssAyzXEqoT}
 }
 
-@article{mundler2025cfg,
-  title   = {Constrained Decoding of Diffusion {LLMs} with Context-Free Grammars},
-  author  = {M{\"u}ndler, Niels and Dekoninck, Jasper and Vechev, Martin},
-  journal = {arXiv preprint arXiv:2508.10111},
-  year    = {2025}
+@inproceedings{mundler2026cfg,
+  title     = {Constrained Decoding of Diffusion {LLMs} with Context-Free Grammars},
+  author    = {M{\"u}ndler, Niels and Dekoninck, Jasper and Vechev, Martin},
+  booktitle = {The Fourteenth International Conference on Learning Representations (ICLR 2026)},
+  year      = {2026},
+  url       = {https://openreview.net/forum?id=7Sph4KyeYO}
 }
