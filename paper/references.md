@@ -1,6 +1,6 @@
 # 引用清单（2026-10-03 定稿）
 
-`references.bib` 共 43 条，每一条都对照了出版方或 arXiv 的记录（标题、全部作者、年份、出处）。BibTeX 只输出正文中实际 `\cite` 的条目，所以“可选”条目放在 bib 里不会出现在参考文献中。
+`references.bib` 共 37 条，每一条都对照了出版方或 arXiv 的记录（标题、全部作者、年份、出处）。BibTeX 只输出正文中实际 `\cite` 的条目。
 
 **核对方法**：
 - arXiv 条目：用 arXiv API 逐条比对。
@@ -9,7 +9,7 @@
 
 **新增条目的规则**：只能加同样核对过的文献；描述一篇文献之前，先读它的原文。
 
-**状态**：已引 = 正文已 `\cite`；计划 = 写 §1、§2、§9 时引用；可选 = 已核对，暂不打算引用。
+**状态**：已引 = 正文已 `\cite`；计划 = 写 §1、§2、§5、§9 时引用。
 
 ## 1. 模型、数据、评测
 
@@ -21,7 +21,6 @@
 | nie2025llada | LLaDA | NeurIPS 2025，DOI 10.52202/085713-1689 | dLLM 背景 | 计划 §2/§3 |
 | qwen2024qwen25 | Qwen2.5 技术报告 | arXiv 2412.15115（2024-12） | AR 参照 | 已引 |
 | sahoo2024mdlm | MDLM | NeurIPS 2024，DOI 10.52202/079017-4135 | 掩码扩散背景 | 计划 §2 |
-| austin2021d3pm | D3PM | NeurIPS 2021，pp. 17981–17993 | 掩码扩散背景 | 可选 |
 
 ## 2. LLM agent 与工具调用
 
@@ -30,7 +29,6 @@
 | kim2024llmcompiler | LLMCompiler | ICML 2024，PMLR 235:24370–24391 | 并行函数调用（planner + task fetching + executor） | 计划 §1/§2 |
 | yao2023react | ReAct | ICLR 2023 | agent 背景 | 计划 §1 |
 | schick2023toolformer | Toolformer | NeurIPS 2023，DOI 10.52202/075280-2997 | 工具使用背景 | 计划 §1 |
-| patil2024gorilla | Gorilla | NeurIPS 2024，DOI 10.52202/079017-4020 | 工具使用背景 | 可选 |
 
 ## 3. dLLM agent
 
@@ -50,7 +48,6 @@
 | kang2026parallelbench | ParallelBench | ICLR 2026 | “New City”例子（来自 New York / Mexico City），归因于条件独立；“chimera”是我们的术语 | 已引 |
 | benhamu2025ebsampler | EB-Sampler | NeurIPS 2025，DOI 10.52202/085713-1874 | 按熵上界一次解掩多个 token | 计划 §2 |
 | liu2025copula | Discrete Copula Diffusion | ICLR 2025，pp. 88953–88979 | 同一步解码的变量之间的依赖缺失 | 计划 §2 |
-| li2026codd | Breaking the Factorization Barrier | arXiv 2603.00045 | 同上，较新 | 可选 |
 
 ## 5. dLLM 的长度问题（与我们的发现最近）
 
@@ -74,7 +71,6 @@
 | dang2026constrained | Dang & Ermon | NeurIPS 2026 录用（论文集未出，标 To appear） | dLLM 的有限自动机约束解码；在 BFCL-Live 上把 Dream-7B 从 63.9% 提到 71.5% | 计划 §2 |
 | mundler2026cfg | Mündler et al. | ICLR 2026 | dLLM 的上下文无关文法约束解码，涵盖多区域填空 | 计划 §2 |
 | geng2023grammar | Geng et al. | EMNLP 2023，pp. 10932–10952 | AR 模型的文法约束解码 | 计划 §2 |
-| willard2023outlines | Willard & Louf (Outlines) | arXiv 2307.09702 | AR 模型的有限状态机引导生成 | 可选 |
 
 ## 7. 无通信协调
 
@@ -85,7 +81,6 @@
 | mehta1994salience | Mehta, Starmer & Sugden | AER 84(3):658–673, 1994 | 纯协调博弈中显著性的实验（注意：不要和同一组作者 1994 年在 Theory and Decision 上的另一篇混淆） | 计划 §2 |
 | grenager2002dispersion | Dispersion games | AAAI 2002，pp. 398–403 | 对称选择下的分散与撞车 | 计划 §2/§5 |
 | hu2020otherplay | Other-Play | ICML 2020，PMLR 119:4399–4410 | 利用对称性的零样本协调 | 计划 §2 |
-| crawford1990learning | Crawford & Haller | Econometrica 58(3):571–595, 1990 | 重复协调博弈中用先例打破对称 | 可选 |
 
 ## 8. LLM 与协调、并行多 agent 系统
 
@@ -94,11 +89,12 @@
 | aharon2026tacit | Tacit Coordination of LLMs（Wooldridge、Kraus） | arXiv 2601.22184 | 20 多个 LLM 的焦点研究：常能不通信地协调，但需要数字常识或文化知识时失败 | 计划 §2 |
 | agashe2025llmcoordination | LLM-Coordination | Findings of NAACL 2025，pp. 8053–8072 | LLM 在纯协调博弈上的基准 | 计划 §2 |
 | ballestero2026monoculture | Strategic Algorithmic Monoculture | arXiv 2604.09502 | LLM 的选择高度相似；擅长选相同的动作，但需要彼此不同时不如人类 | 计划 §2/§5 |
-| akata2025repeated | Playing Repeated Games with LLMs | Nature Human Behaviour 9(7):1380–1390, 2025 | LLM 在 Battle of the Sexes 等协调博弈中表现差 | 可选 |
 | mao2026delm | DeLM | arXiv 2606.10662 | 并行 LLM agent 重复同伴的工作；用共享上下文和任务队列异步领取任务 | 计划 §9 |
 | rodionov2025hogwild | Hogwild! Inference | NeurIPS 2025，DOI 10.52202/085713-1551 | 同一 LLM 的多个实例共享 KV cache 并行生成，自己决定如何分工 | 计划 §2/§9 |
 
 ## 已删除或不引用
+
+- **核对过但决定不引（用户 10-03 决定）**：D3PM（NeurIPS 2021）、Gorilla（NeurIPS 2024）、Breaking the Factorization Barrier（arXiv 2603.00045）、Outlines（arXiv 2307.09702）、Crawford & Haller（Econometrica 1990）、Akata et al.（Nature Human Behaviour 2025）。已从 bib 删除。
 
 - **ParaProbe**：arXiv、Crossref 和网页搜索都找不到这样一篇论文（唯一同名的是原子探针层析的工具）。“实体绑错为零”这条说法没有来源，**不引用、不写**。
 - **MetaGPT、AutoGen**：没有核对，也不切合 §9 那句话，不引用。
