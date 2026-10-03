@@ -1,0 +1,17 @@
+model,cfg,variant,n,ok,duplicate,same_step,invalid,in_order
+Dream-v0-Instruct-7B,confidence_k16_tnone_bfull_T0.0,list,60,0.85,0.15,0.15,0.0,0.11666666666666667
+Dream-v0-Instruct-7B,confidence_k16_tnone_bfull_T0.0,open,45,0.0,1.0,1.0,0.0,0.0
+Dream-v0-Instruct-7B,confidence_k1_tnone_bfull_T0.0,list,60,1.0,0.0,0.0,0.0,0.48333333333333334
+Dream-v0-Instruct-7B,confidence_k1_tnone_bfull_T0.0,open,45,0.3111111111111111,0.0,0.0,0.6888888888888889,0.0
+Dream-v0-Instruct-7B,confidence_k2_tnone_bfull_T0.0,list,60,0.9,0.1,0.1,0.0,0.31666666666666665
+Dream-v0-Instruct-7B,confidence_k2_tnone_bfull_T0.0,open,45,0.0,1.0,1.0,0.15555555555555556,0.0
+Dream-v0-Instruct-7B,confidence_k4_tnone_bfull_T0.0,list,60,0.85,0.15,0.15,0.0,0.11666666666666667
+Dream-v0-Instruct-7B,confidence_k4_tnone_bfull_T0.0,open,45,0.0,1.0,1.0,0.0,0.0
+LLaDA2.0-mini,confidence_k16_tnone_b32_T0.0,list,60,1.0,0.0,0.0,0.0,0.9666666666666667
+LLaDA2.0-mini,confidence_k16_tnone_b32_T0.0,open,45,0.0,0.044444444444444446,0.044444444444444446,1.0,0.0
+LLaDA2.0-mini,confidence_k1_tnone_b32_T0.0,list,60,1.0,0.0,0.0,0.0,1.0
+LLaDA2.0-mini,confidence_k1_tnone_b32_T0.0,open,45,0.0,0.0,0.0,1.0,0.0
+LLaDA2.0-mini,confidence_k4_tnone_b32_T0.0,list,60,1.0,0.0,0.0,0.0,0.9666666666666667
+LLaDA2.0-mini,confidence_k4_tnone_b32_T0.0,open,45,0.0,0.044444444444444446,0.044444444444444446,1.0,0.0
+Qwen2.5-7B-Instruct,ar_greedy,list,60,1.0,0.0,0.0,0.0,0.8166666666666667
+Qwen2.5-7B-Instruct,ar_greedy,open,45,0.0,0.0,0.0,1.0,0.0
