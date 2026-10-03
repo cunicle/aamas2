@@ -252,6 +252,32 @@ def swapped_lengths(tokenizer, example):
     return out
 
 
+def onesided_pairs(tokenizer, example):
+    """{(function, param): (i*, j*)} for every sibling group whose values differ in length: j* is
+    the group's call with the longest reference value (the first one on ties), i* the group's
+    first call, in ground-truth order, whose value is shorter than j*'s."""
+    base = oracle_lengths(tokenizer, example)
+    out = {}
+    for (f, p), cis in sibling_groups(example).items():
+        ls = [base[ci, p] for ci in cis]
+        if len(set(ls)) > 1:
+            j = cis[ls.index(max(ls))]
+            out[f, p] = (next(ci for ci in cis if base[ci, p] < base[j, p]), j)
+    return out
+
+
+def onesided_lengths(tokenizer, example):
+    """Oracle lengths with one slot lengthened per sibling group of unequal lengths (experiment
+    C3): slot (i*, p) of `onesided_pairs` gets the length of j*'s value, every other slot keeps
+    its own. Unlike the swap, j*'s slot stays exact, so j* can write its own value; a lengthened
+    slot that takes j*'s value as well gives two calls the same value, which a model avoiding a
+    duplicate would not do. Items without such a group are unchanged."""
+    out = oracle_lengths(tokenizer, example)
+    for (_, p), (i, j) in onesided_pairs(tokenizer, example).items():
+        out[i, p] = out[j, p]
+    return out
+
+
 def lengths_to_list(lengths):
     """{(call, param): n} -> [[call, param, n], ...] for JSON records."""
     return sorted([ci, p, n] for (ci, p), n in lengths.items())
