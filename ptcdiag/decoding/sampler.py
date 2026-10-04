@@ -190,8 +190,16 @@ class Sampler:
         seq_steps = set(cfg.sequentialize_steps)
         step = start_step
 
+        # positions the constraint keeps masked throughout (experiment D, position agents)
+        frozen = getattr(self.constraint, "frozen", None)
+        keep = None
+        if frozen:
+            keep = torch.ones(ge, dtype=torch.bool, device=x.device)
+            keep[torch.tensor(sorted(frozen), dtype=torch.long, device=x.device)] = False
         while True:
             masked = (x[0, gs:ge] == a.mask_id).nonzero().flatten() + gs
+            if keep is not None:
+                masked = masked[keep[masked]]
             if len(masked) == 0:
                 break
             bs, be = _block_bounds(a, cfg, gs, ge, int(masked[0]))

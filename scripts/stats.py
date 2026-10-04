@@ -66,6 +66,7 @@ def main():
     ap.add_argument("--choose", default="data/choose.jsonl")
     ap.add_argument("--c-results", default=None, help="directory of the experiment C records "
                     "(default: --results)")
+    ap.add_argument("--bfcl-dir", default="data/bfcl")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
     res, ares = args.results, args.agents_results or args.results
@@ -167,6 +168,15 @@ def main():
         add("4C", "Dream", "acc", "canvas k=16", k16, "team same time, rule", teams("dream", "agents_c1", "sim-rule"))
         add("4C", "Dream", "acc", "canvas k=1", k1, "team turns, numbered", teams("dream", "agents_c1", "turn-label"))
         add("4C", "Dream", "acc", "canvas k=1", k1, "team turns, anonymous", teams("dream", "agents_c1", "turn-anon"))
+        # the team-symmetric requests with one tool: the whole skeleton is n copies of one call's
+        # skeleton, so a slot knows no more than a numbered agent (its index among n calls)
+        from ptcdiag.data import load_examples
+        exs = {e.id: e for e in load_examples("bfcl:parallel,parallel_multiple", args.bfcl_dir)}
+        one = {i for i in ids if len({f for f, _ in exs[i].gold_calls}) == 1}
+        sub = lambda m: {i: v for i, v in m.items() if i in one}  # noqa: E731
+        add("4C", "Dream", "acc", "canvas k=16, one tool", sub(k16), "team same time, numbered, one tool", sub(c1))
+        add("4C", "Dream", "acc", "canvas k=16, one tool", sub(k16), "team same time, rule, one tool",
+            sub(teams("dream", "agents_c1", "sim-rule")))
         ar = {}
         if os.path.exists(f"{res}/qwen/bfcl_skeleton.jsonl"):
             with open(f"{res}/qwen/bfcl_skeleton.jsonl") as f:

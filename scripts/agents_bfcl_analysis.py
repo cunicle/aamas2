@@ -45,7 +45,7 @@ from collections import defaultdict
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from ptcdiag.data import load_examples, load_jsonl  # noqa: E402
-from ptcdiag.data.agents import PROTOCOLS, RULE_PROTOCOLS  # noqa: E402
+from ptcdiag.data.agents import POSITION_PROTOCOLS, PROTOCOLS, RULE_PROTOCOLS  # noqa: E402
 from ptcdiag.data.agents_bfcl import swap_changes, team_symmetric  # noqa: E402
 from ptcdiag.decoding.constraints import (lengths_from_list, oracle_lengths, sibling_groups,  # noqa: E402
                                           swapped_lengths)
@@ -65,7 +65,7 @@ SLOT_KINDS = ["own", "sibling_fit", "sibling_other", "other"]
 # LLaDA2.0 k=1, Qwen) on the 104 requests is one of these.
 ORDER_NOISE = {"parallel_14", "parallel_152", "parallel_168", "parallel_multiple_111",
                "parallel_46", "parallel_74", "parallel_137", "parallel_178", "parallel_180"}
-ORDER = [*PROTOCOLS, *RULE_PROTOCOLS]
+ORDER = [*PROTOCOLS, *RULE_PROTOCOLS, *POSITION_PROTOCOLS]
 DREAM, QWEN = "Dream-org/Dream-v0-Instruct-7B", "Qwen/Qwen2.5-7B-Instruct"
 # one-canvas comparison rows: (label, file under --canvas-root, cfg_tag, length mode)
 CANVAS = {

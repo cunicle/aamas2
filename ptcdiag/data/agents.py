@@ -46,6 +46,11 @@ SIM_RULE = ("You are assistant {i} of {n} answering this request at the same tim
             "By convention, assistant {i} makes the {ordinal} of the calls, in the order in which the "
             "request mentions them. Make your one call.")
 RULE_PROTOCOLS = {"sim-rule": (False, True)}
+# Experiment D: position agents. Agent i is a separate generation that gets the request with no
+# note and the skeleton of the whole turn, and fills call i only: the other calls' values stay
+# masked (dLLM) or are placeholders (AR), so it sees where its call stands in the turn but none of
+# the other agents' choices. Its role is its position on the shared skeleton.
+POSITION_PROTOCOLS = {"pos-anon": (False, False)}
 ORDINALS = ("first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth")
 
 
@@ -58,6 +63,8 @@ def ordinal(i):
 
 def protocol_flags(protocol):
     """(observe, label) of an experiment B protocol or of sim-rule."""
+    if protocol in POSITION_PROTOCOLS:
+        return POSITION_PROTOCOLS[protocol]
     return PROTOCOLS[protocol] if protocol in PROTOCOLS else RULE_PROTOCOLS[protocol]
 
 
@@ -97,3 +104,14 @@ def agent_example(ex, i, n, protocol, previous=()):
         ground_truth=ex.ground_truth[:1],
         meta={**ex.meta, "agent": i, "protocol": protocol},
     )
+
+
+def position_agent_example(ex, i, n):
+    """Agent i (1-based) of an n-agent team of position agents (experiment D): the whole request
+    and all its calls, unchanged, so that its skeleton is the whole turn's; the decoder fills call
+    i - 1 only (`active_call`)."""
+    if not 1 <= i <= n:
+        raise ValueError(f"agent {i} of {n}")
+    return Example(id=f"{ex.id}_a{i}", category=ex.category, messages=[dict(m) for m in ex.messages],
+                   functions=ex.functions, ground_truth=ex.ground_truth,
+                   meta={**ex.meta, "agent": i, "protocol": "pos-anon"})

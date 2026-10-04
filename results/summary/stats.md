@@ -34,6 +34,8 @@
 | 4C | Dream | acc | canvas k=16 | team same time, rule | 104 | 81.7 | 48.1 | 33.7 | [24.0, 43.3] | 36 / 1 | <1e-4 |
 | 4C | Dream | acc | canvas k=1 | team turns, numbered | 104 | 88.5 | 85.6 | 2.9 | [-1.0, 7.7] | 4 / 1 | 0.3750 |
 | 4C | Dream | acc | canvas k=1 | team turns, anonymous | 104 | 88.5 | 84.6 | 3.8 | [1.0, 7.7] | 4 / 0 | 0.1250 |
+| 4C | Dream | acc | canvas k=16, one tool | team same time, numbered, one tool | 86 | 81.4 | 32.6 | 48.8 | [38.4, 59.3] | 43 / 1 | <1e-4 |
+| 4C | Dream | acc | canvas k=16, one tool | team same time, rule, one tool | 86 | 81.4 | 55.8 | 25.6 | [16.3, 34.9] | 23 / 1 | <1e-4 |
 | 4C | Qwen | acc | canvas (AR) | team turns, anonymous | 104 | 91.3 | 88.5 | 2.9 | [0.0, 6.7] | 3 / 0 | 0.2500 |
 | 4C | Qwen | acc | canvas (AR) | team turns, numbered | 104 | 91.3 | 88.5 | 2.9 | [0.0, 6.7] | 3 / 0 | 0.2500 |
 | 4C | Qwen | acc | team same time, rule | team same time, numbered | 104 | 34.6 | 0.0 | 34.6 | [26.0, 44.2] | 36 / 0 | <1e-4 |

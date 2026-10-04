@@ -12,6 +12,9 @@ Experiment C3 (the closer-in-slot interface variant; one-sided lengthening):
   python scripts/run_dllm.py --model Dream-org/Dream-v0-Instruct-7B --data bfcl:parallel,parallel_multiple \
       --mode skeleton --k 1 --closer-in-slot --surplus 1 --out results/dream/bfcl_closer.jsonl
   python scripts/run_dllm.py ... --mode skeleton --k 1 --length-mode onesided --out results/dream/bfcl_onesided.jsonl
+
+Experiment D (format-tolerant slots: filler and format tokens allowed, values normalized):
+  python scripts/run_dllm.py ... --mode skeleton --k 1 --tolerant --surplus 1 --out results/dream/bfcl_tolerant.jsonl
 """
 
 import argparse
@@ -65,6 +68,9 @@ def main():
     ap.add_argument("--closer-in-slot", action="store_true",
                     help="skeleton variant: the model writes each value's closer in its slot (one more "
                          "position per slot), the rest of the slot is filled with spaces")
+    ap.add_argument("--tolerant", action="store_true",
+                    help="skeleton slots also accept filler and format tokens; values are normalized "
+                         "when decoded (experiment D)")
     ap.add_argument("--out", required=True)
     ap.add_argument("--no-trace", action="store_true")
     ap.add_argument("--device", default="cuda")
@@ -94,13 +100,15 @@ def main():
                 r = json.loads(line)
                 done.add((r["id"], r["mode"], r["cfg_tag"], r["cfg"]["seed"],
                           r.get("surplus", 0), r.get("end_bias", 0.0), r.get("length_mode", "oracle"),
-                          r.get("closer_in_slot", False)))
+                          r.get("closer_in_slot", False), r.get("tolerant", False)))
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
 
     adapter = load_adapter(args.model, device=args.device)
     per_ex, length_mode = {}, "oracle"
-    if args.closer_in_slot and args.mode != "skeleton":
-        raise SystemExit("--closer-in-slot needs --mode skeleton")
+    if (args.closer_in_slot or args.tolerant) and args.mode != "skeleton":
+        raise SystemExit("--closer-in-slot / --tolerant need --mode skeleton")
+    if args.closer_in_slot and args.tolerant:
+        raise SystemExit("--closer-in-slot and --tolerant are separate experiments")
     if args.mode == "skeleton" and args.lengths in ("swap", "onesided"):
         length_mode = args.lengths
         lengths_of = swapped_lengths if args.lengths == "swap" else onesided_lengths
@@ -126,19 +134,22 @@ def main():
             for ex in examples:
                 key = (ex.id, args.mode, cfg.tag(), cfg.seed,
                        args.surplus if args.mode == "skeleton" else 0,
-                       args.end_bias if args.mode == "skeleton" else 0.0, length_mode, args.closer_in_slot)
+                       args.end_bias if args.mode == "skeleton" else 0.0, length_mode, args.closer_in_slot,
+                       args.tolerant)
                 if key in done:
                     continue
                 try:
                     rec = run_example(adapter, ex, cfg, args.mode, keep_trace=not args.no_trace,
                                       surplus=args.surplus, end_bias=args.end_bias,
                                       lengths=per_ex.get(ex.id), length_mode=length_mode,
-                                      closer_in_slot=args.closer_in_slot)
+                                      closer_in_slot=args.closer_in_slot, tolerant=args.tolerant)
                 except Exception as e:  # keep the sweep going; failures are recorded
                     rec = {"id": ex.id, "category": ex.category, "mode": args.mode,
                            "cfg": cfg.to_dict(), "cfg_tag": cfg.tag(), "error": repr(e)}
                     if args.closer_in_slot:
                         rec["closer_in_slot"] = True
+                    if args.tolerant:
+                        rec["tolerant"] = True
                 rec["model_id"] = args.model
                 f.write(json.dumps(rec, ensure_ascii=False) + "\n")
                 f.flush()

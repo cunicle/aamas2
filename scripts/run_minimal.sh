@@ -442,6 +442,37 @@ EOF
     $PY_DREAM scripts/co_commit.py $REL/results/dream/bfcl_skel_k.jsonl $REL/results/dream/bfcl_skel_tau.jsonl \
         $REL/results/llada2/bfcl_skel_k.jsonl | tee results/summary/co_commit.md
     ;;
+  # Experiment D (EXP_D_PROMPT.md). A: format-tolerant slots, whose values may end in filler or
+  # format tokens that are normalized when decoded (Dream, one canvas); is the cost of surplus
+  # masks the mask count or the type mask? B: position agents, which see the whole turn's skeleton
+  # and fill one call each; is a position on a shared skeleton a role without seeing the others?
+  tolerant_dream)
+    D=results/dream
+    for s in 0 1 2 8; do
+      $PY_DREAM scripts/run_dllm.py --model $DREAM --data $BFCL --mode skeleton --k 1 --tolerant \
+          --surplus $s --out $D/bfcl_tolerant.jsonl
+    done
+    for s in 0 1; do
+      $PY_DREAM scripts/run_dllm.py --model $DREAM --data $BFCL --mode skeleton --k 16 --tolerant \
+          --surplus $s --out $D/bfcl_tolerant.jsonl
+    done
+    $PY_DREAM scripts/run_dllm.py --model $DREAM --data $BFCL --mode skeleton --k 1 --tolerant \
+        --length-mode swap --out $D/bfcl_tolerant_swap.jsonl
+    $PY_DREAM scripts/run_dllm.py --model $DREAM --data $BFCL --mode skeleton --k 1 --tolerant \
+        --length-mode onesided --out $D/bfcl_tolerant_onesided.jsonl
+    # the model's own length estimates (results/dream/length_estimate.jsonl of the 10-03 runs)
+    $PY_DREAM scripts/run_dllm.py --model $DREAM --data $BFCL --mode skeleton --k 1,16 --tolerant \
+        --length-mode ${EST:-results/dream/length_estimate.jsonl} --out $D/bfcl_tolerant_estimate.jsonl
+    ;;
+  position_agents)
+    for t in qwen dream; do
+      if [ $t = qwen ]; then m=$QWEN; b=ar; else m=$DREAM; b=dllm; fi
+      $PY_DREAM scripts/run_agents_bfcl.py --model $m --backend $b --subset sym --protocols pos-anon \
+          --out results/$t/agents_d.jsonl
+      $PY_DREAM scripts/run_agents.py --model $m --backend $b --data probe:data/choose.jsonl \
+          --protocols pos-anon --out results/$t/agents_pos.jsonl
+    done
+    ;;
   *)
     sed -n '2,20p' "$0"; exit 1 ;;
 esac

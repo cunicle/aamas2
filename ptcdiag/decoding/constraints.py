@@ -43,6 +43,18 @@ out (`closer_in_slot_skeleton`), every slot has one more position for the model 
 and the positions after it get spaces, so ending early reads as plain JSON. Decoding keeps the
 closer. The default (False) path is unchanged.
 
+Format-tolerant variant (`tolerant=True`, experiment D): with surplus masks the model's own
+next token is often a filler or format token that the slot's type excludes (an escaped newline
+in a string, a decimal point or a type suffix after an integer), so the constrained decoder
+writes content instead. A tolerant slot also accepts every token that cannot break the JSON
+around it (`tolerant_classes`), and its value is normalized when decoded (`normalize_value`:
+a string loses trailing whitespace, a number or boolean keeps its longest well-formed prefix).
+
+Position agents (`active_call=i`, experiment D): one call of the full skeleton is decoded; the
+other calls' slots stay masked throughout (`frozen`, honoured by the sampler) and decode to
+placeholders, so an agent sees the whole turn's layout and its own place in it, but none of the
+other agents' values.
+
 A grammar constraint for free-form generation (e.g. wrapping the completability check
 of eth-sri/constrained-diffusion) should implement the same interface; see README.
 """
@@ -114,6 +126,56 @@ def token_classes(tokenizer):
             classes[c].append(i)
     _CLASS_CACHE[key] = classes
     return classes
+
+
+_TOLERANT_CACHE = {}
+_SCALAR_BREAKERS = set('",{}[]')
+
+
+def tolerant_classes(tokenizer):
+    """{"string" | "scalar": sorted allowed token ids} of a format-tolerant slot (experiment D),
+    besides its closers and padding: for strings every non-special token without a quote or a
+    line break (escapes such as '\\n' are allowed), for numbers and booleans every one without a
+    quote, comma, bracket, brace or line break. Cached per tokenizer."""
+    key = (tokenizer.name_or_path, len(tokenizer))
+    if key in _TOLERANT_CACHE:
+        return _TOLERANT_CACHE[key]
+    texts = token_texts(tokenizer)
+    special = set(tokenizer.all_special_ids)
+    special |= {i for i, t in enumerate(texts) if t.startswith("<|") and t.endswith("|>")}
+    out = {"string": [], "scalar": []}
+    for i, t in enumerate(texts):
+        if i in special or not t or "\n" in t or "\r" in t:
+            continue
+        if '"' not in t:
+            out["string"].append(i)
+        if not _SCALAR_BREAKERS & set(t):
+            out["scalar"].append(i)
+    _TOLERANT_CACHE[key] = out
+    return out
+
+
+_PREFIX = {"integer": re.compile(r"\s*(-?\d+)"),
+           "float": re.compile(r"\s*([-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)"),
+           "boolean": re.compile(r"\s*(true|false)")}
+
+
+def normalize_value(raw, bfcl_type):
+    """The slot text a format-tolerant slot's value decodes to (experiment D). A string is
+    unescaped, loses trailing whitespace (an escaped newline included) and is escaped again; a
+    number or boolean keeps its longest well-formed prefix (' 500000.0' -> ' 500000' for an
+    integer, ' 2.5f' -> ' 2.5'), or stays as it is when it has none (it then fails to parse)."""
+    if bfcl_type in STRING_TYPES:
+        try:
+            v = json.loads('"' + raw + '"')
+        except ValueError:
+            v = re.sub(r"\\.?", " ", raw)
+        return json.dumps(v.rstrip(), ensure_ascii=False)[1:-1]
+    m = _PREFIX[bfcl_type].match(raw) if bfcl_type in _PREFIX else None
+    return " " + m.group(1) if m else raw
+
+
+PLACEHOLDER = {True: "...", False: " null"}  # a frozen slot of another call, string or not
 
 
 def slot_class(bfcl_type):
@@ -408,23 +470,35 @@ class SkeletonConstraint(Constraint):
     early_stop_ok = False  # pad tokens inside slots must not end generation
 
     def __init__(self, adapter, example, slot_lengths=None, surplus=0, end_bias=0.0, lengths=None,
-                 closer_in_slot=False):
+                 closer_in_slot=False, tolerant=False, active_call=None):
         """end_bias: added to the logits of padding and closing tokens in every slot, a
         decoding-time counterweight to the length prior (0 = the plain constraint).
         lengths: per-slot lengths instead of the oracle ones (see `build_skeleton`).
         closer_in_slot: the interface variant of `closer_in_slot_skeleton`. The slots accept the
         same tokens, but a value's closer stays in the decoded text, and the masked positions of
         a slot after its closer get the space token instead of padding (the closer is not a
-        space: writing spaces does not end a value)."""
+        space: writing spaces does not end a value).
+        tolerant: format-tolerant slots (experiment D): string, number and boolean slots also
+        accept the tokens of `tolerant_classes`, and their values are normalized when decoded.
+        active_call: decode only this call (0-based); the other calls' slots stay masked and
+        decode to placeholders (experiment D, position agents)."""
+        if closer_in_slot and (tolerant or active_call is not None):
+            raise ValueError("the closer-in-slot variant is not combined with experiment D")
         self.a = adapter
         self.end_bias = end_bias
         self.closer_in_slot = closer_in_slot
+        self.tolerant = tolerant
+        self.active_call = active_call
+        self.frozen = None
         if closer_in_slot:
             (self.space_id,) = adapter.tokenizer(" ", add_special_tokens=False)["input_ids"]
         self.gen_ids, self.slots = build_skeleton(adapter.tokenizer, example, adapter.mask_id,
                                                   slot_lengths, surplus, lengths, closer_in_slot)
         self.classes = token_classes(adapter.tokenizer)
+        self.tol = tolerant_classes(adapter.tokenizer) if tolerant else None
         self.texts = token_texts(adapter.tokenizer)
+        if active_call is not None and active_call not in {s.call for s in self.slots}:
+            raise ValueError(f"call {active_call} has no slots")
         self.P = None
         self._masks = {}
         self._pos_class = {}
@@ -436,6 +510,8 @@ class SkeletonConstraint(Constraint):
         if len(self.gen_ids) > G:
             raise ValueError(f"skeleton needs {len(self.gen_ids)} tokens > gen_length {G}")
         self.P = P
+        if self.active_call is not None:  # the other calls' slots: never candidates (sampler)
+            self.frozen = {P + g for s in self.slots if s.call != self.active_call for g in s.positions}
         return self.gen_ids + [self.a.pad_id] * (G - len(self.gen_ids))
 
     def _end_mask(self, cls, V, device):
@@ -453,7 +529,10 @@ class SkeletonConstraint(Constraint):
         key = (cls, V, str(device))
         if key not in self._masks:
             m = self._end_mask(cls, V, device).clone()  # a value may end anywhere
-            ids = torch.tensor([i for i in self.classes[cls] if i < V], dtype=torch.long, device=device)
+            pool = self.classes[cls]
+            if self.tol is not None and cls != "generic":
+                pool = self.tol["string" if cls == "string" else "scalar"]
+            ids = torch.tensor([i for i in pool if i < V], dtype=torch.long, device=device)
             m[ids] = True
             self._masks[key] = m
         return self._masks[key]
@@ -513,9 +592,23 @@ class SkeletonConstraint(Constraint):
         if self.closer_in_slot:
             return self._cuts_keep_closer(gen)
         out = {}
+        tok = self.a.tokenizer
         for s in self.slots:
+            if self.active_call is not None and s.call != self.active_call:
+                out[s.positions[0]] = tok(PLACEHOLDER[s.type in STRING_TYPES], add_special_tokens=False)["input_ids"]
+                for g in s.positions[1:]:
+                    out[g] = []
+                continue
             texts = ["" if t is None else t for t in self._slot_texts(gen, s)]
             end = value_end(texts, slot_closers(s.type), slot_class(s.type) == "generic")
+            if self.tolerant and slot_class(s.type) != "generic":
+                upto = s.positions[:end[0]] if end is not None else s.positions
+                ids = [gen[g] for g in upto if gen[g] not in self.a.special_ids and gen[g] != self.a.mask_id]
+                norm = normalize_value(tok.decode(ids), s.type)
+                out[s.positions[0]] = tok(norm, add_special_tokens=False)["input_ids"] if norm else []
+                for g in s.positions[1:]:
+                    out[g] = []
+                continue
             if end is None:
                 continue
             i, off = end

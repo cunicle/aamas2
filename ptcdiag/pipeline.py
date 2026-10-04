@@ -12,13 +12,14 @@ MODES = ("free", "skeleton")
 
 
 def make_constraint(adapter, example, mode, slot_lengths=None, surplus=0, end_bias=0.0, lengths=None,
-                    closer_in_slot=False):
-    if closer_in_slot and mode != "skeleton":
-        raise ValueError("closer_in_slot is a variant of the skeleton mode")
+                    closer_in_slot=False, tolerant=False, active_call=None):
+    if (closer_in_slot or tolerant or active_call is not None) and mode != "skeleton":
+        raise ValueError("closer_in_slot / tolerant / active_call are variants of the skeleton mode")
     if mode == "free":
         return NoConstraint()
     if mode == "skeleton":
-        return SkeletonConstraint(adapter, example, slot_lengths, surplus, end_bias, lengths, closer_in_slot)
+        return SkeletonConstraint(adapter, example, slot_lengths, surplus, end_bias, lengths, closer_in_slot,
+                                  tolerant, active_call)
     raise ValueError(mode)
 
 
@@ -27,7 +28,8 @@ def record_constraint(adapter, example, record):
     lengths = lengths_from_list(record["lengths"]) if record.get("lengths") else None
     return make_constraint(adapter, example, record["mode"], record.get("slot_lengths"),
                            record.get("surplus", 0), record.get("end_bias", 0.0), lengths,
-                           record.get("closer_in_slot", False))
+                           record.get("closer_in_slot", False), record.get("tolerant", False),
+                           record.get("active_call"))
 
 
 def decode_region(adapter, canvas, trace, mode, constraint=None):
@@ -62,15 +64,17 @@ def decode_region(adapter, canvas, trace, mode, constraint=None):
 
 
 def run_example(adapter, example, cfg, mode="free", slot_lengths=None, keep_trace=True,
-                surplus=0, end_bias=0.0, lengths=None, length_mode="oracle", closer_in_slot=False):
+                surplus=0, end_bias=0.0, lengths=None, length_mode="oracle", closer_in_slot=False,
+                tolerant=False, active_call=None):
     """lengths / length_mode: per-slot lengths replacing the oracle ones, and the name of
     where they came from ("swap", an estimate file); recorded with the skeleton runs.
     closer_in_slot: the skeleton variant in which the model writes each value's closer
-    (ptcdiag/decoding/constraints.py); recorded only when set."""
+    (ptcdiag/decoding/constraints.py); recorded only when set. tolerant / active_call: the
+    format-tolerant slots and the position agents of experiment D; recorded only when set."""
     prompt = render_prompt(adapter.tokenizer, example)
     prompt_ids = adapter.encode(prompt)
     constraint = make_constraint(adapter, example, mode, slot_lengths, surplus, end_bias, lengths,
-                                 closer_in_slot)
+                                 closer_in_slot, tolerant, active_call)
     if mode == "skeleton":
         # the canvas only needs to hold the skeleton; the recorded cfg keeps the real length
         cfg = dataclasses.replace(cfg, gen_length=len(constraint.gen_ids))
@@ -106,6 +110,10 @@ def run_example(adapter, example, cfg, mode="free", slot_lengths=None, keep_trac
             rec["lengths"] = lengths_to_list(lengths)
         if closer_in_slot:
             rec["closer_in_slot"] = True
+        if tolerant:
+            rec["tolerant"] = True
+        if active_call is not None:
+            rec["active_call"] = active_call
     if keep_trace:
         rec["trace"] = trace.to_dict()
     return rec

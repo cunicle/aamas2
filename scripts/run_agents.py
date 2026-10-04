@@ -15,6 +15,10 @@ the agents before them; simultaneous agents see none. One JSONL record per team,
 every agent's user text, output and city. With --temperature > 0, agent i of the team
 run with seed s samples with seed 1000 s + i. Re-running with the same --out skips the teams
 that are already there.
+
+Experiment D adds `pos-anon`, position agents: agent i gets the request with no note and the
+skeleton of all n calls, and fills call i only (Dream leaves the other city slots masked, Qwen
+writes placeholders into them); its city is that of the i-th call of its decoded array.
 """
 
 import argparse
@@ -26,7 +30,8 @@ import time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from ptcdiag.data import load_examples  # noqa: E402
-from ptcdiag.data.agents import PROTOCOLS, RULE_PROTOCOLS, agent_example, protocol_flags  # noqa: E402
+from ptcdiag.data.agents import (POSITION_PROTOCOLS, PROTOCOLS, RULE_PROTOCOLS, agent_example,  # noqa: E402
+                                 position_agent_example, protocol_flags)
 
 
 def as_list(s, typ):
@@ -46,22 +51,32 @@ def run_team(ex, protocol, decode):
     or its raw text when the output does not parse into exactly one call."""
     n = ex.meta["n"]
     observe, _ = protocol_flags(protocol)
+    pos = protocol in POSITION_PROTOCOLS
     previous, agents = [], []
     for i in range(1, n + 1):
-        aex = agent_example(ex, i, n, protocol, previous if observe else ())
-        text, syntax_ok, calls = decode(aex)
-        one = syntax_ok and len(calls) == 1
-        city = calls[0]["arguments"].get("city") if one else None
+        if pos:  # the skeleton of all n calls; the agent's call is the i-th of its output
+            aex = position_agent_example(ex, i, n)
+            text, syntax_ok, calls = decode(aex, active_call=i - 1)
+            one = syntax_ok and len(calls) == n
+            call = calls[i - 1] if one else None
+        else:
+            aex = agent_example(ex, i, n, protocol, previous if observe else ())
+            text, syntax_ok, calls = decode(aex)
+            one = syntax_ok and len(calls) == 1
+            call = calls[0] if one else None
+        city = call["arguments"].get("city") if one else None
         agents.append({"i": i, "user_text": aex.messages[0]["content"], "text": text,
                        "syntax_ok": syntax_ok, "city": city})
-        previous.append(calls[0] if one else text)
+        previous.append(call if one else text)
     return agents
 
 
-def placeholder_decode(aex):
-    """--dry-run: agent i 'calls' a placeholder city, so turn-taking texts show the format."""
-    call = {"name": "get_weather", "arguments": {"city": f"<city of agent {aex.meta['agent']}>"}}
-    return json.dumps([call]), True, [call]
+def placeholder_decode(aex, active_call=None):
+    """--dry-run: agent i 'calls' a placeholder city, so turn-taking texts show the format (a
+    position agent: every call of the turn)."""
+    calls = [{"name": "get_weather", "arguments": {"city": f"<city of agent {aex.meta['agent']}>"}}
+             for _ in aex.gold_calls]
+    return json.dumps(calls), True, calls
 
 
 def load_model(backend, model_id, device):
@@ -80,9 +95,9 @@ def make_decoder(model, backend, temperature, seed):
     if backend == "ar":
         from ptcdiag.decoding.ar import run_example_ar
 
-        def decode(aex):
+        def decode(aex, active_call=None):
             r = run_example_ar(model, aex, mode="skeleton", temperature=temperature,
-                               seed=agent_seed(seed, aex.meta["agent"]))
+                               seed=agent_seed(seed, aex.meta["agent"]), active_call=active_call)
             return r["text"], r["syntax_ok"], r["calls"]
 
         return decode, f"ar_T{temperature}" if temperature else "ar_greedy"
@@ -94,9 +109,9 @@ def make_decoder(model, backend, temperature, seed):
 
     cfg = DecodeConfig(block_length=None, k=1, order="confidence", temperature=temperature, seed=seed)
 
-    def decode(aex):
+    def decode(aex, active_call=None):
         acfg = dataclasses.replace(cfg, seed=agent_seed(seed, aex.meta["agent"]))
-        r = run_example(model, aex, acfg, mode="skeleton", keep_trace=False)
+        r = run_example(model, aex, acfg, mode="skeleton", keep_trace=False, active_call=active_call)
         return r["text"], r["syntax_ok"], r["calls"]
 
     return decode, cfg.tag()
@@ -108,7 +123,7 @@ def main():
     ap.add_argument("--backend", choices=["dllm", "ar"])
     ap.add_argument("--data", default="probe:data/choose.jsonl")
     ap.add_argument("--protocols", default=",".join(PROTOCOLS),
-                    help="comma list of experiment B's protocols, or sim-rule (experiment C)")
+                    help="comma list of experiment B's protocols, sim-rule (experiment C) or pos-anon (D)")
     ap.add_argument("--variant", choices=["list", "open"], default=None,
                     help="only the items of this choose-N variant (default: all)")
     ap.add_argument("--temperature", type=float, default=0.0)
@@ -125,9 +140,10 @@ def main():
     if args.limit:
         examples = examples[: args.limit]
     protocols = args.protocols.split(",")
+    known = [*PROTOCOLS, *RULE_PROTOCOLS, *POSITION_PROTOCOLS]
     for p in protocols:
-        if p not in PROTOCOLS and p not in RULE_PROTOCOLS:
-            raise SystemExit(f"unknown protocol {p!r} (one of {', '.join([*PROTOCOLS, *RULE_PROTOCOLS])})")
+        if p not in known:
+            raise SystemExit(f"unknown protocol {p!r} (one of {', '.join(known)})")
     seeds = as_list(args.seeds, int)
 
     if args.dry_run:

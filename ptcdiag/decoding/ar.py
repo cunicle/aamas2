@@ -12,8 +12,8 @@ import time
 
 import torch
 
-from ptcdiag.decoding.constraints import (build_skeleton, slot_class, slot_closers, token_classes,
-                                          token_texts, value_end)
+from ptcdiag.decoding.constraints import (PLACEHOLDER, STRING_TYPES, build_skeleton, slot_class, slot_closers,
+                                          token_classes, token_texts, value_end)
 from ptcdiag.eval.taxonomy import diagnose
 from ptcdiag.prompting import parse_tool_calls, render_prompt
 
@@ -88,9 +88,11 @@ def _pick(logits, allowed, temperature, gen):
 
 
 @torch.no_grad()
-def generate_skeleton(ar, prompt_ids, example, slot_lengths=None, surplus=0, temperature=0.0, seed=0):
+def generate_skeleton(ar, prompt_ids, example, slot_lengths=None, surplus=0, temperature=0.0, seed=0,
+                      active_call=None):
     """temperature > 0 samples every slot token (seeded CPU generator, as the dLLM sampler);
-    the default is greedy."""
+    the default is greedy. active_call: write only this call's values (0-based); the other calls'
+    slots are teacher-forced placeholders (experiment D, position agents)."""
     gen = torch.Generator(device="cpu").manual_seed(seed) if temperature else None
     tok = ar.tokenizer
     MASK = -1
@@ -112,6 +114,13 @@ def generate_skeleton(ar, prompt_ids, example, slot_lengths=None, surplus=0, tem
             i = j
             continue
         s = slot_at[i]
+        if active_call is not None and s.call != active_call:
+            pids = tok(PLACEHOLDER[s.type in STRING_TYPES], add_special_tokens=False)["input_ids"]
+            out.extend(pids)
+            logits, past = ar.step(torch.tensor([pids], device=ar.device), past)
+            nfe += 1
+            i = s.positions[-1] + 1
+            continue
         closers = slot_closers(s.type)
         nested = slot_class(s.type) == "generic"
         closer = _closer_mask(tok, V, list(closers), logits.device)
@@ -138,7 +147,7 @@ def generate_skeleton(ar, prompt_ids, example, slot_lengths=None, surplus=0, tem
 
 
 def run_example_ar(ar, example, mode="free", slot_lengths=None, max_new_tokens=256, surplus=0,
-                   temperature=0.0, seed=0):
+                   temperature=0.0, seed=0, active_call=None):
     """temperature / seed: sampling in the skeleton mode (default greedy, the only option
     for the free mode)."""
     if temperature and mode != "skeleton":
@@ -149,7 +158,8 @@ def run_example_ar(ar, example, mode="free", slot_lengths=None, max_new_tokens=2
     if mode == "free":
         text, nfe = generate_free(ar, prompt_ids, max_new_tokens)
     else:
-        text, nfe = generate_skeleton(ar, prompt_ids, example, slot_lengths, surplus, temperature, seed)
+        text, nfe = generate_skeleton(ar, prompt_ids, example, slot_lengths, surplus, temperature, seed,
+                                      active_call)
     parsed = parse_tool_calls(text)
     rec = {
         "id": example.id, "category": example.category, "meta": example.meta,
@@ -160,6 +170,8 @@ def run_example_ar(ar, example, mode="free", slot_lengths=None, max_new_tokens=2
     }
     if mode == "skeleton":
         rec["surplus"] = surplus
+        if active_call is not None:
+            rec["active_call"] = active_call
     if temperature:  # greedy records stay as they were
         rec["cfg"] = {"ar": True, "temperature": temperature, "seed": seed}
         rec["cfg_tag"] = f"ar_T{temperature}"

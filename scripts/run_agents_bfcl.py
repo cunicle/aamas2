@@ -20,6 +20,11 @@ a one-canvas output; a team in which some agent did not make exactly one call is
 (not correct, labels ["syntax_error"]). One JSONL record per team, with every agent's user
 text, slot lengths and output. Re-running with the same --out skips the (id, protocol,
 length mode) already there.
+
+Experiment D adds `pos-anon`, position agents (ptcdiag/data/agents.py): agent i gets the request
+with no note and the skeleton of the whole turn (oracle lengths), and fills call i only; Dream
+leaves the other calls' slots masked, Qwen writes placeholders into them. The agent's call is
+the i-th of its decoded array.
 """
 
 import argparse
@@ -32,7 +37,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.dirname(__file__))
 
 from ptcdiag.data import load_examples  # noqa: E402
-from ptcdiag.data.agents import PROTOCOLS, RULE_PROTOCOLS, protocol_flags  # noqa: E402
+from ptcdiag.data.agents import (POSITION_PROTOCOLS, PROTOCOLS, RULE_PROTOCOLS,  # noqa: E402
+                                 position_agent_example, protocol_flags)
 from ptcdiag.data.agents_bfcl import (agent_lengths, bfcl_agent_example, swap_changes,  # noqa: E402
                                       team_symmetric)
 from ptcdiag.decoding.constraints import lengths_to_list, oracle_lengths  # noqa: E402
@@ -52,16 +58,24 @@ def run_team(ex, protocol, decode, lengths_of):
     exactly one call."""
     n = len(ex.ground_truth)
     observe, _ = protocol_flags(protocol)
+    pos = protocol in POSITION_PROTOCOLS
     previous, agents = [], []
     for i in range(1, n + 1):
-        aex = bfcl_agent_example(ex, i, n, protocol, previous if observe else ())
-        lengths, used = lengths_of(i, aex)
-        text, syntax_ok, calls = decode(aex, lengths)
-        one = syntax_ok and len(calls) == 1
+        if pos:  # the whole turn's skeleton; the agent's call is the i-th of its output
+            aex = position_agent_example(ex, i, n)
+            lengths, used = lengths_of(i, aex)
+            text, syntax_ok, calls = decode(aex, lengths, active_call=i - 1)
+            one = syntax_ok and len(calls) == n
+            call = calls[i - 1] if one else None
+        else:
+            aex = bfcl_agent_example(ex, i, n, protocol, previous if observe else ())
+            lengths, used = lengths_of(i, aex)
+            text, syntax_ok, calls = decode(aex, lengths)
+            one = syntax_ok and len(calls) == 1
+            call = calls[0] if one else None
         agents.append({"i": i, "user_text": aex.messages[0]["content"], "text": text,
-                       "syntax_ok": syntax_ok, "call": calls[0] if one else None,
-                       "lengths": lengths_to_list(used)})
-        previous.append(calls[0] if one else text)
+                       "syntax_ok": syntax_ok, "call": call, "lengths": lengths_to_list(used)})
+        previous.append(call if one else text)
     return agents
 
 
@@ -90,13 +104,13 @@ def lengths_fn(tokenizer, ex, mode):
     return lengths_of
 
 
-def placeholder_decode(aex, lengths):
+def placeholder_decode(aex, lengths, active_call=None):
     """--dry-run: agent i 'calls' its function with placeholder values, so turn-taking texts show
-    the format."""
-    ((fname, params),) = aex.gold_calls
-    call = {"name": fname, "arguments": {p: f"<{p} of agent {aex.meta['agent']}>" for p, acc in params.items()
-                                         if any(a != "" for a in acc)}}
-    return json.dumps([call]), True, [call]
+    the format (a position agent: every call of the turn)."""
+    calls = [{"name": fname, "arguments": {p: f"<{p} of agent {aex.meta['agent']}>" for p, acc in params.items()
+                                           if any(a != "" for a in acc)}}
+             for fname, params in aex.gold_calls]
+    return json.dumps(calls), True, calls
 
 
 def make_decoder(model, backend):
@@ -104,10 +118,10 @@ def make_decoder(model, backend):
     if backend == "ar":
         from ptcdiag.decoding.ar import run_example_ar
 
-        def decode(aex, lengths):
+        def decode(aex, lengths, active_call=None):
             if lengths is not None:
                 raise ValueError("AR skeleton decoding takes no per-slot lengths")
-            r = run_example_ar(model, aex, mode="skeleton")
+            r = run_example_ar(model, aex, mode="skeleton", active_call=active_call)
             return r["text"], r["syntax_ok"], r["calls"]
 
         return decode, "ar_greedy"
@@ -117,9 +131,9 @@ def make_decoder(model, backend):
 
     cfg = DecodeConfig(block_length=None, k=1, order="confidence")
 
-    def decode(aex, lengths):
+    def decode(aex, lengths, active_call=None):
         r = run_example(model, aex, cfg, mode="skeleton", keep_trace=False, lengths=lengths,
-                        length_mode="swap" if lengths else "oracle")
+                        length_mode="swap" if lengths else "oracle", active_call=active_call)
         return r["text"], r["syntax_ok"], r["calls"]
 
     return decode, cfg.tag()
@@ -135,7 +149,7 @@ def main():
                     help="sym: team-symmetric requests (C1); swap: requests the length swap changes (C2)")
     ap.add_argument("--length-mode", choices=["oracle", "swap"], default="oracle")
     ap.add_argument("--protocols", default=",".join(PROTOCOLS),
-                    help="comma list of experiment B's protocols and/or sim-rule")
+                    help="comma list of experiment B's protocols, sim-rule and/or pos-anon")
     ap.add_argument("--out")
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--dry-run", action="store_true", help="print the user texts and slot lengths; no model")
@@ -146,9 +160,12 @@ def main():
         raise SystemExit("--backend ar --length-mode swap: the AR skeleton decoding has no per-slot lengths "
                          "and stops at the closer, so it never reads a slot length; run it with oracle lengths")
     protocols = args.protocols.split(",")
+    known = [*PROTOCOLS, *RULE_PROTOCOLS, *POSITION_PROTOCOLS]
     for p in protocols:
-        if p not in PROTOCOLS and p not in RULE_PROTOCOLS:
-            raise SystemExit(f"unknown protocol {p!r} (one of {', '.join([*PROTOCOLS, *RULE_PROTOCOLS])})")
+        if p not in known:
+            raise SystemExit(f"unknown protocol {p!r} (one of {', '.join(known)})")
+    if args.length_mode != "oracle" and any(p in POSITION_PROTOCOLS for p in protocols):
+        raise SystemExit("position agents (pos-anon) run with oracle lengths only")
     if not args.dry_run and not (args.model and args.backend and args.out):
         raise SystemExit("--model, --backend and --out are required (except with --dry-run)")
 
