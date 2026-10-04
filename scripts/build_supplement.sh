@@ -14,7 +14,12 @@ BFCL=${1:?bfcl dir}; OUT=$(realpath -m "${2:?output zip}")
 TMP=$(mktemp -d); SUP=$TMP/supplement; mkdir -p $SUP
 trap 'rm -rf $TMP' EXIT
 
-cp supplement/README.md requirements.txt $SUP/
+cp supplement/README.md supplement/AI_USE.md requirements.txt $SUP/
+# the prompts of the sessions that executed the experiments (AI_USE.md), without repository addresses
+mkdir -p $SUP/prompts
+for f in LOCAL_CLAUDE_PROMPT.md EXP_B_PROMPT.md EXP_C_PROMPT.md EXP_D_PROMPT.md; do
+  sed -E 's#https://github\.com/[^ `]*#<repository>#g; s#claude/[a-z]+-[a-z]+-[0-9a-z]+#<branch>#g' $f > $SUP/prompts/$f
+done
 cp -r ptcdiag tests scripts $SUP/
 rm -rf $SUP/scripts/pod $SUP/scripts/diag $SUP/scripts/estimate_cost.py $SUP/scripts/build_supplement.sh
 find $SUP -name __pycache__ -type d -prune -exec rm -rf {} +
@@ -55,7 +60,9 @@ done
     results/pilot.md results/b2_verify_ar.txt && tar cf - results | xz -9e -T0 > $SUP/records.tar.xz)
 
 if grep -rEn --exclude=records.tar.xz \
-    "proposal §|CLAUDE|Claude|EXP_[ABC]_PROMPT|HANDOFF|aamas2|/workspace|/root/|runpod|my-code|185\.216|cunicle" $SUP; then
+    --exclude=AI_USE.md --exclude-dir=prompts \
+    "proposal §|CLAUDE|Claude|EXP_[ABC]_PROMPT|HANDOFF|aamas2|/workspace|/root/|runpod|my-code|185\.216|cunicle" $SUP \
+    || grep -rEn "aamas2|my-code|185\.216|cunicle|github\.com" $SUP/prompts $SUP/AI_USE.md; then
   echo "identifying strings remain (above)"; exit 1
 fi
 (cd $TMP && rm -f "$OUT" && zip -qr -9 "$OUT" supplement)

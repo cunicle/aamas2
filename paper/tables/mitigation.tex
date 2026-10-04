@@ -1,5 +1,5 @@
 \begin{table}[t]
-\caption{Coping with unknown value lengths. (a) A logit bias $\beta$ toward the closing and padding tokens of every slot, \dream at $k{=}4$ with $s$ surplus masks per slot (exact lengths: 87.0\% set accuracy). Parses: share of output that parses. (b) Slot lengths that the model predicts in one forward pass: share of slots whose estimate is exact, too long, or too short, and set accuracy when the agent decodes with the estimates, next to exact lengths on the same requests (shaded). All values in \%.}
+\caption{Coping with unknown value lengths. (a) A logit bias $\beta$ toward the closing and padding tokens of every slot, \dream at $k{=}4$ with $s$ surplus masks per slot (exact lengths: 87.0\% set accuracy). Parses: share of requests whose output parses. (b) Slot lengths that the model predicts in one forward pass: share of slots whose estimate is exact, too long, or too short, and set accuracy when the agent decodes with the estimates, next to exact lengths on the same requests (shaded); in parentheses, the number of requests. All values in \%; --: not run.}
 \label{tab:mitigation}
 \small\setlength{\tabcolsep}{3.4pt}
 \begin{tabular}{@{}lrrrrrr@{}}
@@ -11,7 +11,7 @@ Set acc., $s{=}2$ & 2.8 & 2.8 & 6.5 & 13.8 & & \\
 Set acc., $s{=}8$ & 57.0 & 72.3 & 71.3 & 20.3 & & \\
 Parses, $s{=}8$ & 89.0 & 93.3 & 88.3 & 37.3 & & \\
 \midrule
-\multicolumn{7}{@{}l}{\emph{(b) One-forward length estimate}} \\
+\multicolumn{7}{@{}l}{\emph{(b) Length estimate from one forward pass}} \\
  & \multicolumn{3}{c}{Slots} & \multicolumn{3}{c}{Set acc.} \\
 \cmidrule(lr){2-4}\cmidrule(l){5-7}
  & Exact & Long & Short & $k{=}1$ & 4 & 16 \\

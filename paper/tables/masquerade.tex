@@ -1,10 +1,10 @@
 \begin{table}[t]
-\caption{What an evaluator sees. Requests (\%) with each kind of cross-call error, when the agent commits 16 tokens per step with exact slot lengths (shaded) and when it commits one token per step with wrong slot lengths (for estimated lengths also 16), on the same requests. Estimate: lengths predicted by the model in one forward pass (Section~\ref{sec:design}). Dup.: a duplicated call; bound: a value that belongs to another call; chim.: a string spliced from two calls' values; shared: an argument that the reference shares across calls and the prediction does not.}
+\caption{What an evaluator sees. Requests (\%) with each kind of cross-call error, when the agent commits 16 tokens per step with exact slot lengths (shaded) and when it commits one token per step with wrong slot lengths (for estimated lengths also 16), on the same requests. Estimate: lengths estimated by the model (Section~\ref{sec:design}). Req.: requests. Dup.: a duplicated call; Bound: a value that belongs to another call; Chim.: a string that puts a piece of another call's value in place of a piece of its own; Shared: an argument that the reference shares across calls and the prediction does not. A request can have several kinds, so \ccer is not their sum.}
 \label{tab:masquerade}
 \small\setlength{\tabcolsep}{3.4pt}
 \begin{tabular}{@{}lrrrrrr@{}}
 \toprule
-Slot lengths & $n$ & Dup. & Bound & Chim. & Shared & \ccer \\
+Slot lengths & Req. & Dup. & Bound & Chim. & Shared & \ccer \\
 \midrule
 \multicolumn{7}{@{}l}{\emph{\dream}} \\
 \rowcolor{refrow}exact, $k{=}16$ & 400 & 0.5 & 0.8 & 0.0 & 0.8 & 2.0 \\

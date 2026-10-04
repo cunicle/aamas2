@@ -140,7 +140,7 @@ def surplus_figure(summary, out):
             ax.plot([x for x, _ in pts], [y for _, y in pts], linestyle="none", marker="o",
                     markeredgecolor=RAMP[model][0], **hollow)
             handles.append(Line2D([], [], color=RAMP[model][0], marker="o", markeredgecolor=RAMP[model][0],
-                                  label="closer in slot", **dash, **hollow))
+                                  label="closing token in slot", **dash, **hollow))
         if model == "dream":
             ar = [(x, acc[("qwen", s, 0)]) for x, s in enumerate(S) if ("qwen", s, 0) in acc]
             ax.plot([x for x, _ in ar], [y for _, y in ar], linestyle="none", marker="D", markersize=3.6,
@@ -172,7 +172,7 @@ def surplus_figure(summary, out):
         ax.plot([x for x, _ in pts], [y for _, y in pts], linestyle="none", marker="o",
                 markeredgecolor=RAMP["dream"][1], **hollow)
         ax.plot([], [], color=RAMP["dream"][1], marker="o", markeredgecolor=RAMP["dream"][1],
-                label="Dream, closer in slot", **dash, **hollow)
+                label="Dream, closing token in slot", **dash, **hollow)
     ax.set_ylim(0, TOP)
     ax.set_yticks(range(0, 101, 20))
     ax.set_title("(c) Probe: closing right after the value", loc="left", color=INK)

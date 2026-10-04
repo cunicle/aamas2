@@ -119,14 +119,12 @@ def table_ksweep(res, summ):
     nord_d, nord_l = d_ord[DREAM_K[1]][0], l_ord[LLADA_K[1]][0]
     lines = [
         r"\begin{table}[t]",
-        r"\caption{One canvas, ordered requests: committing more tokens per step with exact slot lengths "
-        r"(BFCL parallel and parallel\_multiple, 400 requests). Set accuracy and \ccer in \%; (eq.): on the "
-        rf"requests in which each argument has slots of one length in every call that uses it ({nsym_d} for "
-        rf"\dream, {nsym_l} for \llada), so that lengths cannot tell the calls apart; order: share of these "
-        rf"requests in the \texttt{{parallel}} category ({nord_d} and {nord_l}) whose $i$-th call takes the $i$-th "
-        r"mentioned entity, counting outputs that do not parse as out of order; fwd: forward passes per request. "
-        r"LTR: left to right, one token per step; $\tau$: commit every position above confidence 0.9. "
-        rf"\qwen (autoregressive) in the same skeleton: {fmt(q['acc'])}\% set accuracy, {fmt(q['ccer'])}\% \ccer.}}",
+        r"\caption{One canvas, ordered requests, exact slot lengths (400 BFCL requests; set accuracy and \ccer in \%). "
+        rf"(eq.): the equal-length requests ({nsym_d} for \dream, {nsym_l} for \llada). Order: share of the "
+        rf"equal-length \texttt{{parallel}} requests ({nord_d}, {nord_l}) whose $i$-th call takes the $i$-th mentioned "
+        r"entity (outputs that do not parse count as out of order). Fwd: forward passes per request. LTR: left to "
+        r"right; $\tau$: threshold 0.9; --: not run. "
+        rf"\qwen (AR) in the same skeleton: {fmt(q['acc'])}\% set accuracy, {fmt(q['ccer'])}\% \ccer.}}",
         r"\label{tab:ksweep}",
         r"\small\setlength{\tabcolsep}{3.2pt}",
         r"\begin{tabular}{@{}lrrrrrrr@{}}",
@@ -248,7 +246,7 @@ def table_teams(summ, res, cres):
         r = ordered.get(key)
         return fmt(pct(r["set_acc"], r["teams"])) if r else "--"
 
-    rows = [r"\multicolumn{7}{@{}l}{\emph{One canvas holds all $n$ calls}} \\",
+    rows = [r"\multicolumn{7}{@{}l}{\emph{One model writes all $n$ calls}} \\",
             line(r"\dream, $k{=}16$", oa(("Dream canvas k=16", "one canvas")),
                  cv(D, "confidence_k16_tnone_bfull_T0.0"), cv(D, "confidence_k16_tnone_bfull_T0.7")),
             line(r"\dream, $\tau{=}0.9$", fmt(tau_acc), cv(D, "confidence_k1_t0.9_bfull_T0.0"), {}),
@@ -272,13 +270,13 @@ def table_teams(summ, res, cres):
     lines = [
         r"\begin{table}[t]",
         r"\caption{One canvas against teams of agents. Ordered: set accuracy (\%) on the "
-        rf"{len(ids)} BFCL requests whose sibling calls share one single-call skeleton. Symmetric (choose-N): "
+        rf"{len(ids)} team-symmetric BFCL requests. Symmetric (choose-N): "
         r"Dup.\ is the share of requests (\%) in which two calls take the same city; Order, the share of list "
         r"requests whose $i$-th call takes the $i$-th listed city. Agents act at the same time or in turns "
-        r"(seeing the calls made so far) and are anonymous, numbered (``assistant $i$ of $n$''), or numbered and "
-        r"told that assistant $i$ makes the $i$-th call. Greedy decoding on "
-        rf"{nl} list and {no} open requests; $T{{=}}0.7$: five seeds. Open requests hold one-token slots, so only "
-        r"duplicates are reported.}",
+        r"and are anonymous, numbered (``assistant $i$ of $n$''), or numbered and "
+        r"told that assistant $i$ makes the $i$-th call; \dream agents decode one token per step. Greedy decoding on "
+        rf"{nl} list and {no} open requests; $T{{=}}0.7$: sampling at temperature 0.7, five seeds. Open requests "
+        r"hold one-token slots, so only duplicates are reported; --: not run.}",
         r"\label{tab:teams}",
         r"\small\setlength{\tabcolsep}{2.6pt}",
         r"\begin{tabular}{@{}lrrrrrr@{}}",
@@ -329,7 +327,7 @@ def table_length(summ):
         rows.append(r"\quad one slot longer & " + " & ".join(cells(r["own"], r["overfill"], r["sibling_fit"],
                                                                  r["n_slots"], acc)) + r" \\")
         rows.append(r"\midrule")
-    rows.append(r"\multicolumn{6}{@{}l}{\emph{One \dream agent per call, swapped slots}} \\")
+    rows.append(r"\multicolumn{6}{@{}l}{\emph{One \dream agent per call (the slots the swap changes)}} \\")
     bf = csv_rows(f"{summ}/agents_bfcl.csv")
     team = {(r["lengths"], r["protocol"]): r for r in bf if r["table"] == "team" and r["subset"] == "swap"
             and r["model"].startswith("Dream")}
@@ -345,12 +343,12 @@ def table_length(summ):
     n_one = [r for r in cl if r["table"] == "onesided_read_alone"][0]["n_slots"]
     lines = [
         r"\begin{table}[t]",
-        r"\caption{Slot length as a signal (\dream, one token per step). Share of slots (\%) that hold their own "
+        r"\caption{Slot length steers values (\dream, one token per step). Share of slots (\%) that hold their own "
         r"value, their own value followed by more (overfill), the value of a sibling whose length fits the slot, "
-        rf"or anything else: over all {n_all} slots (exact, $+1$), the {n_sw} slots whose length the swap changes, "
+        rf"or anything else: over all {int(n_all):,} slots (exact, $+1$), the {n_sw} slots whose length the swap changes, "
         rf"and the {n_one} slots lengthened to a sibling's length while the sibling keeps its exact slot (one slot "
         r"longer). Each slot's value is read from its own tokens. Set accuracy (\%) on the 400 requests, or on "
-        r"the 165 whose slots the swap changes. Agents are anonymous; overfill is counted under other.}",
+        r"the 165 whose slots the swap changes. Agents are anonymous; for them, overfill is counted under other (--).}",
         r"\label{tab:length}",
         r"\small\setlength{\tabcolsep}{3.0pt}",
         r"\begin{tabular}{@{}lrrrrr@{}}",
@@ -393,14 +391,15 @@ def table_masquerade(summ):
         r"\caption{What an evaluator sees. Requests (\%) with each kind of cross-call error, when the agent "
         r"commits 16 tokens per step with exact slot lengths (shaded) and when it commits one token per step "
         r"with wrong slot lengths (for estimated lengths also 16), on the same requests. Estimate: lengths "
-        r"predicted by the model in one forward pass (Section~\ref{sec:design}). Dup.: a duplicated call; bound: a value that belongs to another call; "
-        r"chim.: a string spliced from two calls' values; shared: an argument that the reference shares across "
-        r"calls and the prediction does not.}",
+        r"estimated by the model (Section~\ref{sec:design}). Req.: requests. Dup.: a duplicated "
+        r"call; Bound: a value that belongs to another call; Chim.: a string that puts a piece of another call's "
+        r"value in place of a piece of its own; Shared: an argument that the reference shares across calls and "
+        r"the prediction does not. A request can have several kinds, so \ccer is not their sum.}",
         r"\label{tab:masquerade}",
         r"\small\setlength{\tabcolsep}{3.4pt}",
         r"\begin{tabular}{@{}lrrrrrr@{}}",
         r"\toprule",
-        r"Slot lengths & $n$ & Dup. & Bound & Chim. & Shared & \ccer \\",
+        r"Slot lengths & Req. & Dup. & Bound & Chim. & Shared & \ccer \\",
         r"\midrule",
     ] + out + [r"\bottomrule", r"\end{tabular}", r"\end{table}"]
     return "\n".join(lines) + "\n"
@@ -469,10 +468,10 @@ def table_mitigation(res):
         r"\begin{table}[t]",
         r"\caption{Coping with unknown value lengths. (a) A logit bias $\beta$ toward the closing and padding "
         rf"tokens of every slot, \dream at $k{{=}}4$ with $s$ surplus masks per slot (exact lengths: "
-        rf"{fmt(acc(exact4))}\% set accuracy). Parses: share of output that parses. (b) Slot lengths that the model "
+        rf"{fmt(acc(exact4))}\% set accuracy). Parses: share of requests whose output parses. (b) Slot lengths that the model "
         r"predicts in one forward pass: share of slots whose estimate is exact, too long, or too short, and set "
-        r"accuracy when the agent decodes with the estimates, next to exact lengths on the same requests (shaded). "
-        r"All values in \%.}",
+        r"accuracy when the agent decodes with the estimates, next to exact lengths on the same requests (shaded); "
+        r"in parentheses, the number of requests. All values in \%; --: not run.}",
         r"\label{tab:mitigation}",
         r"\small\setlength{\tabcolsep}{3.4pt}",
         r"\begin{tabular}{@{}lrrrrrr@{}}",
@@ -482,7 +481,7 @@ def table_mitigation(res):
         r"\cmidrule(lr){2-5}",
     ] + bias + [
         r"\midrule",
-        r"\multicolumn{7}{@{}l}{\emph{(b) One-forward length estimate}} \\",
+        r"\multicolumn{7}{@{}l}{\emph{(b) Length estimate from one forward pass}} \\",
         r" & \multicolumn{3}{c}{Slots} & \multicolumn{3}{c}{Set acc.} \\",
         r"\cmidrule(lr){2-4}\cmidrule(l){5-7}",
         r" & Exact & Long & Short & $k{=}1$ & 4 & 16 \\",

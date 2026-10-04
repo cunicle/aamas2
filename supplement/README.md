@@ -14,6 +14,7 @@ Code, prompts and raw records for *Acting in Parallel Without Talking: Focal Poi
 | `scripts/` | Run scripts (`run_dllm.py`, `run_ar.py`, `run_agents.py`, `run_agents_bfcl.py`; the phases in `run_minimal.sh`), analysis scripts, and `reproduce_paper.sh` |
 | `data/` | The BFCL v4 `parallel` and `parallel_multiple` categories with their possible answers (Apache-2.0, from the Gorilla repository), and the 105 choose-N requests |
 | `tests/` | Unit tests (`python -m pytest tests -q`) |
+| `AI_USE.md`, `prompts/` | How AI tools were used in this work, with the authors' instructions and the prompts of the sessions that ran the experiments |
 
 ## Reproducing the tables, the figure and the statistics (CPU)
 
@@ -31,7 +32,7 @@ diff -r out/tables expected/tables      # no output
 | Table 2 | `agents.csv`, `agents_bfcl.csv` |
 | Table 3 | `closer.csv`, `agents_bfcl.csv` |
 | Table 4 | `masquerade.csv` |
-| Table 5 | the `bfcl_skel_k`, `bfcl_surplus`, `bfcl_endbias` and `bfcl_estimate` records |
+| Section 8 (closing bias, estimated lengths) | the `bfcl_skel_k`, `bfcl_surplus`, `bfcl_endbias` and `bfcl_estimate` records (`mitigation.tex`, not in the paper) |
 | Figure 2 | `length.csv`, `length_prior.md`, `closer.csv` |
 | Intervals and tests | `stats.md` |
 | Other numbers | `review_numbers.md`, `co_commit.md`, `choose_focal.md`, `choose_pairs.md`, `choose_tau_ltr.md`, `block_share.md`, `consequences.md`, `swap_*.md`, `slots_*.md` |

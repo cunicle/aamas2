@@ -100,3 +100,20 @@
 - **ParaProbe**：arXiv、Crossref 和网页搜索都找不到这样一篇论文（唯一同名的是原子探针层析的工具）。“实体绑错为零”这条说法没有来源，**不引用、不写**。
 - **MetaGPT、AutoGen**：没有核对，也不切合 §9 那句话，不引用。
 - **同一参数取最长值的 pilot（17/18）**：这是我们自己的数据，不是文献；要用的话，先在结果里复核。
+
+## 10-04 补充（模拟审稿要求的 MAS 文献，全部经子 agent 对照原始页面核实，见提交说明）
+
+| key | 来源 | 论文里怎么用 | 状态 |
+|---|---|---|---|
+| genesereth1986cooperation | AAAI-86, pp. 51–57 | 不通信的 agent 通过推理彼此的决策过程来合作（§2） | 已引 |
+| fenster1995coordination | ICMAS-95, pp. 102–108 | 自动 agent 用焦点作协调启发式（§1、§2） | 已引 |
+| kraus2000focal | AMAI 28(1–4):187–258, 2000 | 同上，两种方法找焦点（§2） | 已引 |
+| sugden1995theory | Economic Journal 105(430):533–550 | 基于标签的团队推理与焦点（§2） | 已引 |
+| bardsley2010explaining | Economic Journal 120(543):40–79 | 焦点：认知层级 vs 团队推理（§2、§5） | 已引 |
+| shoham1995social | AIJ 73(1–2):231–252 | 离线设计的社会律（§1、§2） | 已引 |
+| treutlein2021new | ICML 2021, PMLR 139:10413–10423 | 无标签协调（§2） | 已引 |
+| stone2010adhoc | AAAI 2010, 24(1):1504–1509 | 临时组队（§2） | 已引 |
+| christianos2021scaling | ICML 2021, PMLR 139:1989–1998 | 角色不同的 agent 共享参数可能有害（§2） | 已引 |
+| radner1962team | Ann. Math. Stat. 33(3):857–881 | 团队决策问题（§1、§2、§3） | 已引 |
+| ning2024skeleton | ICLR 2024 | 先写骨架再并行展开（§2、§9） | 已引 |
+| cemri2025why | NeurIPS 2025 Datasets and Benchmarks | 多 agent LLM 系统的失败，包括 agent 之间不一致（§2） | 已引 |

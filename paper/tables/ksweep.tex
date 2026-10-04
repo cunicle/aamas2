@@ -1,5 +1,5 @@
 \begin{table}[t]
-\caption{One canvas, ordered requests: committing more tokens per step with exact slot lengths (BFCL parallel and parallel\_multiple, 400 requests). Set accuracy and \ccer in \%; (eq.): on the requests in which each argument has slots of one length in every call that uses it (213 for \dream, 216 for \llada), so that lengths cannot tell the calls apart; order: share of these requests in the \texttt{parallel} category (84 and 87) whose $i$-th call takes the $i$-th mentioned entity, counting outputs that do not parse as out of order; fwd: forward passes per request. LTR: left to right, one token per step; $\tau$: commit every position above confidence 0.9. \qwen (autoregressive) in the same skeleton: 86.5\% set accuracy, 1.0\% \ccer.}
+\caption{One canvas, ordered requests, exact slot lengths (400 BFCL requests; set accuracy and \ccer in \%). (eq.): the equal-length requests (213 for \dream, 216 for \llada). Order: share of the equal-length \texttt{parallel} requests (84, 87) whose $i$-th call takes the $i$-th mentioned entity (outputs that do not parse count as out of order). Fwd: forward passes per request. LTR: left to right; $\tau$: threshold 0.9; --: not run. \qwen (AR) in the same skeleton: 86.5\% set accuracy, 1.0\% \ccer.}
 \label{tab:ksweep}
 \small\setlength{\tabcolsep}{3.2pt}
 \begin{tabular}{@{}lrrrrrrr@{}}
