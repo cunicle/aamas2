@@ -438,6 +438,9 @@ EOF
     $PY_DREAM scripts/stats.py --results $REL/results --agents-results results --c-results results \
         --out results/summary/stats.md
     $PY_DREAM scripts/review_numbers.py --results $REL/results | tee results/summary/review_numbers.md
+    # how often sibling slots commit their first tokens in the same step (exact lengths)
+    $PY_DREAM scripts/co_commit.py $REL/results/dream/bfcl_skel_k.jsonl $REL/results/dream/bfcl_skel_tau.jsonl \
+        $REL/results/llada2/bfcl_skel_k.jsonl | tee results/summary/co_commit.md
     ;;
   *)
     sed -n '2,20p' "$0"; exit 1 ;;
