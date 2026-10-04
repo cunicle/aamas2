@@ -14,7 +14,7 @@ Code, prompts and raw records for *Acting in Parallel Without Talking: Focal Poi
 | `scripts/` | Run scripts (`run_dllm.py`, `run_ar.py`, `run_agents.py`, `run_agents_bfcl.py`; the phases in `run_minimal.sh`), analysis scripts, and `reproduce_paper.sh` |
 | `data/` | The BFCL v4 `parallel` and `parallel_multiple` categories with their possible answers (Apache-2.0, from the Gorilla repository), and the 105 choose-N requests |
 | `tests/` | Unit tests (`python -m pytest tests -q`) |
-| `AI_USE.md`, `prompts/` | How AI tools were used in this work, and the prompts of the sessions that ran the experiments |
+| `AI_USE.md` | How AI tools were used in this work |
 
 ## Reproducing the tables, the figure and the statistics (CPU)
 
