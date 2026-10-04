@@ -32,6 +32,7 @@ for c in parallel parallel_multiple; do
   cp $BFCL/possible_answer/BFCL_v4_$c.json $SUP/data/bfcl/possible_answer/
 done
 cp -r results/summary $SUP/results/
+rm -f $SUP/results/summary/exp_d_checks.md $SUP/results/summary/exp_d_examples.md $SUP/results/summary/exp_d_quick.md  # run reports
 cp paper/tables/*.tex paper/tables/*.md $SUP/expected/tables/
 cp paper/figures/surplus.pdf paper/figures/surplus.png $SUP/expected/figures/
 
@@ -57,9 +58,11 @@ for a in results_2026-10-03 agents_2026-10-03 agents_b2_2026-10-03 exp_c_2026-10
   tar xzf release/$a.tar.gz -C $TMP/rec
 done
 (cd $TMP/rec && rm -rf results/smoke* results/gate_c results/CHAIN_* results/summary results/log_* \
-    results/gate_d results/pilot.md results/b2_verify_ar.txt && tar cf - results | xz -9e -T0 > $SUP/records.tar.xz)
+    results/gate_d results/pilot.md results/b2_verify_ar.txt results/dream/probe_skel_k.jsonl \
+    results/llada2/bfcl_skel_bfull.jsonl && tar cf - results | xz -9e -T0 > $SUP/records.tar.xz)  # last two: unused
 
-if grep -rEn --exclude=records.tar.xz \
+if grep -rEin --exclude=records.tar.xz --exclude-dir=prompts --exclude=AI_USE.md "runpod|lufv" $SUP \
+    || grep -rEn --exclude=records.tar.xz \
     --exclude=AI_USE.md --exclude-dir=prompts \
     "proposal §|CLAUDE|Claude|EXP_[ABC]_PROMPT|HANDOFF|aamas2|/workspace|/root/|runpod|my-code|185\.216|cunicle" $SUP \
     || grep -rEn "aamas2|my-code|185\.216|cunicle|github\.com" $SUP/prompts $SUP/AI_USE.md; then
