@@ -1,4 +1,25 @@
-# 论文结构方案（v3，2026-10-03）
+# 论文结构（v4，2026-10-04）
+
+v4 按用户 10-04 的决定（“按2×2重组，用你推荐的标题”）改写，以 `paper/sections/` 为准；下面的 v3 只作历史记录，其中的标题、数字和章节号已过时。
+
+- **标题**：*Acting in Parallel Without Talking: Focal Points, Collisions, and Length Signals in Diffusion-LM Agents and LLM Agent Teams*
+- **2×2**：请求（有顺序 / 对称）× 决策者（一张画布上的槽 / 一组 LLM agent）；槽长作为第三个线索单独成节。
+
+| 节 | 标题 | 内容 | 表图 |
+|---|---|---|---|
+| §1 | Introduction | agent 并行行动；dLLM 作试验台；三个发现；贡献 (i)–(iv) | 图 1 |
+| §2 | Related Work | 不通信协调、并行 LLM agent、dLLM agent、并行解码、长度偏差 | |
+| §3 | Parallel Deciders, Protocols, and Role Cues | 接口与骨架；画布与团队两种协议；三个线索与 P1–P3；模型、数据、度量 | |
+| §4 | Ordered Requests | 同步槽靠提及顺序协调；同时行动的 agent 用不上编号和规则；轮流行动接近单 agent | 表 1、表 2 |
+| §5 | Symmetric Requests | choose-N：同步槽和同时行动的团队撞车；τ 让对称选择一个个走；采样无效 | 表 2 |
+| §6 | Slot Length Is a Signal | 多一个 mask；收尾分隔符的对照（C3）；swap 与只加长一个槽；单 agent 也遵守 | 图 2、表 3 |
+| §7 | Masquerade | 长度 × 并行的 2×2：1.3/2.0/7.5/11.0；评测协议 | 表 4 |
+| §8 | Design | 收尾偏置、模型自估长度；接口、协议、评测三条建议 | 表 5 |
+| §9 | Discussion | 推广到多 agent 系统（假设）；局限；结论 | |
+
+---
+
+# 旧版：论文结构方案（v3，2026-10-03）
 
 v3 按用户 10-03 的决定改写：做 A（把论文改成 agent 论文的框架）和 B（多 agent 对照实验，执行方案见根目录 `EXP_B_PROMPT.md`，由另一个会话在 `exp-b-agents` 分支上跑）。`paper/outline.md` 仍是旧数字的来源；本文件是结构的依据，写作时以本文件为准。
 

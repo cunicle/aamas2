@@ -422,6 +422,9 @@ EOF
         --csv results/summary/closer.csv | tee results/summary/closer.md
     $PY_DREAM scripts/choose_analysis.py $D/choose_tau_ltr.jsonl $REL/results/dream/choose.jsonl \
         --csv results/summary/choose_tau_ltr.csv | tee results/summary/choose_tau_ltr.md
+    # which listed city the agents take, now with the agents told the rule
+    $PY_DREAM scripts/choose_focal.py $Q/agents.jsonl $D/agents.jsonl $Q/agents_sample.jsonl \
+        $D/agents_sample.jsonl $Q/agents_rule.jsonl $D/agents_rule.jsonl | tee results/summary/choose_focal.md
     # the paper's tables, figure, statistics and quoted numbers from all raw results (10-03 runs,
     # experiments B and C); experiment B's records are expected under results/ as well
     $PY_DREAM scripts/masquerade.py $REL/results/dream/bfcl_skel_k.jsonl $REL/results/dream/bfcl_surplus.jsonl \

@@ -336,7 +336,7 @@ def table_length(summ):
     slots = {(r["lengths"], r["protocol"]): r for r in bf if r["table"] == "slots" and r["dir"] == "all"
              and r["model"].startswith("Dream")}
     for lengths, proto, label in [("oracle", "sim-anon", "same time, exact"), ("swap", "sim-anon", "same time, swap"),
-                                  ("swap", "turn-label", "turns, swap")]:
+                                  ("swap", "turn-anon", "turns, swap")]:
         r, t = slots[lengths, proto], team[lengths, proto]
         rows.append(f"\\quad {label} & " + " & ".join(cells(r["own"], None, r["sibling_fit"], r["n_slots"],
                                                             pct(t["set_acc"], t["teams"]))) + r" \\")
@@ -350,7 +350,7 @@ def table_length(summ):
         rf"or anything else: over all {n_all} slots (exact, $+1$), the {n_sw} slots whose length the swap changes, "
         rf"and the {n_one} slots lengthened to a sibling's length while the sibling keeps its exact slot (one slot "
         r"longer). Each slot's value is read from its own tokens. Set accuracy (\%) on the 400 requests, or on "
-        r"the 165 whose slots the swap changes. Agents: overfill is counted under other.}",
+        r"the 165 whose slots the swap changes. Agents are anonymous; overfill is counted under other.}",
         r"\label{tab:length}",
         r"\small\setlength{\tabcolsep}{3.0pt}",
         r"\begin{tabular}{@{}lrrrrr@{}}",

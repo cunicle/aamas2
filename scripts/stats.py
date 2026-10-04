@@ -166,6 +166,14 @@ def main():
             "team same time, numbered", c1)
         add("4C", "Dream", "acc", "canvas k=16", k16, "team same time, rule", teams("dream", "agents_c1", "sim-rule"))
         add("4C", "Dream", "acc", "canvas k=1", k1, "team turns, numbered", teams("dream", "agents_c1", "turn-label"))
+        add("4C", "Dream", "acc", "canvas k=1", k1, "team turns, anonymous", teams("dream", "agents_c1", "turn-anon"))
+        ar = {}
+        if os.path.exists(f"{res}/qwen/bfcl_skeleton.jsonl"):
+            with open(f"{res}/qwen/bfcl_skeleton.jsonl") as f:
+                ar = {r["id"]: bool(r["diagnosis"]["correct"]) for r in map(json.loads, f) if r["id"] in ids}
+        if ar:
+            for proto, name in [("turn-anon", "anonymous"), ("turn-label", "numbered")]:
+                add("4C", "Qwen", "acc", "canvas (AR)", ar, f"team turns, {name}", teams("qwen", "agents_c1", proto))
         add("4C", "Qwen", "acc", "team same time, rule", teams("qwen", "agents_c1", "sim-rule"),
             "team same time, numbered", teams("qwen", "agents_c1", "sim-label"))
         add("6C", "Dream", "acc", "team same time, anonymous, exact (C2)", teams("dream", "agents_c2", "sim-anon"),
