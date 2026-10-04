@@ -10,12 +10,12 @@
 | left_to_right_k1_tnone_bfull_T0.0 | 400 | 0.892 | 0.010 | 213 | 0.864 | 0.014 |
 
 ## Dream-org/Dream-v0-Instruct-7B: symmetric BFCL parallel items, slots filled in mention order
-| cfg | records (syntax ok, all calls matched) | identity order | correct |
-|---|---|---|---|
-| confidence_k16_tnone_bfull_T0.0 | 77 | 0.961 | 0.883 |
-| confidence_k1_t0.9_bfull_T0.0 | 81 | 0.951 | 0.889 |
-| confidence_k1_tnone_bfull_T0.0 | 83 | 0.952 | 0.892 |
-| confidence_k2_tnone_bfull_T0.0 | 83 | 0.952 | 0.867 |
-| confidence_k4_tnone_bfull_T0.0 | 80 | 0.950 | 0.875 |
-| confidence_k8_tnone_bfull_T0.0 | 77 | 0.961 | 0.883 |
-| left_to_right_k1_tnone_bfull_T0.0 | 80 | 0.975 | 0.900 |
+| cfg | records (syntax ok, all calls matched) | identity order | correct | all symmetric parallel items | identity order over all |
+|---|---|---|---|---|---|
+| confidence_k16_tnone_bfull_T0.0 | 77 | 0.961 | 0.883 | 84 | 0.881 |
+| confidence_k1_t0.9_bfull_T0.0 | 81 | 0.951 | 0.889 | 84 | 0.917 |
+| confidence_k1_tnone_bfull_T0.0 | 83 | 0.952 | 0.892 | 84 | 0.940 |
+| confidence_k2_tnone_bfull_T0.0 | 83 | 0.952 | 0.867 | 84 | 0.940 |
+| confidence_k4_tnone_bfull_T0.0 | 80 | 0.950 | 0.875 | 84 | 0.905 |
+| confidence_k8_tnone_bfull_T0.0 | 77 | 0.961 | 0.883 | 84 | 0.881 |
+| left_to_right_k1_tnone_bfull_T0.0 | 80 | 0.975 | 0.900 | 84 | 0.929 |

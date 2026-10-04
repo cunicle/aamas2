@@ -8,10 +8,10 @@
 | confidence_k8_tnone_b32_T0.0 | 400 | 0.833 | 0.040 | 216 | 0.838 | 0.014 |
 
 ## inclusionAI/LLaDA2.0-mini: symmetric BFCL parallel items, slots filled in mention order
-| cfg | records (syntax ok, all calls matched) | identity order | correct |
-|---|---|---|---|
-| confidence_k16_tnone_b32_T0.0 | 80 | 0.938 | 0.912 |
-| confidence_k1_tnone_b32_T0.0 | 82 | 0.951 | 0.963 |
-| confidence_k2_tnone_b32_T0.0 | 82 | 0.963 | 0.951 |
-| confidence_k4_tnone_b32_T0.0 | 81 | 0.963 | 0.951 |
-| confidence_k8_tnone_b32_T0.0 | 81 | 0.951 | 0.938 |
+| cfg | records (syntax ok, all calls matched) | identity order | correct | all symmetric parallel items | identity order over all |
+|---|---|---|---|---|---|
+| confidence_k16_tnone_b32_T0.0 | 80 | 0.938 | 0.912 | 87 | 0.862 |
+| confidence_k1_tnone_b32_T0.0 | 82 | 0.951 | 0.963 | 87 | 0.897 |
+| confidence_k2_tnone_b32_T0.0 | 82 | 0.963 | 0.951 | 87 | 0.908 |
+| confidence_k4_tnone_b32_T0.0 | 81 | 0.963 | 0.951 | 87 | 0.897 |
+| confidence_k8_tnone_b32_T0.0 | 81 | 0.951 | 0.938 | 87 | 0.885 |

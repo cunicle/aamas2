@@ -30,6 +30,7 @@ KS = [1, 4, 16]
 RAMP = {"dream": ["#0d366b", "#2a78d6", "#86b6ef"],   # blue 700 / 450 / 250
         "llada2": ["#9a3a10", "#eb6834", "#f29a6f"]}  # orange, same three steps
 MARKER = {1: "o", 4: "s", 16: "^"}
+TOP = 124  # headroom above 100% for the legends
 INK, MUTED, GRID = "#0b0b0b", "#52514e", "#e4e3df"
 MODEL = {"dream": "Dream-v0-Instruct-7B", "llada2": "LLaDA2.0-mini", "qwen": "Qwen2.5-7B-Instruct"}
 
@@ -61,6 +62,31 @@ def p_close(summary):
     return out
 
 
+def closer_variant(summary):
+    """Experiment C3 (closing token in the slot), Dream, one token per step: {s: set accuracy %} and
+    {s: mean P(closing token) %} from closer.csv."""
+    acc, probe = {}, {}
+    with open(f"{summary}/closer.csv") as f:
+        for r in csv.DictReader(f):
+            if r["table"] == "items" and r["lengths"].endswith(" k=1") and r["lengths"][0] in "e+":
+                s = 0 if r["lengths"].startswith("exact") else int(r["lengths"].split()[0][1:])
+                acc[s] = 100 * float(r["set_acc_variant"])
+            if r["table"] == "probe" and r["interface"] == "variant" and r["class"] == "all":
+                probe[int(r["surplus"])] = 100 * float(r["mean_p_close"])
+    return acc, probe
+
+
+def segments(xs, ys):
+    """Consecutive runs of x positions (a line breaks where a surplus was not run)."""
+    out, cur = [], [(xs[0], ys[0])]
+    for x, y in zip(xs[1:], ys[1:]):
+        if x != cur[-1][0] + 1:
+            out.append(cur)
+            cur = []
+        cur.append((x, y))
+    return out + [cur]
+
+
 def style(ax, ylabel=None):
     ax.set_xticks(range(len(S)), [str(s) for s in S])
     ax.set_xlim(-0.3, len(S) - 0.7)
@@ -79,6 +105,9 @@ def style(ax, ylabel=None):
 
 def surplus_figure(summary, out):
     acc, pc = set_acc(summary), p_close(summary)
+    v_acc, v_probe = closer_variant(summary)
+    dash = dict(linestyle=(0, (3, 1.6)), linewidth=1.4)
+    hollow = dict(markersize=4.2, markerfacecolor="white", markeredgewidth=1.0)
     plt.rcParams.update({"font.size": 7.5, "font.family": "DejaVu Sans", "axes.titlesize": 7.5,
                          "pdf.fonttype": 42, "legend.fontsize": 7})
     fig, axes = plt.subplots(1, 3, figsize=(7.0, 1.95), gridspec_kw={"wspace": 0.32})
@@ -104,6 +133,14 @@ def surplus_figure(summary, out):
                     markeredgecolor="white", markeredgewidth=0.6)
             handles.append(Line2D([], [], color=RAMP[model][i], linewidth=1.5, marker=MARKER[k], markersize=4.2,
                                   markeredgecolor="white", markeredgewidth=0.6, label=f"$k={k}$"))
+        if model == "dream" and v_acc:
+            pts = [(x, v_acc[s]) for x, s in enumerate(S) if s in v_acc]
+            for seg in segments([x for x, _ in pts], [y for _, y in pts]):
+                ax.plot([x for x, _ in seg], [y for _, y in seg], color=RAMP[model][0], **dash)
+            ax.plot([x for x, _ in pts], [y for _, y in pts], linestyle="none", marker="o",
+                    markeredgecolor=RAMP[model][0], **hollow)
+            handles.append(Line2D([], [], color=RAMP[model][0], marker="o", markeredgecolor=RAMP[model][0],
+                                  label="closer in slot", **dash, **hollow))
         if model == "dream":
             ar = [(x, acc[("qwen", s, 0)]) for x, s in enumerate(S) if ("qwen", s, 0) in acc]
             ax.plot([x for x, _ in ar], [y for _, y in ar], linestyle="none", marker="D", markersize=3.6,
@@ -112,20 +149,36 @@ def surplus_figure(summary, out):
                                   label="AR (Qwen2.5)"))
         if model == "llada2":
             ax.text(3, 4, "not run", color=MUTED, ha="center", fontsize=6.5)
-        ax.set_ylim(0, 100)
+        ax.set_ylim(0, TOP)
+        ax.set_yticks(range(0, 101, 20))
         ax.set_title(title, loc="left", color=INK)
         style(ax, "set accuracy (%)" if model == "dream" else None)
-        ax.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.6, 0.93), frameon=False, ncol=1, handlelength=1.2,
-                  labelcolor=INK, borderaxespad=0)
+        if model == "dream":  # five entries: two columns in the empty band above s = 1..4
+            ax.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 1.0), frameon=False, ncol=3,
+                      handlelength=2.0, columnspacing=0.7, labelspacing=0.25, fontsize=6.3, labelcolor=INK,
+                      borderaxespad=0)
+        else:
+            ax.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.6, 0.93), frameon=False, ncol=1,
+                      handlelength=2.4, labelcolor=INK, borderaxespad=0)
     ax = axes[2]
     for model, label, mk in [("dream", "Dream", "o"), ("llada2", "LLaDA2.0", "s")]:
         pts = [(x, 100 * pc[model, s]) for x, s in enumerate(S) if (model, s) in pc]
         ax.plot([x for x, _ in pts], [y for _, y in pts], color=RAMP[model][1], linewidth=1.5, marker=mk,
                 markersize=4.2, markeredgecolor="white", markeredgewidth=0.6, label=label)
-    ax.set_ylim(0, 100)
+    if v_probe:
+        pts = [(x, v_probe[s]) for x, s in enumerate(S) if s in v_probe]
+        for seg in segments([x for x, _ in pts], [y for _, y in pts]):
+            ax.plot([x for x, _ in seg], [y for _, y in seg], color=RAMP["dream"][1], **dash)
+        ax.plot([x for x, _ in pts], [y for _, y in pts], linestyle="none", marker="o",
+                markeredgecolor=RAMP["dream"][1], **hollow)
+        ax.plot([], [], color=RAMP["dream"][1], marker="o", markeredgecolor=RAMP["dream"][1],
+                label="Dream, closer in slot", **dash, **hollow)
+    ax.set_ylim(0, TOP)
+    ax.set_yticks(range(0, 101, 20))
     ax.set_title("(c) Probe: closing right after the value", loc="left", color=INK)
     style(ax, "P(closing token) (%)")
-    ax.legend(loc="upper left", frameon=False, handlelength=1.2, labelcolor=INK, borderaxespad=0.2)
+    ax.legend(loc="upper left", frameon=False, handlelength=2.4, labelcolor=INK, borderaxespad=0.2, ncol=2,
+              columnspacing=0.8, fontsize=6.3)
     os.makedirs(out, exist_ok=True)
     fig.savefig(f"{out}/surplus.pdf", bbox_inches="tight", pad_inches=0.02)
     fig.savefig(f"{out}/surplus.png", bbox_inches="tight", pad_inches=0.02, dpi=200)

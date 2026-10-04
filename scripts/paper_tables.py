@@ -69,14 +69,18 @@ def md_tables(path):
 
 
 def symmetry(path):
-    """{cfg: (n sym, ccer sym %)} and {cfg: identity-order %} from scripts/symmetry.py output."""
+    """From scripts/symmetry.py output: {cfg: {"n", "acc", "ccer"}} on the equal-length requests and
+    {cfg: (n, identity-order %)} on the equal-length `parallel` requests, counting outputs that do not
+    parse or leave a call unmatched as not in order. Rates are turned back into exact counts."""
     sym, order = {}, {}
     for rows in md_tables(path):
         for r in rows:
             if "ccer sym" in r:
-                sym[r["cfg"]] = (int(r["n sym"]), Decimal(r["ccer sym"]) * 100)
-            if "identity order" in r:
-                order[r["cfg"]] = Decimal(r["identity order"]) * 100
+                n = int(r["n sym"])
+                sym[r["cfg"]] = {"n": n, "acc": pct(r["set_acc sym"], n), "ccer": pct(r["ccer sym"], n)}
+            if "identity order over all" in r:
+                n = int(r["all symmetric parallel items"])
+                order[r["cfg"]] = (n, pct(r["identity order over all"], n))
     return sym, order
 
 
@@ -111,16 +115,17 @@ def table_ksweep(res, summ):
         cells = [get(model, c) if c else None for c in cfgs]
         return f"{label} & " + " & ".join(fmt(v) if not isinstance(v, str) else v for v in cells) + r" \\"
 
-    nsym_d = d_sym[DREAM_K[1]][0]
-    nsym_l = l_sym[LLADA_K[1]][0]
+    nsym_d, nsym_l = d_sym[DREAM_K[1]]["n"], l_sym[LLADA_K[1]]["n"]
+    nord_d, nord_l = d_ord[DREAM_K[1]][0], l_ord[LLADA_K[1]][0]
     lines = [
         r"\begin{table}[t]",
-        r"\caption{Committing more tokens per step, with exact slot lengths (BFCL parallel and "
-        r"parallel\_multiple, 400 requests). Set accuracy and \ccer in \%; \ccer{} (sym.) on the "
-        rf"requests whose slot lengths cannot tell the calls apart ({nsym_d} for \dream, {nsym_l} for "
-        r"\llada); order: share of symmetric \texttt{parallel} requests whose $i$-th call took the "
-        r"$i$-th mentioned entity; fwd: forward passes per request. LTR: left to right, one token per step; "
-        r"$\tau$: commit every position above confidence 0.9. "
+        r"\caption{One canvas, ordered requests: committing more tokens per step with exact slot lengths "
+        r"(BFCL parallel and parallel\_multiple, 400 requests). Set accuracy and \ccer in \%; (eq.): on the "
+        rf"requests in which each argument has slots of one length in every call that uses it ({nsym_d} for "
+        rf"\dream, {nsym_l} for \llada), so that lengths cannot tell the calls apart; order: share of these "
+        rf"requests in the \texttt{{parallel}} category ({nord_d} and {nord_l}) whose $i$-th call takes the $i$-th "
+        r"mentioned entity, counting outputs that do not parse as out of order; fwd: forward passes per request. "
+        r"LTR: left to right, one token per step; $\tau$: commit every position above confidence 0.9. "
         rf"\qwen (autoregressive) in the same skeleton: {fmt(q['acc'])}\% set accuracy, {fmt(q['ccer'])}\% \ccer.}}",
         r"\label{tab:ksweep}",
         r"\small\setlength{\tabcolsep}{3.2pt}",
@@ -131,15 +136,15 @@ def table_ksweep(res, summ):
         r"\multicolumn{8}{@{}l}{\emph{\dream (full attention)}} \\",
         row("Set acc.", d, d_cfgs, lambda m, c: m[c]["acc"]),
         row(r"\ccer", d, d_cfgs, lambda m, c: m[c]["ccer"]),
-        row(r"\ccer (sym.)", d, d_cfgs, lambda m, c: d_sym[c][1] if c in d_sym else None),
-        row("Order", d, d_cfgs, lambda m, c: d_ord.get(c)),
+        row("Set acc. (eq.)", d, d_cfgs, lambda m, c: d_sym[c]["acc"] if c in d_sym else None),
+        row("Order", d, d_cfgs, lambda m, c: d_ord[c][1] if c in d_ord else None),
         row("Fwd", d, d_cfgs, lambda m, c: m[c]["nfe"]),
         r"\midrule",
         r"\multicolumn{8}{@{}l}{\emph{\llada (32-token blocks)}} \\",
         row("Set acc.", l_, l_cfgs, lambda m, c: m[c]["acc"]),
         row(r"\ccer", l_, l_cfgs, lambda m, c: m[c]["ccer"]),
-        row(r"\ccer (sym.)", l_, l_cfgs, lambda m, c: l_sym[c][1] if c in l_sym else None),
-        row("Order", l_, l_cfgs, lambda m, c: l_ord.get(c)),
+        row("Set acc. (eq.)", l_, l_cfgs, lambda m, c: l_sym[c]["acc"] if c in l_sym else None),
+        row("Order", l_, l_cfgs, lambda m, c: l_ord[c][1] if c in l_ord else None),
         row("Fwd", l_, l_cfgs, lambda m, c: m[c]["nfe"]),
         r"\bottomrule",
         r"\end{tabular}",
@@ -199,83 +204,172 @@ def table_swap(summ):
     return "\n".join(lines) + "\n"
 
 
-def table_choose(summ):
-    """Choose-N: one canvas for all n calls (choose.csv, choose_sample.csv) next to teams of n
-    agents that make one call each (agents.csv, experiment B). Duplicates in both variants,
-    list order in the list variant; greedy, and T=0.7 over five seeds where it was run."""
-    canvas = {(r["model"], r["cfg"], r["variant"]): r for r in csv_rows(f"{summ}/choose.csv")}
-    canvas.update({(r["model"], r["cfg"], r["variant"]): r for r in csv_rows(f"{summ}/choose_sample.csv")})
+def table_teams(summ, res, cres):
+    """One canvas against teams of agents (one call each) on ordered and symmetric requests.
+
+    Ordered: set accuracy on the 104 BFCL requests whose sibling calls share one single-call
+    skeleton (experiment C1; agents_bfcl.csv, plus the canvas threshold run on the same
+    requests). Symmetric: choose-N duplicates and list order (choose.csv, choose_sample.csv,
+    choose_tau_ltr.csv for the canvas; agents.csv and the sim-rule rows of agents_bfcl.csv for
+    the teams), greedy and at T=0.7 over five seeds."""
+    canvas = {}
+    for f in ("choose.csv", "choose_sample.csv", "choose_tau_ltr.csv"):
+        canvas.update({(r["model"], r["cfg"], r["variant"]): r for r in csv_rows(f"{summ}/{f}")})
     teams = {(r["model"], r["protocol"], r["variant"], float(r["temperature"])): r
              for r in csv_rows(f"{summ}/agents.csv") if r["n"] == "all"}
+    bf = csv_rows(f"{summ}/agents_bfcl.csv")
+    for r in bf:
+        if r["table"] == "choose_rule":
+            teams[r["model"], "sim-rule", "list", 0.0] = dict(r, n="all")
+    ordered = {(r["model"], r["protocol"]): r for r in bf
+               if r["table"] in ("team", "team_canvas") and r["subset"] == "sym" and r["lengths"] == "oracle"}
     D, L, Q = "Dream-v0-Instruct-7B", "LLaDA2.0-mini", "Qwen2.5-7B-Instruct"
 
-    def cell(r, col, n_col):
-        return fmt(pct(r[col], r[n_col])) if r and r.get(col) not in (None, "-") else "--"
+    ids = set()
+    with open(f"{cres}/dream/agents_c1.jsonl") as f:
+        ids = {json.loads(line)["id"] for line in f}
+    tau = [r for r in runs_by([f"{res}/dream/bfcl_skel_tau.jsonl"])["oracle", 0, 0.0, DREAM_TAU] if r["id"] in ids]
+    assert len(tau) == len(ids) == 104, (len(tau), len(ids))
+    tau_acc = Fraction(100 * sum(bool(r["diagnosis"]["correct"]) for r in tau), len(tau))
 
-    def row(label, get):
-        greedy, sample = get(0.0), get(0.7)
-        cells = [cell(greedy["list"], "duplicate", "n"), cell(greedy["list"], "in_order", "n"),
-                 cell(greedy["open"], "duplicate", "n"),
-                 cell(sample["list"], "duplicate", "n"), cell(sample["open"], "duplicate", "n")]
+    def c(r, col, n_col):
+        return fmt(pct(r[col], r[n_col])) if r and r.get(col) not in (None, "", "-", "nan") else "--"
+
+    def line(label, ordered_acc, greedy, sample):
+        cells = [ordered_acc, c(greedy.get("list"), "duplicate", "n"), c(greedy.get("list"), "in_order", "n"),
+                 c(greedy.get("open"), "duplicate", "n"),
+                 c(sample.get("list"), "duplicate", "n"), c(sample.get("open"), "duplicate", "n")]
         return f"{label} & " + " & ".join(cells) + r" \\"
 
-    def canvas_get(model, tag):
-        def get(t):
-            cfg = f"{tag}_T{t}" if tag != "ar_greedy" else (tag if t == 0.0 else None)
-            return {v: canvas.get((model, cfg, v)) for v in ("list", "open")}
-        return get
+    def cv(model, cfg):
+        return {v: canvas.get((model, cfg, v)) for v in ("list", "open")}
 
-    def team_get(model, protocol):
-        def get(t):
-            out = {}
-            for v in ("list", "open"):
-                r = teams.get((model, protocol, v, t))
-                out[v] = dict(r, n=r["teams"]) if r else None
-            return out
-        return get
+    def oa(key):
+        r = ordered.get(key)
+        return fmt(pct(r["set_acc"], r["teams"])) if r else "--"
 
-    rows = [r"\multicolumn{6}{@{}l}{\emph{One canvas holds all $n$ calls}} \\",
-            row(r"\dream, $k{=}16$", canvas_get(D, "confidence_k16_tnone_bfull")),
-            row(r"\dream, $k{=}1$", canvas_get(D, "confidence_k1_tnone_bfull")),
-            row(r"\llada, $k{=}16$", canvas_get(L, "confidence_k16_tnone_b32")),
-            row(r"\llada, $k{=}1$", canvas_get(L, "confidence_k1_tnone_b32")),
-            row(r"\qwen (AR)", canvas_get(Q, "ar_greedy"))]
+    rows = [r"\multicolumn{7}{@{}l}{\emph{One canvas holds all $n$ calls}} \\",
+            line(r"\dream, $k{=}16$", oa(("Dream canvas k=16", "one canvas")),
+                 cv(D, "confidence_k16_tnone_bfull_T0.0"), cv(D, "confidence_k16_tnone_bfull_T0.7")),
+            line(r"\dream, $\tau{=}0.9$", fmt(tau_acc), cv(D, "confidence_k1_t0.9_bfull_T0.0"), {}),
+            line(r"\dream, $k{=}1$", oa(("Dream canvas k=1", "one canvas")),
+                 cv(D, "confidence_k1_tnone_bfull_T0.0"), cv(D, "confidence_k1_tnone_bfull_T0.7")),
+            line(r"\llada, $k{=}16$", oa(("LLaDA2.0 canvas k=16", "one canvas")), cv(L, "confidence_k16_tnone_b32_T0.0"), {}),
+            line(r"\llada, $k{=}1$", oa(("LLaDA2.0 canvas k=1", "one canvas")), cv(L, "confidence_k1_tnone_b32_T0.0"), {}),
+            line(r"\qwen (AR)", oa(("Qwen canvas (AR)", "one canvas")), cv(Q, "ar_greedy"), {})]
     names = {"sim-anon": "same time, anonymous", "sim-label": "same time, numbered",
-             "turn-anon": "turns, anonymous", "turn-label": "turns, numbered"}
+             "sim-rule": "same time, told the rule", "turn-anon": "turns, anonymous", "turn-label": "turns, numbered"}
     for model, tag in [(Q, r"\qwen"), (D, r"\dream")]:
-        rows += [r"\midrule", rf"\multicolumn{{6}}{{@{{}}l}}{{\emph{{A team of $n$ {tag} agents, one call each}}}} \\"]
-        rows += [row(r"\quad " + names[p], team_get(model, p)) for p in names]
-    n = {v: teams[(D, "sim-anon", v, 0.0)]["teams"] for v in ("list", "open")}
-    ns = {v: teams[(D, "sim-anon", v, 0.7)]["teams"] for v in ("list", "open")}
+        rows += [r"\midrule", rf"\multicolumn{{7}}{{@{{}}l}}{{\emph{{A team of $n$ {tag} agents, one call each}}}} \\"]
+        for p, name in names.items():
+            g = {v: (dict(teams[model, p, v, 0.0], n=teams[model, p, v, 0.0]["teams"])
+                     if (model, p, v, 0.0) in teams else None) for v in ("list", "open")}
+            smp = {v: (dict(teams[model, p, v, 0.7], n=teams[model, p, v, 0.7]["teams"])
+                       if (model, p, v, 0.7) in teams else None) for v in ("list", "open")}
+            rows.append(line(r"\quad " + name, oa((model, p)), g, smp))
+    nl = teams[(D, "sim-anon", "list", 0.0)]["teams"]
+    no = teams[(D, "sim-anon", "open", 0.0)]["teams"]
     lines = [
         r"\begin{table}[t]",
-        r"\caption{Symmetric requests (choose-N). Dup.: requests (\%) in which two calls take the same city. "
-        r"Order: list requests (\%) whose $i$-th call takes the $i$-th listed city. Top: one canvas holds all $n$ "
-        r"calls. Below: $n$ agents make one call each, at the same time or in turns (seeing the calls made so far), "
-        r"anonymous or numbered (``assistant $i$ of $n$''). "
-        rf"Greedy decoding on {n['list']} list and {n['open']} open requests; $T{{=}}0.7$: five seeds "
-        rf"({ns['list']} and {ns['open']} runs). Open requests hold one-token slots, so only duplicates are reported.}}",
-        r"\label{tab:choose}",
-        r"\small\setlength{\tabcolsep}{3.2pt}",
-        r"\begin{tabular}{@{}lrrrrr@{}}",
+        r"\caption{One canvas against teams of agents. Ordered: set accuracy (\%) on the "
+        rf"{len(ids)} BFCL requests whose sibling calls share one single-call skeleton. Symmetric (choose-N): "
+        r"Dup.\ is the share of requests (\%) in which two calls take the same city; Order, the share of list "
+        r"requests whose $i$-th call takes the $i$-th listed city. Agents act at the same time or in turns "
+        r"(seeing the calls made so far) and are anonymous, numbered (``assistant $i$ of $n$''), or numbered and "
+        r"told that assistant $i$ makes the $i$-th call. Greedy decoding on "
+        rf"{nl} list and {no} open requests; $T{{=}}0.7$: five seeds. Open requests hold one-token slots, so only "
+        r"duplicates are reported.}",
+        r"\label{tab:teams}",
+        r"\small\setlength{\tabcolsep}{2.6pt}",
+        r"\begin{tabular}{@{}lrrrrrr@{}}",
         r"\toprule",
-        r" & \multicolumn{3}{c}{Greedy} & \multicolumn{2}{c}{$T{=}0.7$} \\",
-        r"\cmidrule(lr){2-4}\cmidrule(l){5-6}",
-        r" & \multicolumn{2}{c}{List} & Open & List & Open \\",
-        r"\cmidrule(lr){2-3}",
-        r" & Dup. & Order & Dup. & Dup. & Dup. \\",
+        r" & Ordered & \multicolumn{3}{c}{Symmetric, greedy} & \multicolumn{2}{c}{$T{=}0.7$} \\",
+        r"\cmidrule(lr){2-2}\cmidrule(lr){3-5}\cmidrule(l){6-7}",
+        r" & Set & \multicolumn{2}{c}{List} & Open & List & Open \\",
+        r"\cmidrule(lr){3-4}",
+        r" & acc. & Dup. & Order & Dup. & Dup. & Dup. \\",
         r"\midrule",
     ] + rows + [r"\bottomrule", r"\end{tabular}", r"\end{table}"]
     return "\n".join(lines) + "\n"
 
 
-MASQ_KEEP = ["exact, k=16", "estimate, k=1", "surplus +1, k=1", "surplus +8, k=1", "swap, k=1"]
+def table_length(summ):
+    """Slot length as a signal: what slots of the wrong length hold, on one canvas with the closing
+    token after the slot (the main interface) or inside it (experiment C3), and for single Dream
+    agents (experiment C2). Slot values are read from each slot's own tokens (closer.csv
+    *_read_alone; agents_bfcl.csv slots), set accuracy from the parsed outputs."""
+    cl = csv_rows(f"{summ}/closer.csv")
+    items = {r["lengths"]: r for r in cl if r["table"] == "items"}
+
+    def get(table, lengths, interface):
+        (r,) = [r for r in cl if r["table"] == table and r.get("lengths", "") == lengths
+                and r["interface"] == interface]
+        return r
+
+    def cells(own, over, sib, n_slots, acc):
+        own, over, sib = (pct(v, n_slots) if v is not None else None for v in (own, over, sib))
+        rest = 100 - own - (over or 0) - sib
+        return [fmt(own), fmt(over) if over is not None else "--", fmt(sib), fmt(rest), fmt(acc)]
+
+    rows = []
+    for interface, title in [("original", "One canvas, closing token after the slot"),
+                             ("variant", "One canvas, closing token in the slot")]:
+        rows.append(rf"\multicolumn{{6}}{{@{{}}l}}{{\emph{{{title}}}}} \\")
+        for lengths, label, table in [("exact k=1", "exact", "slots_read_alone"),
+                                      ("+1 k=1", "$+1$", "slots_read_alone"),
+                                      ("swap k=1", "swap", "swap_slots_read_alone")]:
+            r = get(table, lengths, interface)
+            it = items[lengths]
+            acc = pct(it[f"set_acc_{interface}"], it[f"n_{interface}"])
+            rows.append(f"\\quad {label} & " + " & ".join(cells(r["own"], r["overfill"], r["sibling_fit"],
+                                                                r["n_slots"], acc)) + r" \\")
+        r = [r for r in cl if r["table"] == "onesided_read_alone" and r["interface"] == interface][0]
+        it = items["onesided k=1"]
+        acc = pct(it[f"set_acc_{interface}"], it[f"n_{interface}"])
+        rows.append(r"\quad one slot longer & " + " & ".join(cells(r["own"], r["overfill"], r["sibling_fit"],
+                                                                 r["n_slots"], acc)) + r" \\")
+        rows.append(r"\midrule")
+    rows.append(r"\multicolumn{6}{@{}l}{\emph{One \dream agent per call, swapped slots}} \\")
+    bf = csv_rows(f"{summ}/agents_bfcl.csv")
+    team = {(r["lengths"], r["protocol"]): r for r in bf if r["table"] == "team" and r["subset"] == "swap"
+            and r["model"].startswith("Dream")}
+    slots = {(r["lengths"], r["protocol"]): r for r in bf if r["table"] == "slots" and r["dir"] == "all"
+             and r["model"].startswith("Dream")}
+    for lengths, proto, label in [("oracle", "sim-anon", "same time, exact"), ("swap", "sim-anon", "same time, swap"),
+                                  ("swap", "turn-label", "turns, swap")]:
+        r, t = slots[lengths, proto], team[lengths, proto]
+        rows.append(f"\\quad {label} & " + " & ".join(cells(r["own"], None, r["sibling_fit"], r["n_slots"],
+                                                            pct(t["set_acc"], t["teams"]))) + r" \\")
+    n_all = get("slots_read_alone", "exact k=1", "original")["n_slots"]
+    n_sw = get("swap_slots_read_alone", "swap k=1", "original")["n_slots"]
+    n_one = [r for r in cl if r["table"] == "onesided_read_alone"][0]["n_slots"]
+    lines = [
+        r"\begin{table}[t]",
+        r"\caption{Slot length as a signal (\dream, one token per step). Share of slots (\%) that hold their own "
+        r"value, their own value followed by more (overfill), the value of a sibling whose length fits the slot, "
+        rf"or anything else: over all {n_all} slots (exact, $+1$), the {n_sw} slots whose length the swap changes, "
+        rf"and the {n_one} slots lengthened to a sibling's length while the sibling keeps its exact slot (one slot "
+        r"longer). Each slot's value is read from its own tokens. Set accuracy (\%) on the 400 requests, or on "
+        r"the 165 whose slots the swap changes. Agents: overfill is counted under other.}",
+        r"\label{tab:length}",
+        r"\small\setlength{\tabcolsep}{3.0pt}",
+        r"\begin{tabular}{@{}lrrrrr@{}}",
+        r"\toprule",
+        r" & Own & Over- & Sibling & Other & Set \\",
+        r" & & fill & that fits & & acc. \\",
+        r"\midrule",
+    ] + rows + [r"\bottomrule", r"\end{tabular}", r"\end{table}"]
+    return "\n".join(lines) + "\n"
+
+
+MASQ_KEEP = ["exact, k=16", "estimate, k=1", "estimate, k=16", "surplus +1, k=1", "surplus +8, k=1", "swap, k=1"]
 
 
 def table_masquerade(summ):
     """Cross-call labels: 16 tokens per step with exact lengths vs one token per step with wrong ones."""
     out, model_prev = [], None
     names = {"exact, k=16": "exact, $k{=}16$", "estimate, k=1": "estimate, $k{=}1$",
+             "estimate, k=16": "estimate, $k{=}16$",
              "surplus +1, k=1": "$+1$, $k{=}1$", "surplus +2, k=1": "$+2$, $k{=}1$",
              "surplus +4, k=1": "$+4$, $k{=}1$", "surplus +8, k=1": "$+8$, $k{=}1$", "swap, k=1": "swap, $k{=}1$"}
     for r in csv_rows(f"{summ}/masquerade.csv"):
@@ -298,8 +392,8 @@ def table_masquerade(summ):
         r"\begin{table}[t]",
         r"\caption{What an evaluator sees. Requests (\%) with each kind of cross-call error, when the agent "
         r"commits 16 tokens per step with exact slot lengths (shaded) and when it commits one token per step "
-        r"with wrong slot lengths, on the same requests. Estimate: lengths predicted by the model in one forward "
-        r"pass (Section~\ref{sec:design}). Dup.: a duplicated call; bound: a value that belongs to another call; "
+        r"with wrong slot lengths (for estimated lengths also 16), on the same requests. Estimate: lengths "
+        r"predicted by the model in one forward pass (Section~\ref{sec:design}). Dup.: a duplicated call; bound: a value that belongs to another call; "
         r"chim.: a string spliced from two calls' values; shared: an argument that the reference shares across "
         r"calls and the prediction does not.}",
         r"\label{tab:masquerade}",
@@ -435,13 +529,14 @@ def main():
     ap.add_argument("--results", default="results")
     ap.add_argument("--summary", default="results/summary")
     ap.add_argument("--out", default="paper/tables")
+    ap.add_argument("--c-results", default=None, help="directory of the experiment C records (default: --results)")
     args = ap.parse_args()
     os.makedirs(args.out, exist_ok=True)
     for name, fn in [("ksweep", lambda: table_ksweep(args.results, args.summary)),
-                     ("swap", lambda: table_swap(args.summary)),
+                     ("teams", lambda: table_teams(args.summary, args.results, args.c_results or args.results)),
+                     ("length", lambda: table_length(args.summary)),
                      ("masquerade", lambda: table_masquerade(args.summary)),
-                     ("mitigation", lambda: table_mitigation(args.results)),
-                     ("choose", lambda: table_choose(args.summary))]:
+                     ("mitigation", lambda: table_mitigation(args.results))]:
         with open(f"{args.out}/{name}.tex", "w") as f:
             f.write(fn())
         print(f"wrote {args.out}/{name}.tex")

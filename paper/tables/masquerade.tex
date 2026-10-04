@@ -1,5 +1,5 @@
 \begin{table}[t]
-\caption{What an evaluator sees. Requests (\%) with each kind of cross-call error, when the agent commits 16 tokens per step with exact slot lengths (shaded) and when it commits one token per step with wrong slot lengths, on the same requests. Estimate: lengths predicted by the model in one forward pass (Section~\ref{sec:design}). Dup.: a duplicated call; bound: a value that belongs to another call; chim.: a string spliced from two calls' values; shared: an argument that the reference shares across calls and the prediction does not.}
+\caption{What an evaluator sees. Requests (\%) with each kind of cross-call error, when the agent commits 16 tokens per step with exact slot lengths (shaded) and when it commits one token per step with wrong slot lengths (for estimated lengths also 16), on the same requests. Estimate: lengths predicted by the model in one forward pass (Section~\ref{sec:design}). Dup.: a duplicated call; bound: a value that belongs to another call; chim.: a string spliced from two calls' values; shared: an argument that the reference shares across calls and the prediction does not.}
 \label{tab:masquerade}
 \small\setlength{\tabcolsep}{3.4pt}
 \begin{tabular}{@{}lrrrrrr@{}}
@@ -9,6 +9,7 @@ Slot lengths & $n$ & Dup. & Bound & Chim. & Shared & \ccer \\
 \multicolumn{7}{@{}l}{\emph{\dream}} \\
 \rowcolor{refrow}exact, $k{=}16$ & 400 & 0.5 & 0.8 & 0.0 & 0.8 & 2.0 \\
 estimate, $k{=}1$ & 400 & 1.5 & 3.5 & 1.0 & 2.3 & 7.5 \\
+estimate, $k{=}16$ & 400 & 3.0 & 4.3 & 1.8 & 3.8 & 11.0 \\
 $+1$, $k{=}1$ & 400 & 0.5 & 0.8 & 3.0 & 1.5 & 5.8 \\
 $+8$, $k{=}1$ & 400 & 1.0 & 0.5 & 0.0 & 0.3 & 1.8 \\
 \rowcolor{refrow}exact, $k{=}16$ & 165 & 0.0 & 0.6 & 0.0 & 0.6 & 1.2 \\

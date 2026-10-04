@@ -1,6 +1,8 @@
 model,condition,n,duplicate_call,cross_binding,chimera_value,inconsistent_shared_arg,ccer,set_acc
 Dream-org/Dream-v0-Instruct-7B,"exact, k=16",400,0.005,0.0075,0.0,0.0075,0.02,0.845
 Dream-org/Dream-v0-Instruct-7B,"estimate, k=1",400,0.015,0.035,0.01,0.0225,0.075,0.4225
+Dream-org/Dream-v0-Instruct-7B,"estimate, k=16",400,0.03,0.0425,0.0175,0.0375,0.11,0.3225
+Dream-org/Dream-v0-Instruct-7B,"estimate, k=4",400,0.025,0.035,0.0125,0.0225,0.0825,0.39
 Dream-org/Dream-v0-Instruct-7B,"surplus +1, k=1",400,0.005,0.0075,0.03,0.015,0.0575,0.155
 Dream-org/Dream-v0-Instruct-7B,"surplus +2, k=1",400,0.015,0.005,0.0225,0.015,0.0525,0.0325
 Dream-org/Dream-v0-Instruct-7B,"surplus +4, k=1",400,0.025,0.0025,0.01,0.0075,0.0425,0.17
@@ -9,6 +11,7 @@ Dream-org/Dream-v0-Instruct-7B,"exact, k=16",165,0.0,0.006060606060606061,0.0,0.
 Dream-org/Dream-v0-Instruct-7B,"swap, k=1",165,0.0,0.15151515151515152,0.01818181818181818,0.0,0.16363636363636364,0.6727272727272727
 inclusionAI/LLaDA2.0-mini,"exact, k=16",100,0.01,0.01,0.0,0.01,0.03,0.87
 inclusionAI/LLaDA2.0-mini,"estimate, k=1",100,0.0,0.06,0.02,0.07,0.14,0.39
+inclusionAI/LLaDA2.0-mini,"estimate, k=4",100,0.0,0.05,0.03,0.05,0.12,0.38
 inclusionAI/LLaDA2.0-mini,"surplus +1, k=1",100,0.02,0.01,0.07,0.04,0.12,0.16
 inclusionAI/LLaDA2.0-mini,"surplus +2, k=1",100,0.04,0.0,0.11,0.05,0.17,0.08
 inclusionAI/LLaDA2.0-mini,"surplus +8, k=1",100,0.11,0.26,0.01,0.03,0.36,0.38

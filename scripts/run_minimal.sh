@@ -422,6 +422,19 @@ EOF
         --csv results/summary/closer.csv | tee results/summary/closer.md
     $PY_DREAM scripts/choose_analysis.py $D/choose_tau_ltr.jsonl $REL/results/dream/choose.jsonl \
         --csv results/summary/choose_tau_ltr.csv | tee results/summary/choose_tau_ltr.md
+    # the paper's tables, figure, statistics and quoted numbers from all raw results (10-03 runs,
+    # experiments B and C); experiment B's records are expected under results/ as well
+    $PY_DREAM scripts/masquerade.py $REL/results/dream/bfcl_skel_k.jsonl $REL/results/dream/bfcl_surplus.jsonl \
+        $REL/results/dream/bfcl_swap.jsonl $REL/results/dream/bfcl_estimate.jsonl \
+        $REL/results/llada2/bfcl_skel_k.jsonl $REL/results/llada2/bfcl_surplus.jsonl \
+        $REL/results/llada2/bfcl_swap.jsonl $REL/results/llada2/bfcl_estimate.jsonl \
+        --csv results/summary/masquerade.csv | tee results/summary/masquerade.md
+    $PY_DREAM scripts/paper_tables.py --results $REL/results --summary results/summary --out paper/tables \
+        --c-results results
+    $PY_DREAM scripts/paper_figures.py --summary results/summary --out paper/figures
+    $PY_DREAM scripts/stats.py --results $REL/results --agents-results results --c-results results \
+        --out results/summary/stats.md
+    $PY_DREAM scripts/review_numbers.py --results $REL/results | tee results/summary/review_numbers.md
     ;;
   *)
     sed -n '2,20p' "$0"; exit 1 ;;

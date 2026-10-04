@@ -73,8 +73,8 @@ def main():
         if PARALLEL not in conds:
             print(f"(no exact-length k=16 run for {model})", file=sys.stderr)
             continue
-        mismatched = sorted(c for c in conds if c[3] == "k1" and c[2] == 0.0
-                            and (c[0] != "oracle" or c[1] > 0))
+        mismatched = sorted(c for c in conds if c[2] == 0.0 and (c[0] != "oracle" or c[1] > 0)
+                            and (c[3] == "k1" or c[0] == "length_estimate"))
         last = None
         for c in mismatched:
             ids = sorted(i for i in conds[c] if i in conds[PARALLEL])

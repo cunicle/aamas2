@@ -64,6 +64,8 @@ def main():
     ap.add_argument("--agents-results", default=None, help="directory of the experiment B records "
                     "(default: --results)")
     ap.add_argument("--choose", default="data/choose.jsonl")
+    ap.add_argument("--c-results", default=None, help="directory of the experiment C records "
+                    "(default: --results)")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
     res, ares = args.results, args.agents_results or args.results
@@ -139,6 +141,35 @@ def main():
     for m in ("qwen", "dream"):
         add("5", m.capitalize(), "dup (list)", "team same time, numbered", team(m, "sim-label", "list"),
             "team turns, numbered", team(m, "turn-label", "list"))
+
+    # experiment C: teams of agents against one canvas on the same BFCL requests (set accuracy)
+    cres = args.c_results or res
+
+    def teams(model, fname, protocol, mode="oracle"):
+        out = {}
+        path = f"{cres}/{model}/{fname}.jsonl"
+        if not os.path.exists(path):
+            return out
+        with open(path) as f:
+            for r in map(json.loads, f):
+                if r["protocol"] == protocol and (r.get("length_mode") or "oracle") == mode:
+                    out[r["id"]] = bool(r["team"]["diagnosis"]["correct"])
+        return out
+
+    c1 = teams("dream", "agents_c1", "sim-label")
+    if c1:
+        ids = set(c1)
+        k16 = cond(d, "oracle", 0, DREAM_K[16], "acc", ids=ids)
+        k1 = cond(d, "oracle", 0, DREAM_K[1], "acc", ids=ids)
+        add("4C", "Dream", "acc", "canvas k=16", k16, "team same time, numbered", c1)
+        add("4C", "Dream", "acc", "team same time, rule", teams("dream", "agents_c1", "sim-rule"),
+            "team same time, numbered", c1)
+        add("4C", "Dream", "acc", "canvas k=16", k16, "team same time, rule", teams("dream", "agents_c1", "sim-rule"))
+        add("4C", "Dream", "acc", "canvas k=1", k1, "team turns, numbered", teams("dream", "agents_c1", "turn-label"))
+        add("4C", "Qwen", "acc", "team same time, rule", teams("qwen", "agents_c1", "sim-rule"),
+            "team same time, numbered", teams("qwen", "agents_c1", "sim-label"))
+        add("6C", "Dream", "acc", "team same time, anonymous, exact (C2)", teams("dream", "agents_c2", "sim-anon"),
+            "Qwen team same time, anonymous, exact (C2)", teams("qwen", "agents_c2", "sim-anon"))
 
     # single rates on LLaDA2.0's subsets: 95% Wilson intervals
     lines += ["", "| model | condition | metric | n | rate % | 95% Wilson interval |", "|---|---|---|---|---|---|"]

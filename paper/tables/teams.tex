@@ -1,0 +1,36 @@
+\begin{table}[t]
+\caption{One canvas against teams of agents. Ordered: set accuracy (\%) on the 104 BFCL requests whose sibling calls share one single-call skeleton. Symmetric (choose-N): Dup.\ is the share of requests (\%) in which two calls take the same city; Order, the share of list requests whose $i$-th call takes the $i$-th listed city. Agents act at the same time or in turns (seeing the calls made so far) and are anonymous, numbered (``assistant $i$ of $n$''), or numbered and told that assistant $i$ makes the $i$-th call. Greedy decoding on 60 list and 45 open requests; $T{=}0.7$: five seeds. Open requests hold one-token slots, so only duplicates are reported.}
+\label{tab:teams}
+\small\setlength{\tabcolsep}{2.6pt}
+\begin{tabular}{@{}lrrrrrr@{}}
+\toprule
+ & Ordered & \multicolumn{3}{c}{Symmetric, greedy} & \multicolumn{2}{c}{$T{=}0.7$} \\
+\cmidrule(lr){2-2}\cmidrule(lr){3-5}\cmidrule(l){6-7}
+ & Set & \multicolumn{2}{c}{List} & Open & List & Open \\
+\cmidrule(lr){3-4}
+ & acc. & Dup. & Order & Dup. & Dup. & Dup. \\
+\midrule
+\multicolumn{7}{@{}l}{\emph{One canvas holds all $n$ calls}} \\
+\dream, $k{=}16$ & 81.7 & 15.0 & 11.7 & 100.0 & 17.3 & 100.0 \\
+\dream, $\tau{=}0.9$ & 86.5 & 0.0 & 48.3 & 0.0 & -- & -- \\
+\dream, $k{=}1$ & 88.5 & 0.0 & 48.3 & 0.0 & 0.0 & 0.4 \\
+\llada, $k{=}16$ & 81.7 & 0.0 & 96.7 & 4.4 & -- & -- \\
+\llada, $k{=}1$ & 88.5 & 0.0 & 100.0 & 0.0 & -- & -- \\
+\qwen (AR) & 91.3 & 0.0 & 81.7 & 0.0 & -- & -- \\
+\midrule
+\multicolumn{7}{@{}l}{\emph{A team of $n$ \qwen agents, one call each}} \\
+\quad same time, anonymous & 0.0 & 100.0 & 0.0 & 100.0 & 99.7 & 93.8 \\
+\quad same time, numbered & 0.0 & 100.0 & 0.0 & 97.8 & 100.0 & 93.8 \\
+\quad same time, told the rule & 34.6 & 70.0 & 8.3 & -- & -- & -- \\
+\quad turns, anonymous & 88.5 & 0.0 & 91.7 & 0.0 & -- & -- \\
+\quad turns, numbered & 88.5 & 0.0 & 91.7 & 0.0 & -- & -- \\
+\midrule
+\multicolumn{7}{@{}l}{\emph{A team of $n$ \dream agents, one call each}} \\
+\quad same time, anonymous & 0.0 & 100.0 & 0.0 & 100.0 & 87.7 & 100.0 \\
+\quad same time, numbered & 28.8 & 78.3 & 3.3 & 100.0 & 75.0 & 100.0 \\
+\quad same time, told the rule & 48.1 & 45.0 & 10.0 & -- & -- & -- \\
+\quad turns, anonymous & 84.6 & 0.0 & 35.0 & 0.0 & -- & -- \\
+\quad turns, numbered & 85.6 & 0.0 & 26.7 & 0.0 & -- & -- \\
+\bottomrule
+\end{tabular}
+\end{table}

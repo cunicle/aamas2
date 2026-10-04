@@ -1,6 +1,6 @@
 # 引用清单（2026-10-03 定稿）
 
-`references.bib` 共 37 条，每一条都对照了出版方或 arXiv 的记录（标题、全部作者、年份、出处）。BibTeX 只输出正文中实际 `\cite` 的条目。
+`references.bib` 共 38 条，每一条都对照了出版方或 arXiv 的记录（标题、全部作者、年份、出处）。BibTeX 只输出正文中实际 `\cite` 的条目。
 
 **核对方法**：
 - arXiv 条目：用 arXiv API 逐条比对。
@@ -80,6 +80,7 @@
 | lewis1969convention | Lewis | Harvard University Press, 1969 | 约定 | 已引 |
 | mehta1994salience | Mehta, Starmer & Sugden | AER 84(3):658–673, 1994 | 纯协调博弈中显著性的实验（注意：不要和同一组作者 1994 年在 Theory and Decision 上的另一篇混淆） | 已引 |
 | grenager2002dispersion | Dispersion games | AAAI 2002，pp. 398–403 | 对称选择下的分散与撞车 | 已引 |
+| marschak1972teams | Marschak & Radner, Economic Theory of Teams | Yale University Press, New Haven, 1972（Open Library 两条记录） | 共同收益的团队决策问题：§3 把一轮并行调用形式化为共享策略的团队问题 | 已引 |
 | hu2020otherplay | Other-Play | ICML 2020，PMLR 119:4399–4410 | 利用对称性的零样本协调 | 已引 |
 
 ## 8. LLM 与协调、并行多 agent 系统
