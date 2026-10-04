@@ -5,6 +5,9 @@ rates (A - B, in points) with a 95% paired-bootstrap interval over requests (10,
 resamples, seed 0) and an exact McNemar test (two-sided binomial test on the discordant
 requests). Single rates: 95% Wilson interval. Rates are set accuracy (acc), the cross-call
 error rate (ccer) and, on choose-N, the share of requests with a duplicated city (dup).
+Holm p: the McNemar p-values adjusted with Holm's procedure over all paired tests of the table.
+Interaction: the difference of two paired differences on the same requests (difference in
+differences), with its paired-bootstrap interval.
 
   tar xzf release/results_2026-10-03.tar.gz; tar xzf release/agents_2026-10-03.tar.gz
   python scripts/stats.py --results results --out results/summary/stats.md
@@ -47,6 +50,25 @@ def paired(a, b, resamples=10000, seed=0):
             "only_a": only_a, "only_b": only_b, "p": p}
 
 
+def holm(ps):
+    """Holm-adjusted p-values, in the input order."""
+    order = sorted(range(len(ps)), key=lambda i: ps[i])
+    out, run = [0.0] * len(ps), 0.0
+    for rank, i in enumerate(order):
+        run = max(run, min(1.0, (len(ps) - rank) * ps[i]))
+        out[i] = run
+    return out
+
+
+def did(a1, a2, b1, b2, resamples=10000, seed=0):
+    """(A2 - A1) - (B2 - B1) in points, per request, with a 95% paired-bootstrap interval."""
+    ids = sorted(set(a1) & set(a2) & set(b1) & set(b2))
+    d = np.array([(a2[i] - a1[i]) - (b2[i] - b1[i]) for i in ids], float)
+    rng = np.random.default_rng(seed)
+    boot = d[rng.integers(0, len(d), size=(resamples, len(d)))].mean(1)
+    return len(ids), 100 * d.mean(), 100 * np.percentile(boot, 2.5), 100 * np.percentile(boot, 97.5)
+
+
 def wilson(k, n, z=1.959964):
     p = k / n
     c = (p + z * z / (2 * n)) / (1 + z * z / n)
@@ -82,14 +104,13 @@ def main():
         out = {r["id"]: METRIC[metric](r) for r in rs}
         return {i: v for i, v in out.items() if ids is None or i in ids}
 
-    lines = ["| section | model | metric | A | B | n | A % | B % | A - B | 95% CI | A only / B only | McNemar p |",
-             "|---|---|---|---|---|---|---|---|---|---|---|---|"]
+    rows, lines = [], []
 
     def add(sec, model, metric, name_a, a, name_b, b):
         s = paired(a, b)
-        lines.append(f"| {sec} | {model} | {metric} | {name_a} | {name_b} | {s['n']} | {fmt(s['a'])} | {fmt(s['b'])} "
+        rows.append((f"| {sec} | {model} | {metric} | {name_a} | {name_b} | {s['n']} | {fmt(s['a'])} | {fmt(s['b'])} "
                      f"| {fmt(s['diff'])} | [{fmt(s['lo'])}, {fmt(s['hi'])}] | {s['only_a']} / {s['only_b']} "
-                     f"| {pfmt(s['p'])} |")
+                     f"| {pfmt(s['p'])} |", s["p"]))
 
     for name, runs_, K, sub_mode in [("Dream", d, DREAM_K, None), ("LLaDA2.0", l_, LLADA_K, None)]:
         k1, k16 = K[1], K[16]
@@ -188,6 +209,22 @@ def main():
             "team same time, numbered", teams("qwen", "agents_c1", "sim-label"))
         add("6C", "Dream", "acc", "team same time, anonymous, exact (C2)", teams("dream", "agents_c2", "sim-anon"),
             "Qwen team same time, anonymous, exact (C2)", teams("qwen", "agents_c2", "sim-anon"))
+
+    # Dream with estimated lengths: the cost of parallel commits, and how it differs from exact lengths
+    ex1, ex16 = (cond(d, "oracle", 0, DREAM_K[k], "ccer") for k in (1, 16))
+    es1, es16 = (cond(d, "length_estimate", 0, DREAM_K[k], "ccer") for k in (1, 16))
+    add("7", "Dream", "ccer", "estimate k=16", es16, "estimate k=1", es1)
+    add("7", "Dream", "acc", "estimate k=1", cond(d, "length_estimate", 0, DREAM_K[1], "acc"), "estimate k=16",
+        cond(d, "length_estimate", 0, DREAM_K[16], "acc"))
+    inter = [("Dream", "ccer", "(estimate k=16 - estimate k=1) - (exact k=16 - exact k=1)", did(es1, es16, ex1, ex16))]
+
+    ps = holm([p for _, p in rows])
+    lines += ["| section | model | metric | A | B | n | A % | B % | A - B | 95% CI | A only / B only | McNemar p "
+              "| Holm p |", "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+    lines += [f"{line} {pfmt(q)} |" for (line, _), q in zip(rows, ps)]
+    lines += ["", "| model | metric | interaction | n | points | 95% CI |", "|---|---|---|---|---|---|"]
+    lines += [f"| {m} | {met} | {name} | {n} | {fmt(v)} | [{fmt(lo)}, {fmt(hi)}] |"
+              for m, met, name, (n, v, lo, hi) in inter]
 
     # single rates on LLaDA2.0's subsets: 95% Wilson intervals
     lines += ["", "| model | condition | metric | n | rate % | 95% Wilson interval |", "|---|---|---|---|---|---|"]

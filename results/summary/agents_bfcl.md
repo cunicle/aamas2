@@ -13,7 +13,7 @@ One agent per reference call, each with its call's single-call skeleton; greedy 
 | Dream-v0-Instruct-7B | oracle | sim-rule | 104 | 0.481 | 0.452 | 0.442 | 0.471 | 0.980 | 0.516 | 0.579 | 0.010 |
 | Qwen2.5-7B-Instruct | oracle | sim-anon | 104 | 0.000 | 0.981 | 0.981 | 0.000 | nan | 0.000 | 0.879 | 0.019 |
 | Qwen2.5-7B-Instruct | oracle | sim-label | 104 | 0.000 | 0.981 | 0.981 | 0.000 | nan | 0.000 | 0.883 | 0.019 |
-| Qwen2.5-7B-Instruct | oracle | turn-anon | 104 | 0.885 | 0.029 | 0.000 | 0.837 | 0.946 | 0.884 | 0.374 | 0.019 |
+| Qwen2.5-7B-Instruct | oracle | turn-anon | 104 | 0.885 | 0.019 | 0.000 | 0.837 | 0.946 | 0.884 | 0.374 | 0.019 |
 | Qwen2.5-7B-Instruct | oracle | turn-label | 104 | 0.885 | 0.019 | 0.000 | 0.827 | 0.935 | 0.884 | 0.374 | 0.019 |
 | Qwen2.5-7B-Instruct | oracle | sim-rule | 104 | 0.346 | 0.606 | 0.596 | 0.337 | 0.972 | 0.368 | 0.678 | 0.019 |
 
@@ -21,11 +21,11 @@ One canvas, same requests:
 
 | model | lengths | protocol | teams | set_acc | ccer | duplicate | in_order | order_correct | in_order_clean | first_mention | unparsed |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| Dream canvas k=1 | oracle | one canvas | 104 | 0.885 | 0.029 | 0.000 | 0.837 | 0.946 | 0.895 | 0.366 | 0.010 |
+| Dream canvas k=1 | oracle | one canvas | 104 | 0.885 | 0.019 | 0.000 | 0.837 | 0.946 | 0.895 | 0.366 | 0.010 |
 | Dream canvas k=16 | oracle | one canvas | 104 | 0.817 | 0.048 | 0.019 | 0.788 | 0.965 | 0.842 | 0.348 | 0.077 |
 | LLaDA2.0 canvas k=1 | oracle | one canvas | 104 | 0.885 | 0.010 | 0.000 | 0.846 | 0.957 | 0.895 | 0.370 | 0.067 |
-| LLaDA2.0 canvas k=16 | oracle | one canvas | 104 | 0.817 | 0.038 | 0.000 | 0.779 | 0.953 | 0.821 | 0.348 | 0.087 |
-| Qwen canvas (AR) | oracle | one canvas | 104 | 0.913 | 0.019 | 0.000 | 0.875 | 0.958 | 0.916 | 0.381 | 0.010 |
+| LLaDA2.0 canvas k=16 | oracle | one canvas | 104 | 0.817 | 0.029 | 0.000 | 0.779 | 0.953 | 0.821 | 0.348 | 0.087 |
+| Qwen canvas (AR) | oracle | one canvas | 104 | 0.913 | 0.010 | 0.000 | 0.875 | 0.958 | 0.916 | 0.381 | 0.010 |
 
 ### Choose-N positive control: sim-rule on the 60 list items (experiment B's metrics)
 
@@ -52,21 +52,21 @@ ok: all cities allowed and different; duplicate: two agents with one city; in_or
 | Dream-v0-Instruct-7B | oracle | sim-label | 165 | 0.709 | 0.248 | 0.182 | 0.709 | 1.000 | 0.446 | 0.006 |
 | Dream-v0-Instruct-7B | oracle | turn-anon | 165 | 0.933 | 0.006 | 0.006 | 0.921 | 0.987 | 0.393 | 0.000 |
 | Dream-v0-Instruct-7B | oracle | turn-label | 165 | 0.933 | 0.006 | 0.006 | 0.915 | 0.981 | 0.393 | 0.000 |
-| Dream-v0-Instruct-7B | swap | sim-anon | 165 | 0.467 | 0.491 | 0.352 | 0.006 | 0.013 | 0.494 | 0.012 |
-| Dream-v0-Instruct-7B | swap | sim-label | 165 | 0.515 | 0.430 | 0.261 | 0.006 | 0.012 | 0.444 | 0.012 |
-| Dream-v0-Instruct-7B | swap | turn-anon | 165 | 0.758 | 0.097 | 0.006 | 0.012 | 0.016 | 0.347 | 0.018 |
-| Dream-v0-Instruct-7B | swap | turn-label | 165 | 0.770 | 0.097 | 0.000 | 0.018 | 0.024 | 0.351 | 0.018 |
+| Dream-v0-Instruct-7B | swap | sim-anon | 165 | 0.467 | 0.485 | 0.352 | 0.006 | 0.013 | 0.494 | 0.012 |
+| Dream-v0-Instruct-7B | swap | sim-label | 165 | 0.515 | 0.424 | 0.261 | 0.006 | 0.012 | 0.444 | 0.012 |
+| Dream-v0-Instruct-7B | swap | turn-anon | 165 | 0.758 | 0.079 | 0.006 | 0.012 | 0.016 | 0.347 | 0.018 |
+| Dream-v0-Instruct-7B | swap | turn-label | 165 | 0.770 | 0.079 | 0.000 | 0.018 | 0.024 | 0.351 | 0.018 |
 | Qwen2.5-7B-Instruct | oracle | sim-anon | 165 | 0.006 | 0.873 | 0.697 | 0.006 | 1.000 | 0.669 | 0.055 |
 | Qwen2.5-7B-Instruct | oracle | sim-label | 165 | 0.006 | 0.867 | 0.691 | 0.006 | 1.000 | 0.692 | 0.055 |
-| Qwen2.5-7B-Instruct | oracle | turn-anon | 165 | 0.824 | 0.061 | 0.012 | 0.818 | 0.993 | 0.391 | 0.018 |
-| Qwen2.5-7B-Instruct | oracle | turn-label | 165 | 0.818 | 0.061 | 0.012 | 0.812 | 0.993 | 0.389 | 0.018 |
+| Qwen2.5-7B-Instruct | oracle | turn-anon | 165 | 0.824 | 0.055 | 0.012 | 0.818 | 0.993 | 0.391 | 0.018 |
+| Qwen2.5-7B-Instruct | oracle | turn-label | 165 | 0.818 | 0.055 | 0.012 | 0.812 | 0.993 | 0.389 | 0.018 |
 
 One canvas, same requests:
 
 | model | lengths | protocol | teams | set_acc | ccer | duplicate | in_order | order_correct | first_mention | unparsed |
 |---|---|---|---|---|---|---|---|---|---|---|
 | Dream canvas k=1 | oracle | one canvas | 165 | 0.933 | 0.006 | 0.000 | 0.921 | 0.987 | 0.391 | 0.000 |
-| Dream canvas k=1 swap | swap | one canvas | 165 | 0.673 | 0.164 | 0.000 | 0.018 | 0.027 | 0.301 | 0.012 |
+| Dream canvas k=1 swap | swap | one canvas | 165 | 0.673 | 0.152 | 0.000 | 0.018 | 0.027 | 0.301 | 0.012 |
 | Qwen canvas (AR) | oracle | one canvas | 165 | 0.855 | 0.012 | 0.000 | 0.848 | 0.993 | 0.385 | 0.018 |
 
 ### C2 slot level: the slots the swap changes

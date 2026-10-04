@@ -10,6 +10,11 @@
   estimate      wrong one-forward length estimates that are too long
   uniform       choose-N list: probability that n agents choosing uniformly and independently
                 among the n+3 listed cities collide, per n and averaged over the 60 items
+  open          choose-N open requests: distinct greedy outputs per n, and calls whose city is not
+                an allowed US city (the one-token slot often cuts a name: "New", "LA")
+  free          Dream without the skeleton (k=2): parse rate and the kinds of cross-call errors
+  teams_by      teams of agents on BFCL (experiment C) by category and n, and numbered Dream agents
+                on the swap requests with exact lengths
 
   python scripts/review_numbers.py --results results --choose data/choose.jsonl
 """
@@ -18,7 +23,7 @@ import argparse
 import json
 import os
 import sys
-from collections import Counter
+from collections import Counter, defaultdict
 from fractions import Fraction
 from math import perm
 
@@ -27,7 +32,10 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from paper_tables import DREAM_K, LLADA_K, estimate_slots, fmt, runs_by  # noqa: E402
 from ptcdiag.data import load_jsonl  # noqa: E402
+from ptcdiag.data.choose import US_CITIES  # noqa: E402
 from ptcdiag.eval.taxonomy import is_cross_call  # noqa: E402
+
+ALLOWED_US = set(US_CITIES)
 
 
 def pct(a, b):
@@ -94,6 +102,56 @@ def main():
         total += p * ns[n]
         out.append(f"| {n} | {ns[n]} | {fmt(100 * p)}% |")
     out.append(f"| all | {sum(ns.values())} | {fmt(100 * total / sum(ns.values()))}% |")
+    out.append("")
+
+    # open choose-N: distinct greedy outputs and invalid cities
+    out += ["## open (choose-N open requests, greedy)",
+            "| model | decoding | requests | distinct outputs per n | calls with a city not allowed |",
+            "|---|---|---|---|---|"]
+    for model in ("dream", "llada2", "qwen"):
+        path = f"{res}/{model}/choose.jsonl"
+        if not os.path.exists(path):
+            continue
+        rows = defaultdict(list)
+        for r in map(json.loads, open(path)):
+            if r.get("meta", {}).get("variant") == "open" and "error" not in r:
+                rows[r["cfg_tag"]].append(r)
+        for tag, rs in sorted(rows.items()):
+            distinct = {n: len({tuple(c["arguments"].get("city") for c in r["calls"]) for r in rs
+                                if r["meta"]["n"] == n}) for n in (2, 3, 4)}
+            calls = [c for r in rs for c in r["calls"]]
+            bad = sum(c["arguments"].get("city") not in ALLOWED_US for c in calls)
+            out.append(f"| {model} | {tag} | {len(rs)} | {distinct} | {pct(bad, max(len(calls), 1))} |")
+    out.append("")
+
+    # Dream without the skeleton
+    fr = [r for r in map(json.loads, open(f"{res}/dream/bfcl_free.jsonl")) if "error" not in r] \
+        if os.path.exists(f"{res}/dream/bfcl_free.jsonl") else []
+    if fr:
+        labs = Counter(lab for r in fr for lab in set(r["diagnosis"]["labels"]))
+        cc = sum(is_cross_call(r["diagnosis"]["labels"]) for r in fr)
+        out += [f"## free (Dream without the skeleton, {fr[0]['cfg_tag']})",
+                f"- requests: {len(fr)}; correct: {pct(sum(r['diagnosis']['correct'] for r in fr), len(fr))}; "
+                f"do not parse: {pct(sum(not r['syntax_ok'] for r in fr), len(fr))}; cross-call: {pct(cc, len(fr))}",
+                "- requests with each label: " + ", ".join(f"{k} {v}" for k, v in labs.most_common()), ""]
+
+    # teams of agents on BFCL, by category and n
+    out += ["## teams_by (experiment C, set accuracy of teams)",
+            "| model | subset | lengths | protocol | category | n | teams | correct |", "|---|---|---|---|---|---|---|---|"]
+    for model in ("dream", "qwen"):
+        for f in ("agents_c1", "agents_c2"):
+            path = f"{res}/{model}/{f}.jsonl"
+            if not os.path.exists(path):
+                continue
+            groups = defaultdict(list)
+            for r in map(json.loads, open(path)):
+                if "error" in r:
+                    continue
+                groups[r["subset"], r["length_mode"], r["protocol"], r["category"], "all"].append(r)
+                groups[r["subset"], r["length_mode"], r["protocol"], "all", r["n"]].append(r)
+            for (sub, lm, proto, cat, n), rs in sorted(groups.items(), key=lambda kv: tuple(map(str, kv[0]))):
+                out.append(f"| {model} | {sub} | {lm} | {proto} | {cat} | {n} | {len(rs)} | "
+                           f"{pct(sum(r['team']['diagnosis']['correct'] for r in rs), len(rs))} |")
     print("\n".join(out))
 
 

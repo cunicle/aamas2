@@ -3,10 +3,10 @@
 |---|---|---|---|---|---|---|
 | confidence_k16_tnone_bfull_T0.0 | 400 | 0.845 | 0.020 | 213 | 0.817 | 0.028 |
 | confidence_k1_t0.9_bfull_T0.0 | 400 | 0.890 | 0.013 | 213 | 0.854 | 0.019 |
-| confidence_k1_tnone_bfull_T0.0 | 400 | 0.897 | 0.013 | 213 | 0.869 | 0.019 |
-| confidence_k2_tnone_bfull_T0.0 | 400 | 0.880 | 0.013 | 213 | 0.854 | 0.019 |
-| confidence_k4_tnone_bfull_T0.0 | 400 | 0.870 | 0.015 | 213 | 0.840 | 0.023 |
-| confidence_k8_tnone_bfull_T0.0 | 400 | 0.863 | 0.018 | 213 | 0.826 | 0.028 |
+| confidence_k1_tnone_bfull_T0.0 | 400 | 0.897 | 0.010 | 213 | 0.869 | 0.014 |
+| confidence_k2_tnone_bfull_T0.0 | 400 | 0.880 | 0.010 | 213 | 0.854 | 0.014 |
+| confidence_k4_tnone_bfull_T0.0 | 400 | 0.870 | 0.013 | 213 | 0.840 | 0.019 |
+| confidence_k8_tnone_bfull_T0.0 | 400 | 0.863 | 0.015 | 213 | 0.826 | 0.023 |
 | left_to_right_k1_tnone_bfull_T0.0 | 400 | 0.892 | 0.010 | 213 | 0.864 | 0.014 |
 
 ## Dream-org/Dream-v0-Instruct-7B: symmetric BFCL parallel items, slots filled in mention order

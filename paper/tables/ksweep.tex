@@ -1,5 +1,5 @@
 \begin{table}[t]
-\caption{One canvas, ordered requests: committing more tokens per step with exact slot lengths (BFCL parallel and parallel\_multiple, 400 requests). Set accuracy and \ccer in \%; (eq.): on the requests in which each argument has slots of one length in every call that uses it (213 for \dream, 216 for \llada), so that lengths cannot tell the calls apart; order: share of these requests in the \texttt{parallel} category (84 and 87) whose $i$-th call takes the $i$-th mentioned entity, counting outputs that do not parse as out of order; fwd: forward passes per request. LTR: left to right, one token per step; $\tau$: commit every position above confidence 0.9. \qwen (autoregressive) in the same skeleton: 86.5\% set accuracy, 1.3\% \ccer.}
+\caption{One canvas, ordered requests: committing more tokens per step with exact slot lengths (BFCL parallel and parallel\_multiple, 400 requests). Set accuracy and \ccer in \%; (eq.): on the requests in which each argument has slots of one length in every call that uses it (213 for \dream, 216 for \llada), so that lengths cannot tell the calls apart; order: share of these requests in the \texttt{parallel} category (84 and 87) whose $i$-th call takes the $i$-th mentioned entity, counting outputs that do not parse as out of order; fwd: forward passes per request. LTR: left to right, one token per step; $\tau$: commit every position above confidence 0.9. \qwen (autoregressive) in the same skeleton: 86.5\% set accuracy, 1.0\% \ccer.}
 \label{tab:ksweep}
 \small\setlength{\tabcolsep}{3.2pt}
 \begin{tabular}{@{}lrrrrrrr@{}}
@@ -8,14 +8,14 @@
 \midrule
 \multicolumn{8}{@{}l}{\emph{\dream (full attention)}} \\
 Set acc. & 89.8 & 88.0 & 87.0 & 86.3 & 84.5 & 89.3 & 89.0 \\
-\ccer & 1.3 & 1.3 & 1.5 & 1.8 & 2.0 & 1.0 & 1.3 \\
+\ccer & 1.0 & 1.0 & 1.3 & 1.5 & 2.0 & 1.0 & 1.3 \\
 Set acc. (eq.) & 86.9 & 85.4 & 84.0 & 82.6 & 81.7 & 86.4 & 85.4 \\
 Order & 94.0 & 94.0 & 90.5 & 88.1 & 88.1 & 92.9 & 91.7 \\
 Fwd & 28.0 & 14.2 & 7.3 & 3.9 & 2.2 & 27.8 & 1.9 \\
 \midrule
 \multicolumn{8}{@{}l}{\emph{\llada (32-token blocks)}} \\
 Set acc. & 87.8 & 87.5 & 86.5 & 83.3 & 79.8 & -- & -- \\
-\ccer & 2.5 & 2.8 & 3.3 & 4.0 & 4.5 & -- & -- \\
+\ccer & 2.5 & 2.3 & 2.8 & 3.5 & 3.8 & -- & -- \\
 Set acc. (eq.) & 87.5 & 88.0 & 86.1 & 83.8 & 80.6 & -- & -- \\
 Order & 89.7 & 90.8 & 89.7 & 88.5 & 86.2 & -- & -- \\
 Fwd & 27.8 & 14.8 & 8.3 & 5.1 & 3.9 & -- & -- \\

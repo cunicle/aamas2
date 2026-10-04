@@ -113,28 +113,45 @@ def _words(s):
     return [w for w in s.lower().replace(",", " ").split() if w]
 
 
-def chimera_kind(value, a, b):
-    """'word' / 'char' if `value` looks spliced from strings a and b, else None.
+def chimera_kind(value, own, sib):
+    """'word' / 'char' if `value`, in the slot of `own`, looks spliced from `own` and a sibling's
+    value `sib`, else None. A splice puts a piece of the sibling in place of a piece of its own:
 
-    word: every word of value comes from a or b, with at least one word unique to each
-          ("New York" + "Mexico City" -> "New City").
-    char: value == a[:i] + b[j:] for proper, non-empty pieces, compared after
-          BFCL standardisation.
+    word: every word of value comes from own or sib, with a word only own has, a word only the
+          sibling has, and without some word of own ("New York" + "Mexico City" -> "New City").
+    char: value == x[:i] + y[j:] with {x, y} = {own, sib}, both pieces at least 3 characters and the
+          sibling's piece absent from own, compared after BFCL standardisation (shorter or shared
+          pieces match by chance: "Boston" + "a", dates that share "-01").
+    The caller also rules out values that only shorten or extend own (`extends_own`).
     """
-    if not all(isinstance(x, str) for x in (value, a, b)):
+    if not all(isinstance(x, str) for x in (value, own, sib)):
         return None
-    sv, sa, sb = standardize_string(value), standardize_string(a), standardize_string(b)
-    if sv in (sa, sb) or sa == sb or not sv:
+    sv, so, ss = standardize_string(value), standardize_string(own), standardize_string(sib)
+    if sv in (so, ss) or so == ss or not sv:
         return None
-    wv, wa, wb = set(_words(value)), set(_words(a)), set(_words(b))
-    if wv and wv <= (wa | wb) and (wv & (wa - wb)) and (wv & (wb - wa)):
+    wv, wo, ws = set(_words(value)), set(_words(own)), set(_words(sib))
+    if wv and wv <= (wo | ws) and (wv & (wo - ws)) and (wv & (ws - wo)) and (wo - wv):
         return "word"
-    for i in range(1, len(sa)):
-        if sv.startswith(sa[:i]):
-            rest = sv[i:]
-            if rest and sb.endswith(rest) and len(rest) < len(sb):
-                return "char"
+    for x, y, sib_first in ((so, ss, False), (ss, so, True)):
+        for i in range(CHIMERA_MIN_PIECE, len(x)):
+            if sv.startswith(x[:i]):
+                rest = sv[i:]
+                piece = x[:i] if sib_first else rest
+                if len(rest) >= CHIMERA_MIN_PIECE and y.endswith(rest) and len(rest) < len(y) \
+                        and piece not in so:
+                    return "char"
     return None
+
+
+CHIMERA_MIN_PIECE = 3
+
+
+def extends_own(value, own):
+    """`value` only shortens or extends its own value `own` (a truncation, or an overfill that keeps
+    every word of it: "Sothe" for "Sotheby", "San Francisco CA" for "San Francisco"). Such a value
+    holds no piece of a sibling in place of its own, so it is not a chimera."""
+    sv, so = standardize_string(value), standardize_string(own)
+    return bool(sv) and (so.startswith(sv) or sv.startswith(so) or set(_words(own)) <= set(_words(value)))
 
 
 @dataclass
@@ -253,9 +270,11 @@ def diagnose(example, parsed):
             kind_c, pair = None, None
             mine = [a for a in gold[gi][1][p] if isinstance(a, str) and a != ""]
             theirs = [a for gj in others for a in gold[gj][1][p] if isinstance(a, str) and a != ""]
+            if isinstance(v, str) and any(extends_own(v, a) for a in mine):
+                mine = []  # a truncation or overfill of the own value, not a splice
             for a in mine:
                 for b in theirs:
-                    kind_c = chimera_kind(v, a, b) or chimera_kind(v, b, a)
+                    kind_c = chimera_kind(v, a, b)
                     if kind_c:
                         pair = (a, b)
                         break

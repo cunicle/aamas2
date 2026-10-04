@@ -16,6 +16,9 @@ LLADA2=inclusionAI/LLaDA2.0-mini
 D=results/dream; L=results/llada2; Q=results/qwen; S=results/summary
 mkdir -p $S out/tables out/figures
 
+# the diagnoses stored with the records, recomputed with the current taxonomy (ptcdiag/eval/taxonomy.py)
+$PY scripts/rediagnose.py $D/*.jsonl $L/*.jsonl $Q/*.jsonl
+
 # one canvas: k sweep, surplus, swap, estimated lengths, closing bias, choose-N (Tables 1, 4, 5)
 $PY scripts/length_analysis.py $D/bfcl_skel_k.jsonl $D/bfcl_surplus.jsonl $D/bfcl_endbias.jsonl \
     $D/bfcl_estimate.jsonl $L/bfcl_skel_k.jsonl $L/bfcl_surplus.jsonl $L/bfcl_estimate.jsonl \
@@ -62,6 +65,7 @@ $PY scripts/agents_bfcl_analysis.py --teams $Q/agents_c1.jsonl $D/agents_c1.json
     --rule $Q/agents_rule.jsonl $D/agents_rule.jsonl --canvas-root results \
     --agents-csv $S/agents.csv --csv $S/agents_bfcl.csv --examples $S/agents_bfcl_examples.md > $S/agents_bfcl.md
 $PY scripts/closer_analysis.py --results results --original results --csv $S/closer.csv > $S/closer.md
+$PY scripts/swap_direction.py --results results > $S/swap_direction.md
 
 # the paper's tables, Figure 2, statistics and other quoted numbers
 $PY scripts/paper_tables.py --results results --summary $S --out out/tables --c-results results

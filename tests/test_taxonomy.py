@@ -3,7 +3,7 @@ import random
 
 from conftest import gold_prediction
 
-from ptcdiag.eval.taxonomy import chimera_kind, diagnose, pair_diff
+from ptcdiag.eval.taxonomy import chimera_kind, diagnose, extends_own, pair_diff
 from ptcdiag.prompting import parse_tool_calls
 from ptcdiag.types import Example
 
@@ -71,9 +71,24 @@ def test_chimera():
     d = diag(ex(gt), [w("New City"), w("Mexico City")])
     assert d.labels == ["chimera_value"]
     assert chimera_kind("New City", "New York", "Mexico City") == "word"
-    assert chimera_kind("Tokto", "Tokyo", "Kyoto") == "char"
+    assert chimera_kind("Tokoto", "Tokyo", "Kyoto") == "char"
+    assert chimera_kind("Tokto", "Tokyo", "Kyoto") is None   # a 2-character piece matches by chance
     assert chimera_kind("Tokyo", "Tokyo", "Kyoto") is None
     assert chimera_kind("Berlin", "Tokyo", "Kyoto") is None
+    assert chimera_kind("2022-001-01", "2022-01-01", "2022-02-01") is None    # the piece is its own too
+    assert chimera_kind("Chicago, CA", "Chicago, IL", "San Francisco, CA") == "word"
+    assert chimera_kind("Mar Swift", "Maroon 5", "Taylor Swift") == "char"
+    assert chimera_kind("Mauryan", "Persian Empire", "Mauryan Empire") is None  # no piece of its own
+
+
+def test_truncations_and_overfills_are_not_chimeras():
+    assert extends_own("Sothe", "Sotheby") and extends_own("San Francisco CA", "San Francisco")
+    assert extends_own("The God of War", "God of War")
+    assert not extends_own("New City", "New York")
+    gt = [{"get_weather": {"city": ["Boston"]}}, {"get_weather": {"city": ["Atlanta"]}},
+          {"get_weather": {"city": ["Massachusetts"]}}]
+    d = diag(ex(gt), [w("Boston MA"), w("Atlanta"), w("Massachusetts")])
+    assert "chimera_value" not in d.labels and not d.correct
 
 
 def test_inconsistent_shared_arg():
