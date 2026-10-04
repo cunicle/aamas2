@@ -52,6 +52,7 @@ done > $S/length_prior.md
 
 # teams of agents on choose-N (Table 2, right)
 $PY scripts/agents_analysis.py $Q/agents.jsonl $D/agents.jsonl $Q/agents_sample.jsonl $D/agents_sample.jsonl \
+    $Q/agents_pos.jsonl $D/agents_pos.jsonl \
     --canvas $S/choose.csv --csv $S/agents.csv --examples $S/agents_examples.md > $S/agents.md
 $PY scripts/choose_analysis.py $D/choose_sample.jsonl --csv $S/choose_sample.csv > $S/choose_sample.md
 $PY scripts/choose_analysis.py $D/choose_tau_ltr.jsonl $D/choose.jsonl --csv $S/choose_tau_ltr.csv \
@@ -61,11 +62,12 @@ $PY scripts/choose_focal.py $Q/agents.jsonl $D/agents.jsonl $Q/agents_sample.jso
 
 # teams of agents on BFCL (Table 2, left; Table 3, bottom) and the closing token in the slot (Table 3)
 $PY scripts/agents_bfcl_analysis.py --teams $Q/agents_c1.jsonl $D/agents_c1.jsonl \
-    $Q/agents_c2.jsonl $D/agents_c2.jsonl $D/agents_c2_swap.jsonl \
+    $Q/agents_c2.jsonl $D/agents_c2.jsonl $D/agents_c2_swap.jsonl $Q/agents_d.jsonl $D/agents_d.jsonl \
     --rule $Q/agents_rule.jsonl $D/agents_rule.jsonl --canvas-root results \
     --agents-csv $S/agents.csv --csv $S/agents_bfcl.csv --examples $S/agents_bfcl_examples.md > $S/agents_bfcl.md
 $PY scripts/closer_analysis.py --results results --original results --csv $S/closer.csv > $S/closer.md
 $PY scripts/swap_direction.py --results results > $S/swap_direction.md
+$PY scripts/exp_d_analysis.py --results results > $S/exp_d.md
 
 # the paper's tables, Figure 2, statistics and other quoted numbers
 $PY scripts/paper_tables.py --results results --summary $S --out out/tables --c-results results

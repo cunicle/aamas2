@@ -209,6 +209,25 @@ def main():
             "team same time, numbered", teams("qwen", "agents_c1", "sim-label"))
         add("6C", "Dream", "acc", "team same time, anonymous, exact (C2)", teams("dream", "agents_c2", "sim-anon"),
             "Qwen team same time, anonymous, exact (C2)", teams("qwen", "agents_c2", "sim-anon"))
+        # experiment D: position agents (the whole skeleton, the own call filled, no note)
+        pos_d, pos_q = teams("dream", "agents_d", "pos-anon"), teams("qwen", "agents_d", "pos-anon")
+        if pos_d:
+            add("4D", "Dream", "acc", "team position", pos_d, "team same time, numbered", c1)
+            add("4D", "Dream", "acc", "team position", pos_d, "canvas k=16", k16)
+            add("4D", "Dream", "acc", "canvas k=1", k1, "team position", pos_d)
+        if pos_q:
+            add("4D", "Qwen", "acc", "team position", pos_q, "team same time, rule", teams("qwen", "agents_c1", "sim-rule"))
+            if ar:
+                add("4D", "Qwen", "acc", "canvas (AR)", ar, "team position", pos_q)
+
+    # experiment D: format-tolerant slots against the original interface, Dream, same requests
+    tres = args.c_results or res
+    if os.path.exists(f"{tres}/dream/bfcl_tolerant.jsonl"):
+        t = runs_by([f"{tres}/dream/{f}.jsonl" for f in ("bfcl_tolerant", "bfcl_tolerant_estimate")])
+        for label, mode, s_, kk in [("+1 k=1", "oracle", 1, 1), ("+2 k=1", "oracle", 2, 1),
+                                    ("estimate k=1", "length_estimate", 0, 1)]:
+            add("6D", "Dream", "acc", f"tolerant {label}", cond(t, mode, s_, DREAM_K[kk], "acc"),
+                f"original {label}", cond(d, mode, s_, DREAM_K[kk], "acc"))
 
     # Dream with estimated lengths: the cost of parallel commits, and how it differs from exact lengths
     ex1, ex16 = (cond(d, "oracle", 0, DREAM_K[k], "ccer") for k in (1, 16))

@@ -11,11 +11,13 @@ One agent per reference call, each with its call's single-call skeleton; greedy 
 | Dream-v0-Instruct-7B | oracle | turn-anon | 104 | 0.846 | 0.048 | 0.010 | 0.740 | 0.875 | 0.811 | 0.363 | 0.019 |
 | Dream-v0-Instruct-7B | oracle | turn-label | 104 | 0.856 | 0.038 | 0.010 | 0.740 | 0.865 | 0.811 | 0.366 | 0.019 |
 | Dream-v0-Instruct-7B | oracle | sim-rule | 104 | 0.481 | 0.452 | 0.442 | 0.471 | 0.980 | 0.516 | 0.579 | 0.010 |
+| Dream-v0-Instruct-7B | oracle | pos-anon | 104 | 0.856 | 0.038 | 0.019 | 0.817 | 0.955 | 0.874 | 0.359 | 0.010 |
 | Qwen2.5-7B-Instruct | oracle | sim-anon | 104 | 0.000 | 0.981 | 0.981 | 0.000 | nan | 0.000 | 0.879 | 0.019 |
 | Qwen2.5-7B-Instruct | oracle | sim-label | 104 | 0.000 | 0.981 | 0.981 | 0.000 | nan | 0.000 | 0.883 | 0.019 |
 | Qwen2.5-7B-Instruct | oracle | turn-anon | 104 | 0.885 | 0.019 | 0.000 | 0.837 | 0.946 | 0.884 | 0.374 | 0.019 |
 | Qwen2.5-7B-Instruct | oracle | turn-label | 104 | 0.885 | 0.019 | 0.000 | 0.827 | 0.935 | 0.884 | 0.374 | 0.019 |
 | Qwen2.5-7B-Instruct | oracle | sim-rule | 104 | 0.346 | 0.606 | 0.596 | 0.337 | 0.972 | 0.368 | 0.678 | 0.019 |
+| Qwen2.5-7B-Instruct | oracle | pos-anon | 104 | 0.548 | 0.269 | 0.240 | 0.538 | 0.982 | 0.589 | 0.451 | 0.010 |
 
 One canvas, same requests:
 
@@ -39,10 +41,12 @@ ok: all cities allowed and different; duplicate: two agents with one city; in_or
 | Dream-v0-Instruct-7B | sim-label | list | 60 | 0.217 | 0.783 | 0.400 | 0.000 | 0.033 |
 | Dream-v0-Instruct-7B | turn-anon | list | 60 | 1.000 | 0.000 | 0.000 | 0.000 | 0.350 |
 | Dream-v0-Instruct-7B | turn-label | list | 60 | 1.000 | 0.000 | 0.000 | 0.000 | 0.267 |
+| Dream-v0-Instruct-7B | pos-anon | list | 60 | 0.850 | 0.150 | 0.050 | 0.000 | 0.117 |
 | Qwen2.5-7B-Instruct | sim-anon | list | 60 | 0.000 | 1.000 | 1.000 | 0.000 | 0.000 |
 | Qwen2.5-7B-Instruct | sim-label | list | 60 | 0.000 | 1.000 | 1.000 | 0.000 | 0.000 |
 | Qwen2.5-7B-Instruct | turn-anon | list | 60 | 1.000 | 0.000 | 0.000 | 0.000 | 0.917 |
 | Qwen2.5-7B-Instruct | turn-label | list | 60 | 1.000 | 0.000 | 0.000 | 0.000 | 0.917 |
+| Qwen2.5-7B-Instruct | pos-anon | list | 60 | 0.000 | 0.650 | 0.000 | 1.000 | 0.000 |
 
 ## C2: length cue, requests where the swap changes a slot (165 items)
 

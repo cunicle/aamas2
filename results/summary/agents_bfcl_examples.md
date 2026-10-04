@@ -259,6 +259,48 @@ output:
 [{"name": "get_stock_data", "arguments": {"symbol": "MSFT", "data_points": ["price", "volume"]}}]
 ```
 
+### Dream-v0-Instruct-7B / sym / lengths oracle / pos-anon
+
+team output: `[{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}, {"name": "get_stock_data", "arguments": {"symbol": "GOOG", "data_points": ["price", "volume"]}}, {"name": "get_stock_data", "arguments": {"symbol": "MSFT", "data_points": ["price", "volume"]}}]`
+
+labels: ['(none)']; flags: set_acc, in_order
+
+**agent 1** slots [[0, 'data_points', 6], [0, 'symbol', 2], [1, 'data_points', 6], [1, 'symbol', 2], [2, 'data_points', 6], [2, 'symbol', 2]], user:
+
+```text
+Get the latest closing prices and volumes for Apple Inc., Google LLC., and Microsoft Corporation in the New York Stock Exchange
+```
+
+output:
+
+```text
+[{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}, {"name": "get_stock_data", "arguments": {"symbol": "...", "data_points": null}}, {"name": "get_stock_data", "arguments": {"symbol": "...", "data_points": null}}]
+```
+
+**agent 2** slots [[0, 'data_points', 6], [0, 'symbol', 2], [1, 'data_points', 6], [1, 'symbol', 2], [2, 'data_points', 6], [2, 'symbol', 2]], user:
+
+```text
+Get the latest closing prices and volumes for Apple Inc., Google LLC., and Microsoft Corporation in the New York Stock Exchange
+```
+
+output:
+
+```text
+[{"name": "get_stock_data", "arguments": {"symbol": "...", "data_points": null}}, {"name": "get_stock_data", "arguments": {"symbol": "GOOG", "data_points": ["price", "volume"]}}, {"name": "get_stock_data", "arguments": {"symbol": "...", "data_points": null}}]
+```
+
+**agent 3** slots [[0, 'data_points', 6], [0, 'symbol', 2], [1, 'data_points', 6], [1, 'symbol', 2], [2, 'data_points', 6], [2, 'symbol', 2]], user:
+
+```text
+Get the latest closing prices and volumes for Apple Inc., Google LLC., and Microsoft Corporation in the New York Stock Exchange
+```
+
+output:
+
+```text
+[{"name": "get_stock_data", "arguments": {"symbol": "...", "data_points": null}}, {"name": "get_stock_data", "arguments": {"symbol": "...", "data_points": null}}, {"name": "get_stock_data", "arguments": {"symbol": "MSFT", "data_points": ["price", "volume"]}}]
+```
+
 ### Qwen2.5-7B-Instruct / sym / lengths oracle / sim-anon
 
 team output: `[{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}, {"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}, {"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}]`
@@ -497,6 +539,48 @@ output:
 
 ```text
 [{"name": "get_stock_data", "arguments": {"symbol": "MSFT", "data_points": ["price", "volume"]}}]
+```
+
+### Qwen2.5-7B-Instruct / sym / lengths oracle / pos-anon
+
+team output: `[{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}, {"name": "get_stock_data", "arguments": {"symbol": "GOO", "data_points": null}}, {"name": "get_stock_data", "arguments": {"symbol": "...", "data_points": null}}]`
+
+labels: ['type_error', 'wrong_value']; flags: -
+
+**agent 1** slots [[0, 'data_points', 6], [0, 'symbol', 2], [1, 'data_points', 6], [1, 'symbol', 2], [2, 'data_points', 6], [2, 'symbol', 2]], user:
+
+```text
+Get the latest closing prices and volumes for Apple Inc., Google LLC., and Microsoft Corporation in the New York Stock Exchange
+```
+
+output:
+
+```text
+[{"name": "get_stock_data", "arguments": {"symbol": "AAPL", "data_points": ["price", "volume"]}}, {"name": "get_stock_data", "arguments": {"symbol": "...", "data_points": null}}, {"name": "get_stock_data", "arguments": {"symbol": "...", "data_points": null}}]
+```
+
+**agent 2** slots [[0, 'data_points', 6], [0, 'symbol', 2], [1, 'data_points', 6], [1, 'symbol', 2], [2, 'data_points', 6], [2, 'symbol', 2]], user:
+
+```text
+Get the latest closing prices and volumes for Apple Inc., Google LLC., and Microsoft Corporation in the New York Stock Exchange
+```
+
+output:
+
+```text
+[{"name": "get_stock_data", "arguments": {"symbol": "...", "data_points": null}}, {"name": "get_stock_data", "arguments": {"symbol": "GOO", "data_points": null}}, {"name": "get_stock_data", "arguments": {"symbol": "...", "data_points": null}}]
+```
+
+**agent 3** slots [[0, 'data_points', 6], [0, 'symbol', 2], [1, 'data_points', 6], [1, 'symbol', 2], [2, 'data_points', 6], [2, 'symbol', 2]], user:
+
+```text
+Get the latest closing prices and volumes for Apple Inc., Google LLC., and Microsoft Corporation in the New York Stock Exchange
+```
+
+output:
+
+```text
+[{"name": "get_stock_data", "arguments": {"symbol": "...", "data_points": null}}, {"name": "get_stock_data", "arguments": {"symbol": "...", "data_points": null}}, {"name": "get_stock_data", "arguments": {"symbol": "...", "data_points": null}}]
 ```
 
 ## Request parallel_3 (swap subset, parallel, n=3)

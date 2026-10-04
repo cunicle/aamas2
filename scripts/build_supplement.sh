@@ -53,11 +53,11 @@ EOF
 
 # the raw records, without logs, smoke tests and gate runs
 mkdir -p $TMP/rec
-for a in results_2026-10-03 agents_2026-10-03 agents_b2_2026-10-03 exp_c_2026-10-04; do
+for a in results_2026-10-03 agents_2026-10-03 agents_b2_2026-10-03 exp_c_2026-10-04 exp_d_2026-10-05; do
   tar xzf release/$a.tar.gz -C $TMP/rec
 done
 (cd $TMP/rec && rm -rf results/smoke* results/gate_c results/CHAIN_* results/summary results/log_* \
-    results/pilot.md results/b2_verify_ar.txt && tar cf - results | xz -9e -T0 > $SUP/records.tar.xz)
+    results/gate_d results/pilot.md results/b2_verify_ar.txt && tar cf - results | xz -9e -T0 > $SUP/records.tar.xz)
 
 if grep -rEn --exclude=records.tar.xz \
     --exclude=AI_USE.md --exclude-dir=prompts \
