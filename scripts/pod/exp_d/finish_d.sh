@@ -2,7 +2,10 @@
 # Wait for the chains, build the quick table, pack the results, leave time to pull the archive,
 # then stop the pod from inside (its own env has RUNPOD_API_KEY / RUNPOD_POD_ID).
 source /workspace/aamas2_env.sh
-for m in ${MARKERS:-CHAIN_D1_DONE CHAIN_D2_DONE}; do until [ -f results/$m ]; do sleep 60; done; done
+for m in ${MARKERS:-CHAIN_D1_DONE CHAIN_D2_DONE CHAIN_D3_DONE}; do until [ -f results/$m ]; do sleep 60; done; done
+# the whole tolerant_dream phase once more: every record is there, so it must only skip
+EST=results/release_2026-10-03/results/dream/length_estimate.jsonl bash scripts/run_minimal.sh tolerant_dream     > results/log_tolerant_dream_recheck.txt 2>&1
+echo "tolerant_dream recheck exit=$? $(date -u +%T)" >> results/CHAIN_D_TIMES
 mkdir -p results/summary
 $PY_DREAM scripts/exp_d_quick.py results/dream/bfcl_tolerant*.jsonl results/*/agents_d.jsonl \
     results/*/agents_pos.jsonl > results/summary/exp_d_quick.md 2> results/log_exp_d_quick.txt
