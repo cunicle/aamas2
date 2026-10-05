@@ -79,7 +79,7 @@
 | schelling1960strategy | Schelling | Harvard University Press, 1960 | 焦点 | 已引 |
 | lewis1969convention | Lewis | Harvard University Press, 1969 | 约定 | 已引 |
 | mehta1994salience | Mehta, Starmer & Sugden | AER 84(3):658–673, 1994 | 纯协调博弈中显著性的实验（注意：不要和同一组作者 1994 年在 Theory and Decision 上的另一篇混淆） | 已引 |
-| grenager2002dispersion | Dispersion games | AAAI 2002，pp. 398–403 | 对称选择下的分散与撞车 | 已引 |
+| grenager2002dispersion | Dispersion games | AAAI-02（Proceedings of the Eighteenth National Conference on AI），pp. 398–403；原 DOI 10.5555/777092.777156 在 doi.org 解析不到（404），10-05 改为 AAAI 官方 PDF 链接 | 对称选择下的分散与撞车 | 已引 |
 | marschak1972teams | Marschak & Radner, Economic Theory of Teams | Yale University Press, New Haven, 1972（Open Library 两条记录） | 共同收益的团队决策问题：§3 把一轮并行调用形式化为共享策略的团队问题 | 已引 |
 | hu2020otherplay | Other-Play | ICML 2020，PMLR 119:4399–4410 | 利用对称性的零样本协调 | 已引 |
 
@@ -91,7 +91,7 @@
 | agashe2025llmcoordination | LLM-Coordination | Findings of NAACL 2025，pp. 8053–8072 | LLM 在纯协调博弈上的基准 | 已引 |
 | ballestero2026monoculture | Strategic Algorithmic Monoculture | arXiv 2604.09502 | LLM 的选择高度相似；擅长选相同的动作，但需要彼此不同时不如人类 | 已引 |
 | mao2026delm | DeLM | arXiv 2606.10662 | 并行 LLM agent 重复同伴的工作；用共享上下文和任务队列异步领取任务 | 已引 |
-| rodionov2025hogwild | Hogwild! Inference | NeurIPS 2025，DOI 10.52202/085713-1551 | 同一 LLM 的多个实例共享 KV cache 并行生成，自己决定如何分工 | 已引 |
+| rodionov2025hogwild | Hogwild! Inference | NeurIPS 2025，DOI 10.52202/085713-1551 | 同一 LLM 的多个实例共享 KV cache 并行生成，自己决定如何分工；**没有**预先给定的计划或骨架（10-05 据此改了 §1、§9 的说法） | 已引 |
 
 ## 已删除或不引用
 
