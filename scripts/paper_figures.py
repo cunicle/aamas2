@@ -120,17 +120,18 @@ def surplus_figure(summary, out):
             ys = [y for y in ys if y is not None]
             if len(xs) < 2:
                 continue
+            z = 2.3 - 0.1 * i  # k=1 on top where points coincide
             # break the line where a surplus was not run (none since experiment E)
             seg_x, seg_y = [xs[0]], [ys[0]]
             for x, y in zip(xs[1:], ys[1:]):
                 if x != seg_x[-1] + 1:
-                    ax.plot(seg_x, seg_y, color=RAMP[model][i], linewidth=1.5)
+                    ax.plot(seg_x, seg_y, color=RAMP[model][i], linewidth=1.5, zorder=z)
                     seg_x, seg_y = [], []
                 seg_x.append(x)
                 seg_y.append(y)
-            ax.plot(seg_x, seg_y, color=RAMP[model][i], linewidth=1.5)
+            ax.plot(seg_x, seg_y, color=RAMP[model][i], linewidth=1.5, zorder=z)
             ax.plot(xs, ys, linestyle="none", marker=MARKER[k], markersize=4.2, color=RAMP[model][i],
-                    markeredgecolor="white", markeredgewidth=0.6)
+                    markeredgecolor="white", markeredgewidth=0.6, zorder=z)
             handles.append(Line2D([], [], color=RAMP[model][i], linewidth=1.5, marker=MARKER[k], markersize=4.2,
                                   markeredgecolor="white", markeredgewidth=0.6, label=f"$k={k}$"))
         if model == "dream" and v_acc:
@@ -166,7 +167,8 @@ def surplus_figure(summary, out):
     for model, label, mk in [("dream", "Dream", "o"), ("llada2", "LLaDA2.0", "s")]:
         pts = [(x, 100 * pc[model, s]) for x, s in enumerate(S) if (model, s) in pc]
         ax.plot([x for x, _ in pts], [y for _, y in pts], color=RAMP[model][1], linewidth=1.5, marker=mk,
-                markersize=4.2, markeredgecolor="white", markeredgewidth=0.6, label=label)
+                markersize=4.2, markeredgecolor="white", markeredgewidth=0.6, label=label, zorder=2.5,
+                clip_on=False)  # above the dashed line (LLaDA2.0 and the dashed line meet at s=4)
     if v_probe:
         pts = [(x, v_probe[s]) for x, s in enumerate(S) if s in v_probe]
         for seg in segments([x for x, _ in pts], [y for _, y in pts]):
