@@ -34,6 +34,7 @@
 #   choose_dream / choose_llada2 / choose_ar   choose-N probes (data/choose.jsonl): requests
 #                     that leave open which N cities to call; duplicates vs k
 #   summary_length    tables of the length study into results/summary/ (CPU)
+#   fill_fig3_dream / fill_fig3_llada2   experiment E: the Figure 3 points not run before
 # e.g. lenprior_llada2 -> surplus_llada2  alongside  lenprior_dream -> surplus_dream -> surplus_ar -> endbias_dream
 #
 # Every run appends to its JSONL and skips finished items, so any phase can be
@@ -472,6 +473,35 @@ EOF
       $PY_DREAM scripts/run_agents.py --model $m --backend $b --data probe:data/choose.jsonl \
           --protocols pos-anon --out results/$t/agents_pos.jsonl
     done
+    ;;
+  fill_fig3_dream)
+    # experiment E: the points of Figure 3 that were not run (Dream and Qwen2.5 environment)
+    # (a) the closing token in the slot at s=4, k=1, and its probe at s=4
+    $PY_DREAM scripts/run_dllm.py --model $DREAM --data $BFCL --mode skeleton --closer-in-slot --surplus 4 \
+        --k 1 --order confidence --out results/dream/bfcl_closer.jsonl
+    $PY_DREAM scripts/length_prior.py --model $DREAM --data $BFCL --closer-in-slot --surplus 4 \
+        --out results/dream/length_prior_closer_s4.jsonl | tee results/dream/length_prior_closer_s4.txt
+    # (a) the AR agent at s = 1, 2, 4 (s = 0 and 8 are in bfcl_skeleton.jsonl / bfcl_surplus.jsonl)
+    for s in 1 2 4; do
+      $PY_DREAM scripts/run_ar.py --model $QWEN --data $BFCL --mode skeleton --surplus $s \
+          --out results/qwen/bfcl_surplus.jsonl
+    done
+    ;;
+  fill_fig3_llada2)
+    # experiment E: the points of Figure 3 that were not run (LLaDA2.0 environment), on the same
+    # 100 requests as surplus_llada2 / surplus1_llada2
+    # (b) s=4 at k = 4, 1, 16; k=16 at s = 2 and 8
+    $PY_LLADA2 scripts/run_dllm.py --model $LLADA2 --data bfcl:parallel --data bfcl:parallel_multiple \
+        --per-data 50 --mode skeleton --block-length 32 --surplus 4 --k 4,1,16 --order confidence \
+        --out results/llada2/bfcl_surplus.jsonl
+    for s in 2 8; do
+      $PY_LLADA2 scripts/run_dllm.py --model $LLADA2 --data bfcl:parallel --data bfcl:parallel_multiple \
+          --per-data 50 --mode skeleton --block-length 32 --surplus $s --k 16 --order confidence \
+          --out results/llada2/bfcl_surplus.jsonl
+    done
+    # (c) the probe at s=2 (s = 1, 4, 8 are in length_prior_s1 / length_prior / length_prior_s8)
+    $PY_LLADA2 scripts/length_prior.py --model $LLADA2 --data $BFCL --surplus 2 --block-length 32 \
+        --out results/llada2/length_prior_s2.jsonl | tee results/llada2/length_prior_s2.txt
     ;;
   *)
     sed -n '2,20p' "$0"; exit 1 ;;
