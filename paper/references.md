@@ -17,8 +17,8 @@
 |---|---|---|---|---|
 | patil2025bfcl | BFCL | ICML 2025，PMLR 267:48371–48392 | 数据；按集合评分（App. H：“any predicted call ai may match any ground-truth call bj”） | 已引 |
 | ye2025dream | Dream 7B | arXiv 2508.15487 | 模型；从 Qwen2.5-7B **base** 初始化，全注意力 | 已引 |
-| bie2025llada2 | LLaDA2.0 | arXiv 2512.15745 | 模型；块扩散；论文报告 BFCL v3 70.90；“1.4B active”出自模型卡 | 已引 |
-| nie2025llada | LLaDA | NeurIPS 2025，DOI 10.52202/085713-1689 | dLLM 背景 | 已引 |
+| bie2025llada2 | LLaDA2.0 | arXiv 2512.15745 | 模型；块扩散；论文报告 BFCL v3 70.90；“1.4B active”出自模型卡（论文里没有，正文已注明 according to its model card） | 已引 |
+| nie2025llada | LLaDA | NeurIPS 2025，pp. 56354–56392，DOI 10.52202/085713-1689 | dLLM 背景 | 已引 |
 | qwen2024qwen25 | Qwen2.5 技术报告 | arXiv 2412.15115（2024-12） | AR 参照 | 已引 |
 | sahoo2024mdlm | MDLM | NeurIPS 2024，DOI 10.52202/079017-4135 | 掩码扩散背景 | 已引 |
 
@@ -55,7 +55,7 @@
 |---|---|---|---|---|
 | han2026dia | Dynamic Infilling Anchors (DIA) | ACL 2026 Long，pp. 26213–26227 | **最接近的已有工作**：固定锚点“impose rigid spans, leading to truncated reasoning or redundant content”；在填空前估计结束锚点的位置。只处理单个回复的格式模板 | 已引 |
 | wu2026dreamon | DreamOn | ICLR 2026 | 代码填空：mask 长度与理想长度不符时性能严重下降；加入两个长度控制状态，让模型自己伸缩 | 已引 |
-| liu2026cal | CAL | arXiv 2602.00476 | 单段填空；校准后的首步置信度 + 双向爬山；代码填空平均多 11–18 次前向；多段列为未来工作 | 已引 |
+| liu2026cal | CAL | NeurIPS 2026 录用（10-05 核对官方录用列表，标题改为录用版 “Diffusion Language Models Can …”；arXiv 2602.00476） | 单段填空；校准后的首步置信度 + 双向爬山；代码填空平均多 11–18 次前向；多段列为未来工作 | 已引 |
 | yang2026rhoeos | ρ-EOS | arXiv 2601.22527 | 伸缩整段的尾部 | 已引 |
 | li2026daedal | DAEDAL | ICLR 2026 | 扩展尾部，并在低置信位置插入 mask；只处理单个回复 | 已引 |
 | xiong2026s3 | S³ | ICLR 2026 | mask 给多时过度生成；用 `null` 占位；LLaDA-1.5，WikiBio | 已引 |
@@ -109,7 +109,7 @@
 | fenster1995coordination | ICMAS-95, pp. 102–108 | 自动 agent 用焦点作协调启发式（§1、§2） | 已引 |
 | kraus2000focal | AMAI 28(1–4):187–258, 2000 | 同上，两种方法找焦点（§2） | 已引 |
 | sugden1995theory | Economic Journal 105(430):533–550 | 基于标签的团队推理与焦点（§2） | 已引 |
-| bardsley2010explaining | Economic Journal 120(543):40–79 | 焦点：认知层级 vs 团队推理（§2、§5） | 已引 |
+| bardsley2010explaining | Economic Journal 120(543):40–79 | 焦点：认知层级 vs 团队推理（§2、§5）；两个实验一个支持团队推理、一个支持认知层级（OpenAlex 摘要），§2 10-05 改为如实写两边 | 已引 |
 | shoham1995social | AIJ 73(1–2):231–252 | 离线设计的社会律（§1、§2） | 已引 |
 | treutlein2021new | ICML 2021, PMLR 139:10413–10423 | 无标签协调（§2） | 已引 |
 | stone2010adhoc | AAAI 2010, 24(1):1504–1509 | 临时组队（§2） | 已引 |
@@ -117,6 +117,6 @@
 | radner1962team | Ann. Math. Stat. 33(3):857–881 | 团队决策问题（§1、§2、§3） | 已引 |
 | ning2024skeleton | ICLR 2024 | 先写骨架再并行展开（§2、§9） | 已引 |
 | cemri2025why | NeurIPS 2025 Datasets and Benchmarks | 多 agent LLM 系统的失败，包括 agent 之间不一致（§2） | 已引 |
-| angluin1980local | STOC 1980, pp. 82–93, doi 10.1145/800141.804655（Crossref 核对） | 匿名的相同进程无法确定性地打破对称（§2） | 已引 |
-| stone1999task | Artificial Intelligence 110(2):241–273, doi 10.1016/S0004-3702(99)00025-9（Crossref 核对） | 按阵型位置动态分配角色（§2） | 已引 |
+| angluin1980local | STOC 1980, pp. 82–93, doi 10.1145/800141.804655（Crossref 核对） | 匿名的相同进程在对称网络（如环）中无法确定性地打破对称（§2；全文付费墙，摘要和二手文献核对；10-05 补上 in a symmetric network） | 已引 |
+| stone1999task | Artificial Intelligence 110(2):241–273, doi 10.1016/S0004-3702(99)00025-9（Crossref 核对） | 角色是阵型里的位置；赛前约定（locker-room agreement）给出初始阵型和 agent→角色的映射，运行时可换（作者 PDF §4.2；§2 10-05 改为 maps its agents to the positions of a pre-agreed formation） | 已引 |
 | bernstein2002complexity | Math. Oper. Res. 27(4):819–840, doi 10.1287/moor.27.4.819.297（Crossref 核对） | Dec-POMDP：分散控制下谁看到什么（§2） | 已引 |
