@@ -20,6 +20,7 @@ import argparse
 import json
 import os
 import sys
+from fractions import Fraction
 
 import numpy as np
 from scipy.stats import binomtest
@@ -50,7 +51,9 @@ def paired(a, b, resamples=10000, seed=0):
     boot = d[rng.integers(0, len(d), size=(resamples, len(d)))].mean(1)
     only_a, only_b = int(((x == 1) & (y == 0)).sum()), int(((x == 0) & (y == 1)).sum())
     p = binomtest(only_a, only_a + only_b, 0.5).pvalue if only_a + only_b else 1.0
-    return {"n": len(ids), "a": 100 * x.mean(), "b": 100 * y.mean(), "diff": 100 * d.mean(),
+    # exact shares, so that half-up rounding sees 113/400 as 28.25, not 28.2499...
+    pct = lambda v: Fraction(100 * int(v.sum()), len(v))
+    return {"n": len(ids), "a": pct(x), "b": pct(y), "diff": pct(d),
             "lo": 100 * np.percentile(boot, 2.5), "hi": 100 * np.percentile(boot, 97.5),
             "only_a": only_a, "only_b": only_b, "p": p}
 
@@ -74,7 +77,7 @@ def did(a1, a2, b1, b2, resamples=10000, seed=0):
     boot = d[rng.integers(0, len(d), size=(resamples, len(d)))].mean(1)
     pos, neg = int((d > 0).sum()), int((d < 0).sum())
     p = binomtest(pos, pos + neg, 0.5).pvalue if pos + neg else 1.0
-    return len(ids), 100 * d.mean(), 100 * np.percentile(boot, 2.5), 100 * np.percentile(boot, 97.5), pos, neg, p
+    return len(ids), Fraction(100 * int(d.sum()), len(d)), 100 * np.percentile(boot, 2.5), 100 * np.percentile(boot, 97.5), pos, neg, p
 
 
 def wilson(k, n, z=1.959964):

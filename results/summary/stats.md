@@ -45,7 +45,7 @@
 | 4D | Dream | acc | canvas k=1 | team position | 104 | 88.5 | 85.6 | 2.9 | [0.0, 6.7] | 3 / 0 | 0.2500 | 1.0000 |
 | 4D | Qwen | acc | team position | team same time, rule | 104 | 54.8 | 34.6 | 20.2 | [8.7, 31.7] | 31 / 10 | 0.0015 | 0.0276 |
 | 4D | Qwen | acc | canvas (AR) | team position | 104 | 91.3 | 54.8 | 36.5 | [27.9, 46.2] | 38 / 0 | <1e-4 | <1e-4 |
-| 6D | Dream | acc | tolerant +1 k=1 | original +1 k=1 | 400 | 28.2 | 15.5 | 12.8 | [8.5, 17.0] | 66 / 15 | <1e-4 | <1e-4 |
+| 6D | Dream | acc | tolerant +1 k=1 | original +1 k=1 | 400 | 28.3 | 15.5 | 12.8 | [8.5, 17.0] | 66 / 15 | <1e-4 | <1e-4 |
 | 6D | Dream | acc | tolerant +2 k=1 | original +2 k=1 | 400 | 20.0 | 3.3 | 16.8 | [13.0, 20.5] | 69 / 2 | <1e-4 | <1e-4 |
 | 6D | Dream | acc | tolerant estimate k=1 | original estimate k=1 | 400 | 47.5 | 42.3 | 5.3 | [2.0, 8.5] | 32 / 11 | 0.0019 | 0.0330 |
 | 7 | Dream | ccer | estimate k=16 | estimate k=1 | 400 | 10.3 | 6.5 | 3.8 | [1.5, 6.0] | 19 / 4 | 0.0026 | 0.0416 |
