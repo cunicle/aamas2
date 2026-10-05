@@ -161,14 +161,14 @@
 \node[inner sep=0pt, anchor=base west] at (\cC, \H+\rA) {Its position on the shared skeleton;};
 \node[note, anchor=base west] at (\cC, \H+\rA-8) {every slot sees the whole canvas};
 \node[inner sep=0pt, anchor=base west] at (\cC, \H+\rB) {A note in its prompt:};
-\foreach \y/\lab/\txt in {1/anonymous/{You are one of $n$ assistants.},
-                          2/numbered/{You are assistant $i$ of $n$.},
+\foreach \y/\lab/\txt in {1/anonymous/{You are one of $n$ assistants \dots},
+                          2/numbered/{You are assistant $i$ of $n$ \dots},
                           3/told the rule/{\dots\ assistant $i$ makes the $i$-th of the calls \dots}} {
   \node[note, anchor=base west] at (\cC, \H+\rB-7.6*\y) {\lab\enspace\textcolor{figink}{\emph{\txt}}};
 }
 \node[note, anchor=base west] at (\cC, \H+\rB-30.4) {position agents: no note; the whole skeleton, fill call $i$};
 \end{tikzpicture}
 \caption{The test bed. (a) The skeleton interface. (b) Deciders that move together do not see each other's choices; those that take turns see the earlier ones (dashed). Teal: cues that can set deciders apart (Section~\ref{sec:predictions}).}
-\Description{Two parts. Part (a) shows the request about loans from HSBC and Wells Fargo, and below it the agent's canvas: two JSON calls of loan_eligibility_check whose syntax is written out and whose three argument values are rows of mask tokens, two masks for HSBC's slot and three for Wells Fargo's, seven for each amount and income. Labels mark the skeleton, a slot of length 2, the closing delimiter written after a slot, the sibling group formed by the two institution slots, and the type mask of the amount slot. Part (b) is a grid. Rows: one dLLM agent with one canvas, and a team of agents with one call each. Columns: deciders that move together, each choosing at the same step without seeing the other, and deciders that take turns, where the second sees the first's choice of HSBC before choosing Wells Fargo. A last column lists what sets the deciders apart: the position on the shared skeleton for slots, and for agents a note in the prompt, anonymous, numbered, or told the rule, and position agents, which get no note but the whole skeleton and fill their own call.}
+\Description{Two parts. Part (a) shows the request about loans from HSBC and Wells Fargo, and below it the agent's canvas: two JSON calls of loan_eligibility_check whose syntax is written out and whose three argument values are rows of mask tokens, two masks for HSBC's slot and three for Wells Fargo's, seven for each amount and income. Labels mark the skeleton, a slot of length 2, the closing delimiter written after a slot, the sibling group formed by the two institution slots, and the type mask of the amount slot. Part (b) is a grid. Rows: one dLLM agent with one canvas, and a team of agents with one call each. Columns: deciders that move together, each choosing at the same step without seeing the other, and deciders that take turns, where the second sees the first's choice of HSBC before choosing Wells Fargo. A last column lists what sets the deciders apart: the position on the shared skeleton for slots, and for agents a note in the prompt, anonymous, numbered, or told the rule, and position agents, which get the whole skeleton instead of a note and fill their own call.}
 \label{fig:setup}
 \end{figure*}
