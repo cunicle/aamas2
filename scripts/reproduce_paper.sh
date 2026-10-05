@@ -43,12 +43,14 @@ $PY scripts/co_commit.py $D/bfcl_skel_k.jsonl $D/bfcl_skel_tau.jsonl $L/bfcl_ske
 $PY scripts/consequences.py $D/bfcl_skel_k.jsonl $D/bfcl_surplus.jsonl $D/bfcl_swap.jsonl $D/bfcl_estimate.jsonl \
     $L/bfcl_skel_k.jsonl $L/bfcl_surplus.jsonl $L/bfcl_swap.jsonl $L/bfcl_estimate.jsonl \
     --csv $S/consequences.csv > $S/consequences.md
-# teacher-forced closing probe (Figure 2c)
+# teacher-forced closing probe (Figure 3c)
 for f in $D/length_prior.txt $D/length_prior_s1.txt $D/length_prior_s2.txt $D/length_prior_s8.txt \
          $L/length_prior.txt $L/length_prior_s1.txt $L/length_prior_s8.txt \
          $D/length_estimate.txt $L/length_estimate.txt; do
   echo "== $f"; cat $f
 done > $S/length_prior.md
+# what the type mask forbids in surplus masks (Section 6)
+$PY scripts/typemask_probe.py --results results > $S/typemask_probe.md
 
 # teams of agents on choose-N (Table 2, right)
 $PY scripts/agents_analysis.py $Q/agents.jsonl $D/agents.jsonl $Q/agents_sample.jsonl $D/agents_sample.jsonl \
@@ -69,7 +71,7 @@ $PY scripts/closer_analysis.py --results results --original results --csv $S/clo
 $PY scripts/swap_direction.py --results results > $S/swap_direction.md
 $PY scripts/exp_d_analysis.py --results results > $S/exp_d.md
 
-# the paper's tables, Figure 2, statistics and other quoted numbers
+# the paper's tables, Figure 3, statistics and other quoted numbers
 $PY scripts/paper_tables.py --results results --summary $S --out out/tables --c-results results
 $PY scripts/paper_figures.py --summary $S --out out/figures
 $PY scripts/stats.py --results results --agents-results results --c-results results --out $S/stats.md

@@ -117,3 +117,6 @@
 | radner1962team | Ann. Math. Stat. 33(3):857–881 | 团队决策问题（§1、§2、§3） | 已引 |
 | ning2024skeleton | ICLR 2024 | 先写骨架再并行展开（§2、§9） | 已引 |
 | cemri2025why | NeurIPS 2025 Datasets and Benchmarks | 多 agent LLM 系统的失败，包括 agent 之间不一致（§2） | 已引 |
+| angluin1980local | STOC 1980, pp. 82–93, doi 10.1145/800141.804655（Crossref 核对） | 匿名的相同进程无法确定性地打破对称（§2） | 已引 |
+| stone1999task | Artificial Intelligence 110(2):241–273, doi 10.1016/S0004-3702(99)00025-9（Crossref 核对） | 按阵型位置动态分配角色（§2） | 已引 |
+| bernstein2002complexity | Math. Oper. Res. 27(4):819–840, doi 10.1287/moor.27.4.819.297（Crossref 核对） | Dec-POMDP：分散控制下谁看到什么（§2） | 已引 |

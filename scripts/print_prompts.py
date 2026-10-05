@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from ptcdiag.data import agents, choose  # noqa: E402
 from ptcdiag.data.paraprobe import WEATHER_FN  # noqa: E402
 from ptcdiag.prompting import SYSTEM_TEMPLATE  # noqa: E402
+from ptcdiag.decoding.constraints import PLACEHOLDER  # noqa: E402
 
 
 def block(text):
@@ -57,7 +58,13 @@ def main():
             "argument values (Section 3.1 of the paper); an AR model writes each value into the same "
             "skeleton until its closing token. A team agent gets the skeleton of its own call only; Dream "
             "agents decode it one token per step in confidence order, Qwen agents left to right. Examples of filled canvases, with the slots marked, are in "
-            "`results/summary/closer.md`.", ""]
+            "`results/summary/closer.md`.", "",
+            "## Position agents (`pos-anon`)", "",
+            "Agent i gets the request with no note and the skeleton of the whole turn, and fills call i "
+            "only. The other calls' value slots stay masked for Dream (never committed); for Qwen, which "
+            "writes left to right, they are teacher-forced to a placeholder, "
+            + ", ".join(f"`{v}` for {'string' if k else 'other'} slots" for k, v in PLACEHOLDER.items())
+            + " (`PLACEHOLDER` in `ptcdiag/decoding/constraints.py`).", ""]
     sys.stdout.write("\n".join(out))
 
 

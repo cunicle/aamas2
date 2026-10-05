@@ -3,8 +3,10 @@
   swap_sets     Dream, swapped lengths, k=1: correct requests whose calls match the reference
                 only as a reordered set (the optimal matching is not the identity)
   ar_cutoff     Qwen2.5 in the skeleton with exact lengths vs eight surplus masks: requests whose
-                output differs, and set-accuracy transitions (exact-length slots can cut off a
-                value that the AR model tokenizes differently in context)
+                output differs, and set-accuracy transitions; the skeleton's optional arguments
+                (an acceptable value is "", yet the skeleton fills them) and parameters with
+                several acceptable values (exact lengths fit the first: "IL", not "Illinois"),
+                and which of them the changed outputs differ in
   k_failures    requests that fail at k=16 but not at k=1 (exact lengths), by kind: output
                 that does not parse, a cross-call error, single-call errors only
   estimate      wrong one-forward length estimates that are too long
@@ -31,7 +33,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.dirname(__file__))
 
 from paper_tables import DREAM_K, LLADA_K, estimate_slots, fmt, runs_by  # noqa: E402
-from ptcdiag.data import load_jsonl  # noqa: E402
+from ptcdiag.data import load_examples, load_jsonl  # noqa: E402
 from ptcdiag.data.choose import US_CITIES  # noqa: E402
 from ptcdiag.eval.taxonomy import is_cross_call  # noqa: E402
 
@@ -46,6 +48,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--results", default="results")
     ap.add_argument("--choose", default="data/choose.jsonl")
+    ap.add_argument("--bfcl-dir", default="data/bfcl")
     args = ap.parse_args()
     res = args.results
     out = ["# Numbers quoted in the text (scripts/review_numbers.py)", ""]
@@ -67,7 +70,32 @@ def main():
     broken = sum(q0[i]["diagnosis"]["correct"] and not q8[i]["diagnosis"]["correct"] for i in ids)
     out += ["## ar_cutoff (Qwen2.5, exact vs +8)",
             f"- requests: {len(ids)}; output differs: {pct(differ, len(ids))}",
-            f"- wrong with exact lengths, correct with +8: {fixed}; the reverse: {broken}", ""]
+            f"- wrong with exact lengths, correct with +8: {fixed}; the reverse: {broken}"]
+    exs = {e.id: e for e in load_examples("bfcl:parallel,parallel_multiple", args.bfcl_dir)}
+    slots = [(i, ci, p, acc) for i, e in exs.items() for ci, (_, ps) in enumerate(e.gold_calls)
+             for p, acc in ps.items() if any(a != "" for a in acc)]
+    optional = [x for x in slots if "" in x[3]]
+    several = [x for x in slots if len([a for a in x[3] if a != ""]) > 1]
+    out += [f"- skeleton slots: {len(slots)}; optional (\"\" acceptable): {pct(len(optional), len(slots))} in "
+            f"{len({x[0] for x in optional})} requests; several acceptable values: {pct(len(several), len(slots))}"]
+    causes = Counter()
+    for i in ids:
+        if q0[i]["text"] == q8[i]["text"]:
+            continue
+        a, b = q0[i].get("calls"), q8[i].get("calls")
+        if not isinstance(a, list) or not isinstance(b, list) or not len(a) == len(b) == len(exs[i].gold_calls):
+            causes["does not parse, or a different number of calls"] += 1
+            continue
+        kinds = set()
+        for ci, (_, ps) in enumerate(exs[i].gold_calls):
+            for p, acc in ps.items():
+                vals = [v for v in acc if v != ""]
+                if vals and a[ci]["arguments"].get(p) != b[ci]["arguments"].get(p):
+                    kinds.add("optional" if "" in acc else "several acceptable values" if len(vals) > 1
+                              else "one acceptable value")
+        causes[" + ".join(sorted(kinds)) or "same values (formatting only)"] += 1
+    out += ["- changed outputs by the slots whose values differ: "
+            + "; ".join(f"{k}: {v}" for k, v in causes.most_common()), ""]
 
     out += ["## k_failures (exact lengths; fail at k=16 but not at k=1)",
             "| model | newly failing | does not parse | cross-call | single-call only | newly correct |",

@@ -26,6 +26,8 @@ bash scripts/reproduce_paper.sh         # -> results/summary/, out/tables/, out/
 diff -r out/tables expected/tables      # no output
 ```
 
+`reproduce_paper.sh` first re-diagnoses every record with the current error taxonomy (`scripts/rediagnose.py`), so the diagnoses stored in the records at run time are not used.
+
 | Paper | Built from |
 |---|---|
 | Table 1 | the `bfcl_skel_*` records, `symmetry_dream.md`, `symmetry_llada2.md` |
@@ -35,7 +37,7 @@ diff -r out/tables expected/tables      # no output
 | Section 8 (closing bias, estimated lengths) | the `bfcl_skel_k`, `bfcl_surplus`, `bfcl_endbias` and `bfcl_estimate` records (`mitigation.tex`, not in the paper) |
 | Figure 3 | `length.csv`, `length_prior.md`, `closer.csv` |
 | Intervals and tests | `stats.md` |
-| Other numbers | `review_numbers.md`, `co_commit.md`, `choose_focal.md`, `choose_pairs.md`, `choose_tau_ltr.md`, `block_share.md`, `consequences.md`, `swap_*.md`, `slots_*.md` |
+| Other numbers | `review_numbers.md`, `co_commit.md`, `choose_focal.md`, `choose_pairs.md`, `choose_tau_ltr.md`, `block_share.md`, `consequences.md`, `swap_*.md`, `slots_*.md`, `typemask_probe.md` |
 
 `results/summary/agents_examples.md` and `agents_bfcl_examples.md` show complete prompts and outputs of example teams; `closer.md` shows filled canvases with the slots marked.
 

@@ -7,6 +7,8 @@
 ## ar_cutoff (Qwen2.5, exact vs +8)
 - requests: 400; output differs: 44/400 (11.0%)
 - wrong with exact lengths, correct with +8: 13; the reverse: 3
+- skeleton slots: 3063; optional ("" acceptable): 315/3063 (10.3%) in 169 requests; several acceptable values: 553/3063 (18.1%)
+- changed outputs by the slots whose values differ: several acceptable values: 17; does not parse, or a different number of calls: 9; one acceptable value: 6; optional: 6; same values (formatting only): 5; one acceptable value + several acceptable values: 1
 
 ## k_failures (exact lengths; fail at k=16 but not at k=1)
 | model | newly failing | does not parse | cross-call | single-call only | newly correct |

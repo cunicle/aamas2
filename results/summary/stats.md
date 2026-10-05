@@ -51,9 +51,17 @@
 | 7 | Dream | ccer | estimate k=16 | estimate k=1 | 400 | 10.3 | 6.5 | 3.8 | [1.5, 6.0] | 19 / 4 | 0.0026 | 0.0416 |
 | 7 | Dream | acc | estimate k=1 | estimate k=16 | 400 | 42.3 | 32.3 | 10.0 | [6.3, 13.8] | 52 / 12 | <1e-4 | <1e-4 |
 
-| model | metric | interaction | n | points | 95% CI |
-|---|---|---|---|---|---|
-| Dream | ccer | (estimate k=16 - estimate k=1) - (exact k=16 - exact k=1) | 400 | 2.8 | [0.3, 5.3] |
+Robustness (not in the Holm family):
+
+| model | metric | A | B | n | A % | B % | A - B | 95% CI | A only / B only | McNemar p |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Dream | ccer without Shared | estimate k=1 | exact k=16 | 400 | 4.5 | 1.3 | 3.3 | [1.0, 5.5] | 17 / 4 | 0.0072 |
+| Dream | ccer without Shared | estimate k=16 | estimate k=1 | 400 | 6.5 | 4.5 | 2.0 | [0.5, 3.8] | 10 / 2 | 0.0386 |
+
+| model | metric | interaction | n | points | 95% CI | positive / negative requests | sign test p |
+|---|---|---|---|---|---|---|---|
+| Dream | ccer | (estimate k=16 - estimate k=1) - (exact k=16 - exact k=1) | 400 | 2.8 | [0.3, 5.3] | 19 / 8 | 0.0522 |
+| Dream | ccer without Shared | (estimate k=16 - estimate k=1) - (exact k=16 - exact k=1) | 400 | 1.3 | [-0.5, 3.3] | 10 / 5 | 0.3018 |
 
 | model | condition | metric | n | rate % | 95% Wilson interval |
 |---|---|---|---|---|---|

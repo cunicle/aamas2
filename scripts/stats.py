@@ -7,7 +7,10 @@ requests). Single rates: 95% Wilson interval. Rates are set accuracy (acc), the 
 error rate (ccer) and, on choose-N, the share of requests with a duplicated city (dup).
 Holm p: the McNemar p-values adjusted with Holm's procedure over all paired tests of the table.
 Interaction: the difference of two paired differences on the same requests (difference in
-differences), with its paired-bootstrap interval.
+differences), with its paired-bootstrap interval and an exact sign test on the requests whose
+difference is not zero. Robustness (outside the Holm family): the section 7 contrasts with the
+Shared label (inconsistent_shared_arg) left out of the cross-call errors, since one wrong copy
+of a shared argument is enough for it.
 
   tar xzf release/results_2026-10-03.tar.gz; tar xzf release/agents_2026-10-03.tar.gz
   python scripts/stats.py --results results --out results/summary/stats.md
@@ -31,7 +34,9 @@ from ptcdiag.data import load_jsonl  # noqa: E402
 from ptcdiag.eval.taxonomy import is_cross_call  # noqa: E402
 
 METRIC = {"acc": lambda r: bool(r["diagnosis"]["correct"]),
-          "ccer": lambda r: is_cross_call(r["diagnosis"]["labels"])}
+          "ccer": lambda r: is_cross_call(r["diagnosis"]["labels"]),
+          "ccer_noshared": lambda r: is_cross_call([x for x in r["diagnosis"]["labels"]
+                                                    if x != "inconsistent_shared_arg"])}
 
 
 def paired(a, b, resamples=10000, seed=0):
@@ -61,12 +66,15 @@ def holm(ps):
 
 
 def did(a1, a2, b1, b2, resamples=10000, seed=0):
-    """(A2 - A1) - (B2 - B1) in points, per request, with a 95% paired-bootstrap interval."""
+    """(A2 - A1) - (B2 - B1) in points, per request, with a 95% paired-bootstrap interval and an
+    exact sign test (positive against negative per-request differences)."""
     ids = sorted(set(a1) & set(a2) & set(b1) & set(b2))
     d = np.array([(a2[i] - a1[i]) - (b2[i] - b1[i]) for i in ids], float)
     rng = np.random.default_rng(seed)
     boot = d[rng.integers(0, len(d), size=(resamples, len(d)))].mean(1)
-    return len(ids), 100 * d.mean(), 100 * np.percentile(boot, 2.5), 100 * np.percentile(boot, 97.5)
+    pos, neg = int((d > 0).sum()), int((d < 0).sum())
+    p = binomtest(pos, pos + neg, 0.5).pvalue if pos + neg else 1.0
+    return len(ids), 100 * d.mean(), 100 * np.percentile(boot, 2.5), 100 * np.percentile(boot, 97.5), pos, neg, p
 
 
 def wilson(k, n, z=1.959964):
@@ -236,14 +244,29 @@ def main():
     add("7", "Dream", "acc", "estimate k=1", cond(d, "length_estimate", 0, DREAM_K[1], "acc"), "estimate k=16",
         cond(d, "length_estimate", 0, DREAM_K[16], "acc"))
     inter = [("Dream", "ccer", "(estimate k=16 - estimate k=1) - (exact k=16 - exact k=1)", did(es1, es16, ex1, ex16))]
+    # robustness, outside the Holm family: the same contrasts without the Shared label
+    nx1, nx16, ne1, ne16 = (cond(d, m, 0, DREAM_K[k], "ccer_noshared")
+                            for m, k in (("oracle", 1), ("oracle", 16), ("length_estimate", 1), ("length_estimate", 16)))
+    robust = [("Dream", "ccer without Shared", "estimate k=1", ne1, "exact k=16", nx16),
+              ("Dream", "ccer without Shared", "estimate k=16", ne16, "estimate k=1", ne1)]
+    inter.append(("Dream", "ccer without Shared", "(estimate k=16 - estimate k=1) - (exact k=16 - exact k=1)",
+                  did(ne1, ne16, nx1, nx16)))
 
     ps = holm([p for _, p in rows])
     lines += ["| section | model | metric | A | B | n | A % | B % | A - B | 95% CI | A only / B only | McNemar p "
               "| Holm p |", "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
     lines += [f"{line} {pfmt(q)} |" for (line, _), q in zip(rows, ps)]
-    lines += ["", "| model | metric | interaction | n | points | 95% CI |", "|---|---|---|---|---|---|"]
-    lines += [f"| {m} | {met} | {name} | {n} | {fmt(v)} | [{fmt(lo)}, {fmt(hi)}] |"
-              for m, met, name, (n, v, lo, hi) in inter]
+    lines += ["", "Robustness (not in the Holm family):", "",
+              "| model | metric | A | B | n | A % | B % | A - B | 95% CI | A only / B only | McNemar p |",
+              "|---|---|---|---|---|---|---|---|---|---|---|"]
+    for m, met, name_a, a, name_b, b in robust:
+        r = paired(a, b)
+        lines.append(f"| {m} | {met} | {name_a} | {name_b} | {r['n']} | {fmt(r['a'])} | {fmt(r['b'])} | {fmt(r['diff'])} "
+                     f"| [{fmt(r['lo'])}, {fmt(r['hi'])}] | {r['only_a']} / {r['only_b']} | {pfmt(r['p'])} |")
+    lines += ["", "| model | metric | interaction | n | points | 95% CI | positive / negative requests | sign test p |",
+              "|---|---|---|---|---|---|---|---|"]
+    lines += [f"| {m} | {met} | {name} | {n} | {fmt(v)} | [{fmt(lo)}, {fmt(hi)}] | {pos} / {neg} | {pfmt(p)} |"
+              for m, met, name, (n, v, lo, hi, pos, neg, p) in inter]
 
     # single rates on LLaDA2.0's subsets: 95% Wilson intervals
     lines += ["", "| model | condition | metric | n | rate % | 95% Wilson interval |", "|---|---|---|---|---|---|"]

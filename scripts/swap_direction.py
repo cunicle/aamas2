@@ -81,7 +81,10 @@ def main():
                 v, lo, hi = clustered(reqs, kind)
                 cells.append(f"{v:.1f} [{lo:.1f}, {hi:.1f}]")
             out.append(f"| {mode} | {iface} | {direction} | {n} | " + " | ".join(cells) + " |")
-    print("Dream, k=1, slots read from their own tokens; % of slots with a 95% request-resampling interval.\n")
+    print("Dream, k=1, slots read from their own tokens; % of slots with a 95% request-resampling interval. "
+          "sibling_fit: the value of any sibling whose reference value has the slot's length (the 'one slot "
+          "longer' rows of Table 3, from closer_analysis.py, count only the sibling whose length the slot was "
+          "given, so they are slightly lower).\n")
     print("\n".join(out))
 
 
