@@ -256,12 +256,17 @@ def table_teams(summ, res, cres):
             line(r"\llada, $k{=}1$", oa(("LLaDA2.0 canvas k=1", "one canvas")), cv(L, "confidence_k1_tnone_b32_T0.0"), {}),
             line(r"\qwen (AR)", oa(("Qwen canvas (AR)", "one canvas")), cv(Q, "ar_greedy"), {})]
     names = {"sim-anon": "same time, anonymous", "sim-label": "same time, numbered",
-             "sim-rule": "same time, told the rule", "turn-anon": "turns, anonymous", "turn-label": "turns, numbered"}
+             "sim-rule": "same time, told the rule", "turn-anon": "turns, anonymous", "turn-label": "turns, numbered",
+             "pos-anon": "same time, position"}
     for model, tag in [(Q, r"\qwen"), (D, r"\dream")]:
         rows += [r"\midrule", rf"\multicolumn{{7}}{{@{{}}l}}{{\emph{{A team of $n$ {tag} agents, one call each}}}} \\"]
         for p, name in names.items():
             g = {v: (dict(teams[model, p, v, 0.0], n=teams[model, p, v, 0.0]["teams"])
                      if (model, p, v, 0.0) in teams else None) for v in ("list", "open")}
+            if p == "pos-anon" and model == Q:  # its agents copy the placeholder instead of naming a city
+                g = {"list": None, "open": None}
+            if p == "pos-anon" and (model, p) not in ordered:
+                continue
             smp = {v: (dict(teams[model, p, v, 0.7], n=teams[model, p, v, 0.7]["teams"])
                        if (model, p, v, 0.7) in teams else None) for v in ("list", "open")}
             rows.append(line(r"\quad " + name, oa((model, p)), g, smp))
@@ -275,7 +280,9 @@ def table_teams(summ, res, cres):
         r"requests whose $i$-th call takes the $i$-th listed city. Agents: Figure~\ref{fig:setup}b; "
         r"\dream agents decode one token per step. Greedy decoding on "
         rf"{nl} list and {no} open requests; $T{{=}}0.7$: sampling at temperature 0.7, five seeds. Open requests "
-        r"hold one-token slots, so only duplicates are reported; --: not run.}",
+        r"hold one-token slots, so only duplicates are reported. \qwen's position agents copy the placeholder of "
+        r"earlier calls in choose-N (Section~\ref{sec:symmetric}). "
+        r"--: not run or not applicable.}",
         r"\label{tab:teams}",
         r"\small\setlength{\tabcolsep}{2.6pt}",
         r"\begin{tabular}{@{}lrrrrrr@{}}",

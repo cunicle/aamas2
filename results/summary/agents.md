@@ -14,6 +14,8 @@ Team level. ok: all cities allowed and different; duplicate: two agents with the
 | Dream-v0-Instruct-7B | turn-anon | open | 0.0 | 45 | 0.244 | 0.000 | 0.000 | 0.756 | - |
 | Dream-v0-Instruct-7B | turn-label | list | 0.0 | 60 | 1.000 | 0.000 | 0.000 | 0.000 | 0.267 |
 | Dream-v0-Instruct-7B | turn-label | open | 0.0 | 45 | 0.311 | 0.000 | 0.000 | 0.689 | - |
+| Dream-v0-Instruct-7B | pos-anon | list | 0.0 | 60 | 0.850 | 0.150 | 0.050 | 0.000 | 0.117 |
+| Dream-v0-Instruct-7B | pos-anon | open | 0.0 | 45 | 0.000 | 1.000 | 0.667 | 0.000 | - |
 | Dream-v0-Instruct-7B | sim-anon | list | 0.7 | 300 | 0.107 | 0.877 | 0.593 | 0.030 | 0.017 |
 | Dream-v0-Instruct-7B | sim-anon | open | 0.7 | 225 | 0.000 | 1.000 | 1.000 | 0.000 | - |
 | Dream-v0-Instruct-7B | sim-label | list | 0.7 | 300 | 0.227 | 0.750 | 0.340 | 0.040 | 0.027 |
@@ -26,6 +28,8 @@ Team level. ok: all cities allowed and different; duplicate: two agents with the
 | Qwen2.5-7B-Instruct | turn-anon | open | 0.0 | 45 | 0.000 | 0.000 | 0.000 | 1.000 | - |
 | Qwen2.5-7B-Instruct | turn-label | list | 0.0 | 60 | 1.000 | 0.000 | 0.000 | 0.000 | 0.917 |
 | Qwen2.5-7B-Instruct | turn-label | open | 0.0 | 45 | 0.000 | 0.000 | 0.000 | 1.000 | - |
+| Qwen2.5-7B-Instruct | pos-anon | list | 0.0 | 60 | 0.000 | 0.650 | 0.000 | 1.000 | 0.000 |
+| Qwen2.5-7B-Instruct | pos-anon | open | 0.0 | 45 | 0.000 | 0.667 | 0.044 | 1.000 | - |
 | Qwen2.5-7B-Instruct | sim-anon | list | 0.7 | 300 | 0.003 | 0.997 | 0.993 | 0.000 | 0.003 |
 | Qwen2.5-7B-Instruct | sim-anon | open | 0.7 | 225 | 0.000 | 0.938 | 0.898 | 1.000 | - |
 | Qwen2.5-7B-Instruct | sim-label | list | 0.7 | 300 | 0.000 | 1.000 | 0.973 | 0.000 | 0.000 |
@@ -59,6 +63,12 @@ Team level. ok: all cities allowed and different; duplicate: two agents with the
 | Dream-v0-Instruct-7B | turn-label | open | 0.0 | 2 | 15 | 0.933 | 0.000 | 0.000 | 0.067 | - |
 | Dream-v0-Instruct-7B | turn-label | open | 0.0 | 3 | 15 | 0.000 | 0.000 | 0.000 | 1.000 | - |
 | Dream-v0-Instruct-7B | turn-label | open | 0.0 | 4 | 15 | 0.000 | 0.000 | 0.000 | 1.000 | - |
+| Dream-v0-Instruct-7B | pos-anon | list | 0.0 | 2 | 20 | 0.850 | 0.150 | 0.150 | 0.000 | 0.150 |
+| Dream-v0-Instruct-7B | pos-anon | list | 0.0 | 3 | 20 | 0.900 | 0.100 | 0.000 | 0.000 | 0.150 |
+| Dream-v0-Instruct-7B | pos-anon | list | 0.0 | 4 | 20 | 0.800 | 0.200 | 0.000 | 0.000 | 0.050 |
+| Dream-v0-Instruct-7B | pos-anon | open | 0.0 | 2 | 15 | 0.000 | 1.000 | 1.000 | 0.000 | - |
+| Dream-v0-Instruct-7B | pos-anon | open | 0.0 | 3 | 15 | 0.000 | 1.000 | 1.000 | 0.000 | - |
+| Dream-v0-Instruct-7B | pos-anon | open | 0.0 | 4 | 15 | 0.000 | 1.000 | 0.000 | 0.000 | - |
 | Dream-v0-Instruct-7B | sim-anon | list | 0.7 | 2 | 100 | 0.250 | 0.720 | 0.720 | 0.030 | 0.050 |
 | Dream-v0-Instruct-7B | sim-anon | list | 0.7 | 3 | 100 | 0.050 | 0.940 | 0.560 | 0.020 | 0.000 |
 | Dream-v0-Instruct-7B | sim-anon | list | 0.7 | 4 | 100 | 0.020 | 0.970 | 0.500 | 0.040 | 0.000 |
@@ -95,6 +105,12 @@ Team level. ok: all cities allowed and different; duplicate: two agents with the
 | Qwen2.5-7B-Instruct | turn-label | open | 0.0 | 2 | 15 | 0.000 | 0.000 | 0.000 | 1.000 | - |
 | Qwen2.5-7B-Instruct | turn-label | open | 0.0 | 3 | 15 | 0.000 | 0.000 | 0.000 | 1.000 | - |
 | Qwen2.5-7B-Instruct | turn-label | open | 0.0 | 4 | 15 | 0.000 | 0.000 | 0.000 | 1.000 | - |
+| Qwen2.5-7B-Instruct | pos-anon | list | 0.0 | 2 | 20 | 0.000 | 0.000 | 0.000 | 1.000 | 0.000 |
+| Qwen2.5-7B-Instruct | pos-anon | list | 0.0 | 3 | 20 | 0.000 | 0.950 | 0.000 | 1.000 | 0.000 |
+| Qwen2.5-7B-Instruct | pos-anon | list | 0.0 | 4 | 20 | 0.000 | 1.000 | 0.000 | 1.000 | 0.000 |
+| Qwen2.5-7B-Instruct | pos-anon | open | 0.0 | 2 | 15 | 0.000 | 0.133 | 0.133 | 1.000 | - |
+| Qwen2.5-7B-Instruct | pos-anon | open | 0.0 | 3 | 15 | 0.000 | 0.867 | 0.000 | 1.000 | - |
+| Qwen2.5-7B-Instruct | pos-anon | open | 0.0 | 4 | 15 | 0.000 | 1.000 | 0.000 | 1.000 | - |
 | Qwen2.5-7B-Instruct | sim-anon | list | 0.7 | 2 | 100 | 0.010 | 0.990 | 0.990 | 0.000 | 0.010 |
 | Qwen2.5-7B-Instruct | sim-anon | list | 0.7 | 3 | 100 | 0.000 | 1.000 | 0.990 | 0.000 | 0.000 |
 | Qwen2.5-7B-Instruct | sim-anon | list | 0.7 | 4 | 100 | 0.000 | 1.000 | 1.000 | 0.000 | 0.000 |

@@ -1,5 +1,5 @@
 \begin{table}[t]
-\caption{One canvas against teams of agents. Ordered: set accuracy (\%) on the 104 team-symmetric BFCL requests. Symmetric (choose-N): Dup.\ is the share of requests (\%) in which two calls take the same city; Order, the share of list requests whose $i$-th call takes the $i$-th listed city. Agents: Figure~\ref{fig:setup}b; \dream agents decode one token per step. Greedy decoding on 60 list and 45 open requests; $T{=}0.7$: sampling at temperature 0.7, five seeds. Open requests hold one-token slots, so only duplicates are reported; --: not run.}
+\caption{One canvas against teams of agents. Ordered: set accuracy (\%) on the 104 team-symmetric BFCL requests. Symmetric (choose-N): Dup.\ is the share of requests (\%) in which two calls take the same city; Order, the share of list requests whose $i$-th call takes the $i$-th listed city. Agents: Figure~\ref{fig:setup}b; \dream agents decode one token per step. Greedy decoding on 60 list and 45 open requests; $T{=}0.7$: sampling at temperature 0.7, five seeds. Open requests hold one-token slots, so only duplicates are reported. \qwen's position agents copy the placeholder of earlier calls in choose-N (Section~\ref{sec:symmetric}). --: not run or not applicable.}
 \label{tab:teams}
 \small\setlength{\tabcolsep}{2.6pt}
 \begin{tabular}{@{}lrrrrrr@{}}
@@ -24,6 +24,7 @@
 \quad same time, told the rule & 34.6 & 70.0 & 8.3 & -- & -- & -- \\
 \quad turns, anonymous & 88.5 & 0.0 & 91.7 & 0.0 & -- & -- \\
 \quad turns, numbered & 88.5 & 0.0 & 91.7 & 0.0 & -- & -- \\
+\quad same time, position & 54.8 & -- & -- & -- & -- & -- \\
 \midrule
 \multicolumn{7}{@{}l}{\emph{A team of $n$ \dream agents, one call each}} \\
 \quad same time, anonymous & 0.0 & 100.0 & 0.0 & 100.0 & 87.7 & 100.0 \\
@@ -31,6 +32,7 @@
 \quad same time, told the rule & 48.1 & 45.0 & 10.0 & -- & -- & -- \\
 \quad turns, anonymous & 84.6 & 0.0 & 35.0 & 0.0 & -- & -- \\
 \quad turns, numbered & 85.6 & 0.0 & 26.7 & 0.0 & -- & -- \\
+\quad same time, position & 85.6 & 15.0 & 11.7 & 100.0 & -- & -- \\
 \bottomrule
 \end{tabular}
 \end{table}

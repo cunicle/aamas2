@@ -87,9 +87,9 @@
 \draw[lead] ($(ltype.north)+(0, 0.2)$) -- ($(m2.south)+(0, -0.5)$);
 
 %%% (b) the protocols
-\def\H{-38}                               % baseline of the column heads of part (b)
+\def\H{-36}                             % baseline of the column heads of part (b)
 \def\cA{40} \def\cB{168} \def\cC{298}     % left edges of the three columns
-\def\rA{-23} \def\rB{-53}                 % first baselines of the two rows, below \H
+\def\rA{-23} \def\rB{-51}               % first baselines of the two rows, below \H
 \node[title] at (-30, \H) {(b)};
 \node[head] at (-16, \H) {Protocol};
 \node[head] at (\cA, \H) {Move together};
@@ -99,7 +99,7 @@
 \node[head] at (\cC, \H) {What sets the deciders apart};
 \node[sub]  at (\cC, \H-8) {the \textcolor{figcue}{role} cue};
 \draw[figrule, line width=0.4pt] (-30, \H-12.5) -- (476, \H-12.5);
-\draw[figrule!60, line width=0.3pt] (-30, \H+\rB+13) -- (476, \H+\rB+13);
+\draw[figrule!60, line width=0.3pt] (-30, \H+\rB+10.2) -- (476, \H+\rB+10.2);
 \node[head] at (-30, \H+\rA) {One dLLM agent};
 \node[sub]  at (-30, \H+\rA-8) {one canvas};
 \node[head] at (-30, \H+\rB) {A team of agents};
@@ -166,8 +166,9 @@
                           3/told the rule/{\dots\ assistant $i$ makes the $i$-th of the calls \dots}} {
   \node[note, anchor=base west] at (\cC, \H+\rB-7.6*\y) {\lab\enspace\textcolor{figink}{\emph{\txt}}};
 }
+\node[note, anchor=base west] at (\cC, \H+\rB-30.4) {position agents: no note; the whole skeleton, fill call $i$};
 \end{tikzpicture}
 \caption{The test bed. (a) The skeleton interface. (b) Deciders that move together do not see each other's choices; those that take turns see the earlier ones (dashed). Teal: cues that can set deciders apart (Section~\ref{sec:predictions}).}
-\Description{Two parts. Part (a) shows the request about loans from HSBC and Wells Fargo, and below it the agent's canvas: two JSON calls of loan_eligibility_check whose syntax is written out and whose three argument values are rows of mask tokens, two masks for HSBC's slot and three for Wells Fargo's, seven for each amount and income. Labels mark the skeleton, a slot of length 2, the closing delimiter written after a slot, the sibling group formed by the two institution slots, and the type mask of the amount slot. Part (b) is a grid. Rows: one dLLM agent with one canvas, and a team of agents with one call each. Columns: deciders that move together, each choosing at the same step without seeing the other, and deciders that take turns, where the second sees the first's choice of HSBC before choosing Wells Fargo. A last column lists what sets the deciders apart: the position on the shared skeleton for slots, and for agents a note in the prompt, anonymous, numbered, or told the rule.}
+\Description{Two parts. Part (a) shows the request about loans from HSBC and Wells Fargo, and below it the agent's canvas: two JSON calls of loan_eligibility_check whose syntax is written out and whose three argument values are rows of mask tokens, two masks for HSBC's slot and three for Wells Fargo's, seven for each amount and income. Labels mark the skeleton, a slot of length 2, the closing delimiter written after a slot, the sibling group formed by the two institution slots, and the type mask of the amount slot. Part (b) is a grid. Rows: one dLLM agent with one canvas, and a team of agents with one call each. Columns: deciders that move together, each choosing at the same step without seeing the other, and deciders that take turns, where the second sees the first's choice of HSBC before choosing Wells Fargo. A last column lists what sets the deciders apart: the position on the shared skeleton for slots, and for agents a note in the prompt, anonymous, numbered, or told the rule, and position agents, which get no note but the whole skeleton and fill their own call.}
 \label{fig:setup}
 \end{figure*}

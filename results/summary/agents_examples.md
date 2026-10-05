@@ -383,6 +383,86 @@ output:
 [{"name": "get_weather", "arguments": {"city": "LA"}}]
 ```
 
+## Dream-v0-Instruct-7B / pos-anon / T=0.0 / choose_35 (list, n=3)
+
+cities: ['Boston', 'Dallas', 'Chicago']  (ok)
+
+**agent 1** user:
+
+```text
+Get the current weather in any three of these cities: Boston, Dallas, Toronto, Austin, Chicago and Paris.
+```
+
+output:
+
+```text
+[{"name": "get_weather", "arguments": {"city": "Boston"}}, {"name": "get_weather", "arguments": {"city": "..."}}, {"name": "get_weather", "arguments": {"city": "..."}}]
+```
+
+**agent 2** user:
+
+```text
+Get the current weather in any three of these cities: Boston, Dallas, Toronto, Austin, Chicago and Paris.
+```
+
+output:
+
+```text
+[{"name": "get_weather", "arguments": {"city": "..."}}, {"name": "get_weather", "arguments": {"city": "Dallas"}}, {"name": "get_weather", "arguments": {"city": "..."}}]
+```
+
+**agent 3** user:
+
+```text
+Get the current weather in any three of these cities: Boston, Dallas, Toronto, Austin, Chicago and Paris.
+```
+
+output:
+
+```text
+[{"name": "get_weather", "arguments": {"city": "..."}}, {"name": "get_weather", "arguments": {"city": "..."}}, {"name": "get_weather", "arguments": {"city": "Chicago"}}]
+```
+
+## Dream-v0-Instruct-7B / pos-anon / T=0.0 / choose_55 (open, n=3)
+
+cities: ['Chicago', 'Chicago', 'Chicago']  (duplicate, all_same)
+
+**agent 1** user:
+
+```text
+Get the current weather in three different US cities of your choice.
+```
+
+output:
+
+```text
+[{"name": "get_weather", "arguments": {"city": "Chicago"}}, {"name": "get_weather", "arguments": {"city": "..."}}, {"name": "get_weather", "arguments": {"city": "..."}}]
+```
+
+**agent 2** user:
+
+```text
+Get the current weather in three different US cities of your choice.
+```
+
+output:
+
+```text
+[{"name": "get_weather", "arguments": {"city": "..."}}, {"name": "get_weather", "arguments": {"city": "Chicago"}}, {"name": "get_weather", "arguments": {"city": "..."}}]
+```
+
+**agent 3** user:
+
+```text
+Get the current weather in three different US cities of your choice.
+```
+
+output:
+
+```text
+[{"name": "get_weather", "arguments": {"city": "..."}}, {"name": "get_weather", "arguments": {"city": "..."}}, {"name": "get_weather", "arguments": {"city": "Chicago"}}]
+```
+
 ## Dream-v0-Instruct-7B / sim-anon / T=0.7 / choose_35 (list, n=3)
 
 cities: ['Chicago', 'Boston', 'Paris']  (ok)
@@ -933,6 +1013,86 @@ output:
 
 ```text
 [{"name": "get_weather", "arguments": {"city": "Los"}}]
+```
+
+## Qwen2.5-7B-Instruct / pos-anon / T=0.0 / choose_35 (list, n=3)
+
+cities: ['Boston', '...', '...']  (duplicate, invalid)
+
+**agent 1** user:
+
+```text
+Get the current weather in any three of these cities: Boston, Dallas, Toronto, Austin, Chicago and Paris.
+```
+
+output:
+
+```text
+[{"name": "get_weather", "arguments": {"city": "Boston"}}, {"name": "get_weather", "arguments": {"city": "..."}}, {"name": "get_weather", "arguments": {"city": "..."}}]
+```
+
+**agent 2** user:
+
+```text
+Get the current weather in any three of these cities: Boston, Dallas, Toronto, Austin, Chicago and Paris.
+```
+
+output:
+
+```text
+[{"name": "get_weather", "arguments": {"city": "..."}}, {"name": "get_weather", "arguments": {"city": "..."}}, {"name": "get_weather", "arguments": {"city": "..."}}]
+```
+
+**agent 3** user:
+
+```text
+Get the current weather in any three of these cities: Boston, Dallas, Toronto, Austin, Chicago and Paris.
+```
+
+output:
+
+```text
+[{"name": "get_weather", "arguments": {"city": "..."}}, {"name": "get_weather", "arguments": {"city": "..."}}, {"name": "get_weather", "arguments": {"city": "..."}}]
+```
+
+## Qwen2.5-7B-Instruct / pos-anon / T=0.0 / choose_55 (open, n=3)
+
+cities: ['New', '...', '...']  (duplicate, invalid)
+
+**agent 1** user:
+
+```text
+Get the current weather in three different US cities of your choice.
+```
+
+output:
+
+```text
+[{"name": "get_weather", "arguments": {"city": "New"}}, {"name": "get_weather", "arguments": {"city": "..."}}, {"name": "get_weather", "arguments": {"city": "..."}}]
+```
+
+**agent 2** user:
+
+```text
+Get the current weather in three different US cities of your choice.
+```
+
+output:
+
+```text
+[{"name": "get_weather", "arguments": {"city": "..."}}, {"name": "get_weather", "arguments": {"city": "..."}}, {"name": "get_weather", "arguments": {"city": "..."}}]
+```
+
+**agent 3** user:
+
+```text
+Get the current weather in three different US cities of your choice.
+```
+
+output:
+
+```text
+[{"name": "get_weather", "arguments": {"city": "..."}}, {"name": "get_weather", "arguments": {"city": "..."}}, {"name": "get_weather", "arguments": {"city": "..."}}]
 ```
 
 ## Qwen2.5-7B-Instruct / sim-anon / T=0.7 / choose_35 (list, n=3)
