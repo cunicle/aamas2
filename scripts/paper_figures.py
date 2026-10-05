@@ -120,7 +120,7 @@ def surplus_figure(summary, out):
             ys = [y for y in ys if y is not None]
             if len(xs) < 2:
                 continue
-            # break the line where a surplus was not run (LLaDA2.0: s=4; k=16 only s<=1)
+            # break the line where a surplus was not run (none since experiment E)
             seg_x, seg_y = [xs[0]], [ys[0]]
             for x, y in zip(xs[1:], ys[1:]):
                 if x != seg_x[-1] + 1:
@@ -144,12 +144,16 @@ def surplus_figure(summary, out):
                     va="bottom", linespacing=1.0)
         if model == "dream":
             ar = [(x, acc[("qwen", s, 0)]) for x, s in enumerate(S) if ("qwen", s, 0) in acc]
+            for seg in segments([x for x, _ in ar], [y for _, y in ar]):
+                ax.plot([x for x, _ in seg], [y for _, y in seg], color=MUTED, linewidth=1.0)
             ax.plot([x for x, _ in ar], [y for _, y in ar], linestyle="none", marker="D", markersize=3.6,
-                    color=MUTED)
-            ax.text(ar[-1][0] - 0.16, ar[-1][1], "AR (Qwen2.5)", color=MUTED, fontsize=6.3, ha="right",
-                    va="center")
-        if model == "llada2":
-            ax.text(3, 4, "not run", color=MUTED, ha="center", fontsize=6.5)
+                    color=MUTED, markeredgecolor="white", markeredgewidth=0.5)
+            # direct label above the right end of the AR line
+            ax.text(ar[-1][0], ar[-1][1] + 4, "AR (Qwen2.5)", color=MUTED, fontsize=6.3, ha="right",
+                    va="bottom")
+        missing = [s for s in S if any((model, s, k) not in acc for k in KS)]
+        for s in missing:  # mark a surplus that was not run for every k
+            ax.text(S.index(s), 4, "not run", color=MUTED, ha="center", fontsize=6.5)
         ax.set_ylim(0, TOP)
         ax.set_yticks(range(0, 101, 20))
         ax.set_title(title, loc="left", color=INK)

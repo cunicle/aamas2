@@ -49,11 +49,12 @@ EOF
 
 # the raw records, without logs, smoke tests and gate runs
 mkdir -p $TMP/rec
-for a in results_2026-10-03 agents_2026-10-03 agents_b2_2026-10-03 exp_c_2026-10-04 exp_d_2026-10-05; do
+for a in results_2026-10-03 agents_2026-10-03 agents_b2_2026-10-03 exp_c_2026-10-04 exp_d_2026-10-05 \
+         exp_e_2026-10-06; do  # later archives hold complete files that replace earlier ones
   tar xzf release/$a.tar.gz -C $TMP/rec
 done
 (cd $TMP/rec && rm -rf results/smoke* results/gate_c results/CHAIN_* results/summary results/log_* \
-    results/gate_d results/pilot.md results/b2_verify_ar.txt results/dream/probe_skel_k.jsonl \
+    results/gate_d results/gate_e results/pilot.md results/b2_verify_ar.txt results/dream/probe_skel_k.jsonl \
     results/llada2/bfcl_skel_bfull.jsonl && tar cf - results | xz -9e -T0 > $SUP/records.tar.xz)  # last two: unused
 
 if grep -rEin --exclude=records.tar.xz "runpod|lufv" $SUP \

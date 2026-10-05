@@ -50,7 +50,7 @@ from ptcdiag.eval.taxonomy import is_cross_call, value_ok  # noqa: E402
 
 DREAM = "Dream-org/Dream-v0-Instruct-7B"
 TAGS = {1: "confidence_k1_tnone_bfull_T0.0", 16: "confidence_k16_tnone_bfull_T0.0"}
-CONDS = [("oracle", 0, 1), ("oracle", 1, 1), ("oracle", 2, 1), ("oracle", 8, 1), ("oracle", 0, 16),
+CONDS = [("oracle", 0, 1), ("oracle", 1, 1), ("oracle", 2, 1), ("oracle", 4, 1), ("oracle", 8, 1), ("oracle", 0, 16),
          ("oracle", 1, 16), ("swap", 0, 1), ("onesided", 0, 1)]
 IFACES = ["original", "variant"]
 ONESIDED = ["own", "overfill", "sibling_fit", "other"]
@@ -378,7 +378,7 @@ def main():
     # probe
     probe = {("original", 1): "length_prior_s1.jsonl", ("original", 2): "length_prior_s2.jsonl",
              ("original", 4): "length_prior.jsonl", ("original", 8): "length_prior_s8.jsonl"}
-    probe.update({("variant", s): f"length_prior_closer_s{s}.jsonl" for s in (0, 1, 2, 8)})
+    probe.update({("variant", s): f"length_prior_closer_s{s}.jsonl" for s in (0, 1, 2, 4, 8)})
     by_class = defaultdict(list)
     for (f, s), name in sorted(probe.items(), key=lambda kv: (kv[0][1], kv[0][0])):
         rows = read_jsonl(os.path.join(O if f == "original" else D, name))

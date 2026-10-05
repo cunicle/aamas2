@@ -45,7 +45,7 @@ $PY scripts/consequences.py $D/bfcl_skel_k.jsonl $D/bfcl_surplus.jsonl $D/bfcl_s
     --csv $S/consequences.csv > $S/consequences.md
 # teacher-forced closing probe (Figure 3c)
 for f in $D/length_prior.txt $D/length_prior_s1.txt $D/length_prior_s2.txt $D/length_prior_s8.txt \
-         $L/length_prior.txt $L/length_prior_s1.txt $L/length_prior_s8.txt \
+         $L/length_prior.txt $L/length_prior_s1.txt $L/length_prior_s2.txt $L/length_prior_s8.txt \
          $D/length_estimate.txt $L/length_estimate.txt; do
   echo "== $f"; cat $f
 done > $S/length_prior.md
