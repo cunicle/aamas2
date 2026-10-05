@@ -15,6 +15,7 @@
 | inclusionAI/LLaDA2.0-mini | estimate, k=4 | 100 | 0.000 | 0.050 | 0.010 | 0.050 | 0.100 | 0.380 |
 | inclusionAI/LLaDA2.0-mini | surplus +1, k=1 | 100 | 0.020 | 0.010 | 0.010 | 0.040 | 0.070 | 0.160 |
 | inclusionAI/LLaDA2.0-mini | surplus +2, k=1 | 100 | 0.040 | 0.000 | 0.000 | 0.050 | 0.090 | 0.080 |
+| inclusionAI/LLaDA2.0-mini | surplus +4, k=1 | 100 | 0.080 | 0.090 | 0.000 | 0.060 | 0.210 | 0.170 |
 | inclusionAI/LLaDA2.0-mini | surplus +8, k=1 | 100 | 0.110 | 0.260 | 0.000 | 0.030 | 0.350 | 0.380 |
 | inclusionAI/LLaDA2.0-mini | exact, k=16 | 34 | 0.029 | 0.029 | 0.000 | 0.029 | 0.088 | 0.794 |
 | inclusionAI/LLaDA2.0-mini | swap, k=1 | 34 | 0.000 | 0.294 | 0.029 | 0.000 | 0.294 | 0.176 |

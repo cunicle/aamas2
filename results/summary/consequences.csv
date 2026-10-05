@@ -32,8 +32,13 @@ LLaDA2.0-mini,oracle,0,confidence_k8_tnone_b32_T0.0,400,0.015,0.0125,0.0075,0.05
 LLaDA2.0-mini,oracle,1,confidence_k16_tnone_b32_T0.0,100,0.02,0.41,0.02,0.3,0.96
 LLaDA2.0-mini,oracle,1,confidence_k1_tnone_b32_T0.0,100,0.01,0.34,0.02,0.24,0.84
 LLaDA2.0-mini,oracle,1,confidence_k4_tnone_b32_T0.0,100,0.02,0.35,0.02,0.25,0.88
+LLaDA2.0-mini,oracle,2,confidence_k16_tnone_b32_T0.0,100,0.01,0.32,0.03,0.4,0.98
 LLaDA2.0-mini,oracle,2,confidence_k1_tnone_b32_T0.0,100,0.0,0.4,0.04,0.18,0.92
 LLaDA2.0-mini,oracle,2,confidence_k4_tnone_b32_T0.0,100,0.01,0.28,0.03,0.3,0.93
+LLaDA2.0-mini,oracle,4,confidence_k16_tnone_b32_T0.0,100,0.04,0.18,0.02,0.2,0.78
+LLaDA2.0-mini,oracle,4,confidence_k1_tnone_b32_T0.0,100,0.12,0.27,0.08,0.04,0.83
+LLaDA2.0-mini,oracle,4,confidence_k4_tnone_b32_T0.0,100,0.11,0.2,0.06,0.11,0.75
+LLaDA2.0-mini,oracle,8,confidence_k16_tnone_b32_T0.0,100,0.21,0.09,0.06,0.14,0.62
 LLaDA2.0-mini,oracle,8,confidence_k1_tnone_b32_T0.0,100,0.32,0.12,0.11,0.04,0.62
 LLaDA2.0-mini,oracle,8,confidence_k4_tnone_b32_T0.0,100,0.28,0.05,0.1,0.09,0.65
 LLaDA2.0-mini,swap,0,confidence_k1_tnone_b32_T0.0,34,0.29411764705882354,0.08823529411764706,0.0,0.08823529411764706,0.8235294117647058

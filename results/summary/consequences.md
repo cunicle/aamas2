@@ -33,8 +33,13 @@
 | LLaDA2.0-mini | oracle | 1 | confidence_k16_tnone_b32_T0.0 | 100 | 0.020 | 0.410 | 0.020 | 0.300 | 0.960 |
 | LLaDA2.0-mini | oracle | 1 | confidence_k1_tnone_b32_T0.0 | 100 | 0.010 | 0.340 | 0.020 | 0.240 | 0.840 |
 | LLaDA2.0-mini | oracle | 1 | confidence_k4_tnone_b32_T0.0 | 100 | 0.020 | 0.350 | 0.020 | 0.250 | 0.880 |
+| LLaDA2.0-mini | oracle | 2 | confidence_k16_tnone_b32_T0.0 | 100 | 0.010 | 0.320 | 0.030 | 0.400 | 0.980 |
 | LLaDA2.0-mini | oracle | 2 | confidence_k1_tnone_b32_T0.0 | 100 | 0.000 | 0.400 | 0.040 | 0.180 | 0.920 |
 | LLaDA2.0-mini | oracle | 2 | confidence_k4_tnone_b32_T0.0 | 100 | 0.010 | 0.280 | 0.030 | 0.300 | 0.930 |
+| LLaDA2.0-mini | oracle | 4 | confidence_k16_tnone_b32_T0.0 | 100 | 0.040 | 0.180 | 0.020 | 0.200 | 0.780 |
+| LLaDA2.0-mini | oracle | 4 | confidence_k1_tnone_b32_T0.0 | 100 | 0.120 | 0.270 | 0.080 | 0.040 | 0.830 |
+| LLaDA2.0-mini | oracle | 4 | confidence_k4_tnone_b32_T0.0 | 100 | 0.110 | 0.200 | 0.060 | 0.110 | 0.750 |
+| LLaDA2.0-mini | oracle | 8 | confidence_k16_tnone_b32_T0.0 | 100 | 0.210 | 0.090 | 0.060 | 0.140 | 0.620 |
 | LLaDA2.0-mini | oracle | 8 | confidence_k1_tnone_b32_T0.0 | 100 | 0.320 | 0.120 | 0.110 | 0.040 | 0.620 |
 | LLaDA2.0-mini | oracle | 8 | confidence_k4_tnone_b32_T0.0 | 100 | 0.280 | 0.050 | 0.100 | 0.090 | 0.650 |
 | LLaDA2.0-mini | swap | 0 | confidence_k1_tnone_b32_T0.0 | 34 | 0.294 | 0.088 | 0.000 | 0.088 | 0.824 |

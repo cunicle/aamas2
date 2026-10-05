@@ -106,6 +106,24 @@ inclusionAI/LLaDA2.0-mini, surplus 1: next token right after the gold value
 | integer | 1014 | 8.0e-07 | 0.175 | 0.825 | 0.366 / 0.000 / 0.634 |
 | string | 1464 | 1.3e-07 | 0.214 | 0.786 | 0.340 / 0.000 / 0.660 |
 | all | 3063 | 3.1e-07 | 0.193 | 0.807 | 0.340 / 0.000 / 0.660 |
+== results/llada2/length_prior_s2.txt
+50/400
+100/400
+150/400
+200/400
+250/400
+300/400
+350/400
+400/400
+inclusionAI/LLaDA2.0-mini, surplus 2: next token right after the gold value
+| slot class | n | median P(pad) | mean P(closer) | mean P(content) | constrained pick: closer / pad / content |
+|---|---|---|---|---|---|
+| boolean | 103 | 1.1e-05 | 0.535 | 0.465 | 1.000 / 0.000 / 0.000 |
+| float | 281 | 6.7e-07 | 0.120 | 0.880 | 0.121 / 0.000 / 0.879 |
+| generic | 201 | 3.8e-06 | 0.420 | 0.580 | 0.443 / 0.000 / 0.557 |
+| integer | 1014 | 2.0e-07 | 0.133 | 0.867 | 0.310 / 0.000 / 0.690 |
+| string | 1464 | 9.1e-07 | 0.154 | 0.846 | 0.199 / 0.000 / 0.801 |
+| all | 3063 | 6.9e-07 | 0.174 | 0.826 | 0.271 / 0.000 / 0.729 |
 == results/llada2/length_prior_s8.txt
 50/400
 100/400
