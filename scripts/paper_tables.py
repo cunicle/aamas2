@@ -272,9 +272,8 @@ def table_teams(summ, res, cres):
         r"\caption{One canvas against teams of agents. Ordered: set accuracy (\%) on the "
         rf"{len(ids)} team-symmetric BFCL requests. Symmetric (choose-N): "
         r"Dup.\ is the share of requests (\%) in which two calls take the same city; Order, the share of list "
-        r"requests whose $i$-th call takes the $i$-th listed city. Agents act at the same time or in turns "
-        r"and are anonymous, numbered (``assistant $i$ of $n$''), or numbered and "
-        r"told that assistant $i$ makes the $i$-th call; \dream agents decode one token per step. Greedy decoding on "
+        r"requests whose $i$-th call takes the $i$-th listed city. Agents: Figure~\ref{fig:setup}b; "
+        r"\dream agents decode one token per step. Greedy decoding on "
         rf"{nl} list and {no} open requests; $T{{=}}0.7$: sampling at temperature 0.7, five seeds. Open requests "
         r"hold one-token slots, so only duplicates are reported; --: not run.}",
         r"\label{tab:teams}",
@@ -348,7 +347,7 @@ def table_length(summ):
         rf"or anything else: over all {int(n_all):,} slots (exact, $+1$), the {n_sw} slots whose length the swap changes, "
         rf"and the {n_one} slots lengthened to a sibling's length while the sibling keeps its exact slot (one slot "
         r"longer). Each slot's value is read from its own tokens. Set accuracy (\%) on the 400 requests, or on "
-        r"the 165 whose slots the swap changes. Agents are anonymous; for them, overfill is counted under other (--).}",
+        r"the 165 whose slots the swap changes. Agents are anonymous; for them, overfill counts as other (--).}",
         r"\label{tab:length}",
         r"\small\setlength{\tabcolsep}{3.0pt}",
         r"\begin{tabular}{@{}lrrrrr@{}}",

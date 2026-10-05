@@ -148,7 +148,8 @@ v3 按用户 10-03 的决定改写：做 A（把论文改成 agent 论文的框�
 | 编号 | 内容 | 位置 | 来源 |
 |---|---|---|---|
 | 图 1 | `parallel_20` 在 exact / +1 / swap 下的输出，k=1 | §1，通栏 teaser | 原始 JSONL |
-| 图 2 | (a) set_acc 随 s 的变化（k ∈ {1,4,16}，两个模型，AR 用标记点）；(b) P(收尾) 随 s 的变化 | §6 | `length.md`、`length_prior.md` |
+| 图 2 | 示意图：(a) skeleton 接口（slot、sibling group、预写的收尾分隔符、type mask）；(b) 协议网格（单画布 vs agent 团队 × 同时 vs 轮流）和角色线索 | §3，通栏，TikZ（`paper/figures/setup.tex`），由 `02-related.tex` 引入以浮到 §3 所在页 | 无数据 |
+| 图 3 | (a, b) set_acc 随 s 的变化（k ∈ {1,4,16}，两个模型，AR 用标记点）；(c) P(收尾) 随 s 的变化 | §6 | `length.md`、`length_prior.md`、`closer.csv` |
 | 表 1 | k 扫描 | §4 | `length.md`、`symmetry_*.md` |
 | 表 2 | choose-N 与 agent 团队 | §5 | `choose.md`、`agents.md`（B，TBD） |
 | 表 3 | swap 的槽级构成 | §7 | `swap_*.md` |

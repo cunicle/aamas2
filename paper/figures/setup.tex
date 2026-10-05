@@ -1,0 +1,173 @@
+% Figure 2: the action interface and the protocols (Section 3). Drawn in TikZ so that the fonts
+% are the paper's. The request and the slot lengths are those of Figure 1 (BFCL parallel_20,
+% Dream's tokenizer): institution 2 (HSBC) and 3 (Wells Fargo) masks; amount and income 7 each,
+% a leading space and six digits. The canvas text is the skeleton the agent decodes into.
+\colorlet{figink}{black!88}
+\definecolor{figgray}{HTML}{6B6F76}
+\definecolor{figrule}{HTML}{B9C1CF}
+\definecolor{figmask}{HTML}{5D6E92}
+\definecolor{figcue}{HTML}{0E7C6F}
+\definecolor{figframe}{HTML}{EDF1F7}
+\definecolor{figgroup}{HTML}{D5E0F2}
+\newlength{\figmw}\setlength{\figmw}{4.3pt}
+% \figmasks{name}{n}{coordinate}: n mask tokens from a baseline point; node `name` spans them.
+\newcommand{\figmasks}[3]{%
+  \node[inner sep=0pt, outer sep=0pt, anchor=base west, minimum width={#2*\figmw},
+        text height=4.6pt, text depth=0.4pt] (#1) at (#3) {};
+  \foreach \j in {1,...,#2}{%
+    \fill[figmask, rounded corners=0.5pt]
+      ($(#1.base west)+({(\j-1)*\figmw+0.6pt},-0.3pt)$) rectangle ++({\figmw-1.2pt},4.7pt);}%
+}
+\begin{figure*}[t]
+\centering
+\begin{tikzpicture}[x=1pt, y=1pt,
+  font=\sffamily\fontsize{6.8}{8.2}\selectfont, color=figink,
+  code/.style={inner sep=0pt, outer sep=0pt, anchor=base west,
+               font=\ttfamily\fontsize{6.8}{8}\selectfont},
+  note/.style={inner sep=0pt, font=\sffamily\fontsize{6.3}{7.5}\selectfont, text=figgray},
+  says/.style={note, font=\sffamily\itshape\fontsize{6.3}{7.5}\selectfont},
+  lead/.style={draw=figgray, line width=0.35pt},
+  title/.style={inner sep=0pt, anchor=base west, font=\sffamily\bfseries\fontsize{7.2}{8.6}\selectfont},
+  head/.style={inner sep=0pt, anchor=base west, font=\sffamily\bfseries\fontsize{6.8}{8.2}\selectfont},
+  sub/.style={inner sep=0pt, anchor=base west, font=\sffamily\fontsize{6.3}{7.5}\selectfont, text=figgray},
+  frame/.style={draw=figrule, fill=figframe, rounded corners=1.6pt, line width=0.4pt},
+  chip/.style={draw=figrule, fill=white, rounded corners=1.2pt, line width=0.4pt, inner xsep=1.8pt,
+               inner ysep=1.4pt, anchor=west, font=\ttfamily\fontsize{6.6}{7.6}\selectfont},
+  val/.style={inner sep=0pt, outer sep=0pt, anchor=base west, font=\ttfamily\fontsize{6.6}{7.6}\selectfont},
+  move/.style={-{Stealth[length=2.8pt, width=2.4pt]}, line width=0.5pt, draw=figink},
+  sees/.style={-{Stealth[length=2.8pt, width=2.4pt]}, line width=0.5pt, draw=figink,
+               dash pattern=on 1.6pt off 0.9pt},
+  cue/.style={text=figcue},
+]
+%%% (a) the action interface
+\node[title] at (-30, 26) {(a)};
+\node[inner sep=0pt, anchor=base west, font=\rmfamily\fontsize{7.2}{8.6}\selectfont] at (-16, 26)
+  {\textsf{\fontsize{6.8}{8.2}\selectfont Request:}\ \emph{``\dots\ a home loan of amount \$500,000 from
+   \textcolor{figcue}{HSBC}\textsuperscript{\textcolor{figcue}{1}} with annual income \$100,000 and for
+   \textcolor{figcue}{Wells Fargo}\textsuperscript{\textcolor{figcue}{2}} for a amount of \$700,000 with annual
+   income of \$120,000?''}};
+% call 1
+\node[code] (a1) at (0, 0) {[\{"name": "loan\_eligibility\_check", "arguments": \{"financial\_institution": "};
+\figmasks{b1}{2}{a1.base east}
+\node[code] (q1) at (b1.base east) {"};
+\node[code] (c1) at (q1.base east) {, "loan\_amount":};
+\figmasks{m1}{7}{c1.base east}
+\node[code] (k1) at (m1.base east) {,};
+\node[code] (d1) at (k1.base east) {\ "annual\_income":};
+\figmasks{i1}{7}{d1.base east}
+\node[code] (e1) at (i1.base east) {\}\},};
+% call 2
+\node[code] (a2) at (0, -11) {\phantom{[}\{"name": "loan\_eligibility\_check", "arguments": \{"financial\_institution": "};
+\figmasks{b2}{3}{a2.base east}
+\node[code] (q2) at (b2.base east) {"};
+\node[code] (c2) at (q2.base east) {, "loan\_amount":};
+\figmasks{m2}{7}{c2.base east}
+\node[code] (k2) at (m2.base east) {,};
+\node[code] (d2) at (k2.base east) {\ "annual\_income":};
+\figmasks{i2}{7}{d2.base east}
+\node[code] (e2) at (i2.base east) {\}\}]};
+\node[inner sep=0pt, anchor=base east, cue] at (-4, 0) {call 1};
+\node[inner sep=0pt, anchor=base east, cue] at (-4, -11) {call 2};
+% the sibling group of the institution slots
+\begin{scope}[on background layer]
+  \node[fit=(b1)(b2), inner xsep=1.5pt, inner ysep=1.8pt, fill=figgroup, draw=figrule, line width=0.4pt,
+        rounded corners=1.2pt] (grp) {};
+\end{scope}
+% annotations above call 1
+\draw[lead] (6, 10) -- (6, 12) -- ($(a1.east |- 0, 12)+(-3, 0)$) -- ++(0, -2);
+\node[note, anchor=base] at ($(a1.center |- 0, 15)$) {skeleton, written before decoding};
+\node[note, anchor=base east] (lslot) at ($(b1.center |- 0, 15)+(-4, 0)$) {slot of \textcolor{figcue}{$\ell = 2$} masks};
+\draw[lead] ($(lslot.south east)+(-2, -0.8)$) -- ($(b1.north)+(-0.5, 1.9)$);
+\node[note, anchor=base west] (ldel) at ($(q1.center |- 0, 15)+(5, 0)$) {closing delimiter, pre-written};
+\draw[lead] ($(ldel.south west)+(2, -0.8)$) -- ($(q1.north)+(0, 0.4)$);
+% annotations below call 2
+\node[note, anchor=base] (lgrp) at ($(grp.center |- 0, -24)$) {sibling group};
+\draw[lead] ($(lgrp.north)+(0, 0.2)$) -- (grp.south);
+\node[note, anchor=base] (ltype) at ($(m2.center |- 0, -24)$) {type mask: digits, sign, space};
+\draw[lead] ($(ltype.north)+(0, 0.2)$) -- ($(m2.south)+(0, -0.5)$);
+
+%%% (b) the protocols
+\def\H{-38}                               % baseline of the column heads of part (b)
+\def\cA{40} \def\cB{168} \def\cC{298}     % left edges of the three columns
+\def\rA{-23} \def\rB{-53}                 % first baselines of the two rows, below \H
+\node[title] at (-30, \H) {(b)};
+\node[head] at (-16, \H) {Protocol};
+\node[head] at (\cA, \H) {Move together};
+\node[sub]  at (\cA, \H-8) {same step ($k = 16$) or same time};
+\node[head] at (\cB, \H) {Take turns};
+\node[sub]  at (\cB, \H-8) {one token per step ($k = 1$) or in turns};
+\node[head] at (\cC, \H) {What sets the deciders apart};
+\node[sub]  at (\cC, \H-8) {the \textcolor{figcue}{role} cue};
+\draw[figrule, line width=0.4pt] (-30, \H-12.5) -- (476, \H-12.5);
+\draw[figrule!60, line width=0.3pt] (-30, \H+\rB+13) -- (476, \H+\rB+13);
+\node[head] at (-30, \H+\rA) {One dLLM agent};
+\node[sub]  at (-30, \H+\rA-8) {one canvas};
+\node[head] at (-30, \H+\rB) {A team of agents};
+\node[sub]  at (-30, \H+\rB-8) {one call each};
+
+% -- one canvas, the institution slots of the two calls: both move at t, or call 2 sees call 1
+\begin{scope}[shift={(\cA, \H+\rA)}]
+  \draw[frame] (0, 7) rectangle (44, -15.5);
+  \node[inner sep=0pt, anchor=base west, cue] at (3.5, 0) {call 1};
+  \node[inner sep=0pt, anchor=base west, cue] at (3.5, -11) {call 2};
+  \figmasks{s1}{2}{26, 0}
+  \figmasks{s2}{3}{26, -11}
+  \draw[move] (46, 2.2) -- node[above=0.3pt, note] {$t$} (64, 2.2);
+  \node[chip] at (65, 2.2) {HSBC};
+  \draw[move] (46, -8.8) -- node[above=0.3pt, note] {$t$} (64, -8.8);
+  \node[chip] at (65, -8.8) {Wells Fargo};
+\end{scope}
+\begin{scope}[shift={(\cB, \H+\rA)}]
+  \draw[frame] (0, 7) rectangle (44, -15.5);
+  \node[inner sep=0pt, anchor=base west, cue] at (3.5, 0) {call 1};
+  \node[inner sep=0pt, anchor=base west, cue] at (3.5, -11) {call 2};
+  \node[val] (h) at (26, 0) {HSBC};
+  \figmasks{s2}{3}{26, -11}
+  \draw[sees] ($(h.south)+(0, -0.4)$) -- ($(s2.north)+(0, 0.9)$);
+  \draw[move] (46, -8.8) -- node[above=0.3pt, note] {$t+1$} (64, -8.8);
+  \node[chip] at (65, -8.8) {Wells Fargo};
+  \node[says, anchor=base west] at (48, 0.5) {sees call 1};
+\end{scope}
+% -- a team: one generation per agent, each with its own call only
+\begin{scope}[shift={(\cA, \H+\rB)}]
+  \draw[frame] (0, 7) rectangle (44, -2.8);
+  \node[inner sep=0pt, anchor=base west] at (3.5, 0) {agent \textcolor{figcue}{1}};
+  \figmasks{s1}{2}{30, 0}
+  \draw[move] (46, 2.2) -- node[above=0.3pt, note] {$t$} (64, 2.2);
+  \node[chip] at (65, 2.2) {HSBC};
+  \draw[frame] (0, -4) rectangle (44, -13.8);
+  \node[inner sep=0pt, anchor=base west] at (3.5, -11) {agent \textcolor{figcue}{2}};
+  \figmasks{s2}{3}{30, -11}
+  \draw[move] (46, -8.8) -- node[above=0.3pt, note] {$t$} (64, -8.8);
+  \node[chip] at (65, -8.8) {Wells Fargo};
+\end{scope}
+\begin{scope}[shift={(\cB, \H+\rB)}]
+  \draw[frame] (0, 7) rectangle (44, -2.8);
+  \node[inner sep=0pt, anchor=base west] at (3.5, 0) {agent \textcolor{figcue}{1}};
+  \figmasks{s1}{2}{30, 0}
+  \draw[move] (46, 2.2) -- node[above=0.3pt, note] {$t$} (64, 2.2);
+  \node[chip] (hc) at (65, 2.2) {HSBC};
+  \draw[frame] (0, -4) rectangle (44, -24.8);
+  \node[inner sep=0pt, anchor=base west, text=figgray] at (3.5, -11) {call 1};
+  \node[val, text=figgray] (h) at (26, -11) {HSBC};
+  \node[inner sep=0pt, anchor=base west] at (3.5, -22) {agent \textcolor{figcue}{2}};
+  \figmasks{s2}{3}{30, -22}
+  \draw[sees] (hc.south) to[out=-90, in=0] ($(h.east)+(1.2, 2.2)$);
+  \draw[move] (46, -19.8) -- node[above=0.3pt, note] {$t+1$} (64, -19.8);
+  \node[chip] at (65, -19.8) {Wells Fargo};
+  \node[says, anchor=base west] at (82, -9.3) {sees call 1};
+\end{scope}
+% -- the role cue
+\node[inner sep=0pt, anchor=base west] at (\cC, \H+\rA) {Its position on the shared skeleton;};
+\node[note, anchor=base west] at (\cC, \H+\rA-8) {every slot sees the whole canvas};
+\node[inner sep=0pt, anchor=base west] at (\cC, \H+\rB) {A note in its prompt:};
+\foreach \y/\lab/\txt in {1/anonymous/{You are one of $n$ assistants.},
+                          2/numbered/{You are assistant $i$ of $n$.},
+                          3/told the rule/{\dots\ assistant $i$ makes the $i$-th of the calls \dots}} {
+  \node[note, anchor=base west] at (\cC, \H+\rB-7.6*\y) {\lab\enspace\textcolor{figink}{\emph{\txt}}};
+}
+\end{tikzpicture}
+\caption{The test bed. (a) The skeleton interface. (b) Deciders that move together do not see each other's choices; those that take turns see the earlier ones (dashed). Teal: cues that can set deciders apart (Section~\ref{sec:predictions}).}
+\Description{Two parts. Part (a) shows the request about loans from HSBC and Wells Fargo, and below it the agent's canvas: two JSON calls of loan_eligibility_check whose syntax is written out and whose three argument values are rows of mask tokens, two masks for HSBC's slot and three for Wells Fargo's, seven for each amount and income. Labels mark the skeleton, a slot of length 2, the closing delimiter written after a slot, the sibling group formed by the two institution slots, and the type mask of the amount slot. Part (b) is a grid. Rows: one dLLM agent with one canvas, and a team of agents with one call each. Columns: deciders that move together, each choosing at the same step without seeing the other, and deciders that take turns, where the second sees the first's choice of HSBC before choosing Wells Fargo. A last column lists what sets the deciders apart: the position on the shared skeleton for slots, and for agents a note in the prompt, anonymous, numbered, or told the rule.}
+\label{fig:setup}
+\end{figure*}

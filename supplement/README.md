@@ -9,7 +9,7 @@ Code, prompts and raw records for *Acting in Parallel Without Talking: Focal Poi
 | `PROMPTS.md` | Every prompt text: the system message, the choose-N request templates, and the five protocol notes of the teams of agents |
 | `records.tar.xz` | The raw records of every run: one JSON line per request and condition, with the output text, the parsed calls, the BFCL verdict and, for the dLLMs, the decoding trace |
 | `results/summary/` | The summaries computed from the records, which the tables, the figure and the quoted numbers are read from |
-| `expected/` | The paper's tables and Figure 2 as built from these summaries |
+| `expected/` | The paper's tables and Figure 3 as built from these summaries (Figures 1 and 2 hold no data) |
 | `ptcdiag/` | The library: data loading, the skeleton constraint, the traced masked-diffusion sampler, the AR reference, the set-level matching and error taxonomy |
 | `scripts/` | Run scripts (`run_dllm.py`, `run_ar.py`, `run_agents.py`, `run_agents_bfcl.py`; the phases in `run_minimal.sh`), analysis scripts, and `reproduce_paper.sh` |
 | `data/` | The BFCL v4 `parallel` and `parallel_multiple` categories with their possible answers (Apache-2.0, from the Gorilla repository), and the 105 choose-N requests |
@@ -33,7 +33,7 @@ diff -r out/tables expected/tables      # no output
 | Table 3 | `closer.csv`, `agents_bfcl.csv` |
 | Table 4 | `masquerade.csv` |
 | Section 8 (closing bias, estimated lengths) | the `bfcl_skel_k`, `bfcl_surplus`, `bfcl_endbias` and `bfcl_estimate` records (`mitigation.tex`, not in the paper) |
-| Figure 2 | `length.csv`, `length_prior.md`, `closer.csv` |
+| Figure 3 | `length.csv`, `length_prior.md`, `closer.csv` |
 | Intervals and tests | `stats.md` |
 | Other numbers | `review_numbers.md`, `co_commit.md`, `choose_focal.md`, `choose_pairs.md`, `choose_tau_ltr.md`, `block_share.md`, `consequences.md`, `swap_*.md`, `slots_*.md` |
 

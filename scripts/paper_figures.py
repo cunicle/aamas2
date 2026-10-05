@@ -139,27 +139,25 @@ def surplus_figure(summary, out):
                 ax.plot([x for x, _ in seg], [y for _, y in seg], color=RAMP[model][0], **dash)
             ax.plot([x for x, _ in pts], [y for _, y in pts], linestyle="none", marker="o",
                     markeredgecolor=RAMP[model][0], **hollow)
-            handles.append(Line2D([], [], color=RAMP[model][0], marker="o", markeredgecolor=RAMP[model][0],
-                                  label="closing token in slot", **dash, **hollow))
+            # direct label in the empty band above s = 1..2 (a legend entry made the legend wider than the panel)
+            ax.text(1.12, 31, "closing token\nin slot", color=RAMP[model][0], fontsize=6.3, ha="left",
+                    va="bottom", linespacing=1.0)
         if model == "dream":
             ar = [(x, acc[("qwen", s, 0)]) for x, s in enumerate(S) if ("qwen", s, 0) in acc]
             ax.plot([x for x, _ in ar], [y for _, y in ar], linestyle="none", marker="D", markersize=3.6,
                     color=MUTED)
-            handles.append(Line2D([], [], linestyle="none", marker="D", markersize=3.6, color=MUTED,
-                                  label="AR (Qwen2.5)"))
+            ax.text(ar[-1][0] - 0.16, ar[-1][1], "AR (Qwen2.5)", color=MUTED, fontsize=6.3, ha="right",
+                    va="center")
         if model == "llada2":
             ax.text(3, 4, "not run", color=MUTED, ha="center", fontsize=6.5)
         ax.set_ylim(0, TOP)
         ax.set_yticks(range(0, 101, 20))
         ax.set_title(title, loc="left", color=INK)
         style(ax, "set accuracy (%)" if model == "dream" else None)
-        if model == "dream":  # five entries: two columns in the empty band above s = 1..4
-            ax.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 1.0), frameon=False, ncol=3,
-                      handlelength=2.0, columnspacing=0.7, labelspacing=0.25, fontsize=6.3, labelcolor=INK,
-                      borderaxespad=0)
-        else:
-            ax.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.6, 0.93), frameon=False, ncol=1,
-                      handlelength=2.4, labelcolor=INK, borderaxespad=0)
+        # k only, one row in the headroom above 100%; it fits inside the panel
+        ax.legend(handles=handles, loc="upper center", bbox_to_anchor=(0.5, 1.0), frameon=False, ncol=3,
+                  handlelength=1.6, handletextpad=0.4, columnspacing=0.8, fontsize=6.3, labelcolor=INK,
+                  borderaxespad=0)
     ax = axes[2]
     for model, label, mk in [("dream", "Dream", "o"), ("llada2", "LLaDA2.0", "s")]:
         pts = [(x, 100 * pc[model, s]) for x, s in enumerate(S) if (model, s) in pc]
