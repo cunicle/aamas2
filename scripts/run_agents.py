@@ -30,7 +30,7 @@ import time
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from ptcdiag.data import load_examples  # noqa: E402
-from ptcdiag.data.agents import (POSITION_PROTOCOLS, PROTOCOLS, RULE_PROTOCOLS, agent_example,  # noqa: E402
+from ptcdiag.data.agents import (POSITION_PROTOCOLS, PROTOCOLS, RULE_PROTOCOLS, WORDINGS, agent_example,  # noqa: E402
                                  position_agent_example, protocol_flags)
 
 
@@ -140,7 +140,7 @@ def main():
     if args.limit:
         examples = examples[: args.limit]
     protocols = args.protocols.split(",")
-    known = [*PROTOCOLS, *RULE_PROTOCOLS, *POSITION_PROTOCOLS]
+    known = [*PROTOCOLS, *RULE_PROTOCOLS, *POSITION_PROTOCOLS, *WORDINGS]
     for p in protocols:
         if p not in known:
             raise SystemExit(f"unknown protocol {p!r} (one of {', '.join(known)})")

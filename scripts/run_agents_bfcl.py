@@ -37,7 +37,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.dirname(__file__))
 
 from ptcdiag.data import load_examples  # noqa: E402
-from ptcdiag.data.agents import (POSITION_PROTOCOLS, PROTOCOLS, RULE_PROTOCOLS,  # noqa: E402
+from ptcdiag.data.agents import (POSITION_PROTOCOLS, PROTOCOLS, RULE_PROTOCOLS, WORDINGS,  # noqa: E402
                                  position_agent_example, protocol_flags)
 from ptcdiag.data.agents_bfcl import (agent_lengths, bfcl_agent_example, swap_changes,  # noqa: E402
                                       team_symmetric)
@@ -160,7 +160,7 @@ def main():
         raise SystemExit("--backend ar --length-mode swap: the AR skeleton decoding has no per-slot lengths "
                          "and stops at the closer, so it never reads a slot length; run it with oracle lengths")
     protocols = args.protocols.split(",")
-    known = [*PROTOCOLS, *RULE_PROTOCOLS, *POSITION_PROTOCOLS]
+    known = [*PROTOCOLS, *RULE_PROTOCOLS, *POSITION_PROTOCOLS, *WORDINGS]
     for p in protocols:
         if p not in known:
             raise SystemExit(f"unknown protocol {p!r} (one of {', '.join(known)})")

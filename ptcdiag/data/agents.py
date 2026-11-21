@@ -51,7 +51,39 @@ RULE_PROTOCOLS = {"sim-rule": (False, True)}
 # masked (dLLM) or are placeholders (AR), so it sees where its call stands in the turn but none of
 # the other agents' choices. Its role is its position on the shared skeleton.
 POSITION_PROTOCOLS = {"pos-anon": (False, False)}
-ORDINALS = ("first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth")
+# Experiment F (EXP_F_PROMPT.md): other wordings of the two simultaneous protocols that give the
+# agent its role in the prompt, to test whether experiment C's result depends on one wording. A
+# wording is named "<protocol>@<key>" and is (text before the request, text after it); "" leaves
+# the side out. Each carries what its protocol's text carries (the agent's number of n, one call
+# each, simultaneous, the others' calls unseen; for sim-rule also the convention) and changes one
+# thing: `para` the words, `ordinal` the number into an ordinal word, `direct` the convention into
+# an instruction, `first` the place (the role comes before the request). The texts of PROTOCOLS
+# and SIM_RULE are untouched.
+WORDINGS = {
+    "sim-label@para": ("", "This request is handled by {n} assistants working in parallel, and you are "
+                           "number {i}. Every assistant issues exactly one of the {n} calls, and no assistant "
+                           "can see what the others issue. Issue your one call."),
+    "sim-label@ordinal": ("", "You are the {ordinal} of {n} assistants answering this request at the same "
+                              "time. Each assistant makes exactly one of the {n} calls, and the assistants "
+                              "cannot see each other's calls. Make your one call."),
+    "sim-label@first": ("You are assistant {i} of {n}. The {n} assistants answer the following request at the "
+                        "same time. Each assistant makes exactly one of the {n} calls, and the assistants "
+                        "cannot see each other's calls.", "Make your one call."),
+    "sim-rule@para": ("", "This request is handled by {n} assistants working in parallel, and you are "
+                          "number {i}. Every assistant issues exactly one of the {n} calls, and no assistant "
+                          "can see what the others issue. The assistants share one rule: the calls are taken "
+                          "in the order in which the request mentions them, so number {i} issues the "
+                          "{ordinal} one. Issue your one call."),
+    "sim-rule@direct": ("", "You are assistant {i} of {n} answering this request at the same time. Each "
+                            "assistant makes exactly one of the {n} calls, and the assistants cannot see each "
+                            "other's calls. Make only the {ordinal} of the calls that the request asks for, in "
+                            "the order in which it mentions them; the other assistants make the others."),
+    "sim-rule@first": ("You are assistant {i} of {n}. The {n} assistants answer the following request at the "
+                       "same time. Each assistant makes exactly one of the {n} calls, and the assistants "
+                       "cannot see each other's calls. By convention, assistant {i} makes the {ordinal} of "
+                       "the calls, in the order in which the request mentions them.", "Make your one call."),
+}
+ORDINALS =("first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth")
 
 
 def ordinal(i):
@@ -61,8 +93,21 @@ def ordinal(i):
     return ORDINALS[i - 1]
 
 
+def base_protocol(protocol):
+    """The protocol a wording belongs to ("sim-rule@direct" -> "sim-rule"); other names unchanged."""
+    return protocol.split("@", 1)[0] if protocol in WORDINGS else protocol
+
+
+def wording_texts(protocol, i, n):
+    """(text before the request, text after it) of a wording of experiment F for agent i of n."""
+    before, after = WORDINGS[protocol]
+    fields = {"i": i, "n": n, "ordinal": ordinal(i)}
+    return before.format(**fields), after.format(**fields)
+
+
 def protocol_flags(protocol):
-    """(observe, label) of an experiment B protocol or of sim-rule."""
+    """(observe, label) of an experiment B protocol, of sim-rule, or of a wording of either."""
+    protocol = base_protocol(protocol)
     if protocol in POSITION_PROTOCOLS:
         return POSITION_PROTOCOLS[protocol]
     return PROTOCOLS[protocol] if protocol in PROTOCOLS else RULE_PROTOCOLS[protocol]
@@ -95,7 +140,13 @@ def agent_example(ex, i, n, protocol, previous=()):
     if not 1 <= i <= n:
         raise ValueError(f"agent {i} of {n}")
     (msg,) = ex.messages
-    text = msg["content"] + "\n\n" + instruction(protocol, i, n, previous)
+    if protocol in WORDINGS:
+        if previous:
+            raise ValueError(f"{protocol}: simultaneous agents see no earlier calls")
+        before, after = wording_texts(protocol, i, n)
+        text = (before + "\n\n" if before else "") + msg["content"] + "\n\n" + after
+    else:
+        text = msg["content"] + "\n\n" + instruction(protocol, i, n, previous)
     return Example(
         id=f"{ex.id}_a{i}",
         category=ex.category,

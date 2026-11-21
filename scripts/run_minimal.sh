@@ -35,6 +35,8 @@
 #                     that leave open which N cities to call; duplicates vs k
 #   summary_length    tables of the length study into results/summary/ (CPU)
 #   fill_fig3_dream / fill_fig3_llada2   experiment E: the Figure 3 points not run before
+#   wording_ar / wording_dream   experiment F: simultaneous agents with other wordings of the
+#                     number and of the rule (team-symmetric BFCL requests, choose-N list items)
 # e.g. lenprior_llada2 -> surplus_llada2  alongside  lenprior_dream -> surplus_dream -> surplus_ar -> endbias_dream
 #
 # Every run appends to its JSONL and skips finished items, so any phase can be
@@ -53,6 +55,9 @@ DREAM=Dream-org/Dream-v0-Instruct-7B
 LLADA2=inclusionAI/LLaDA2.0-mini
 QWEN=Qwen/Qwen2.5-7B-Instruct
 LING=inclusionAI/Ling-mini-2.0
+
+# experiment F: the wordings of sim-label and sim-rule (ptcdiag/data/agents.py, WORDINGS)
+WORDINGS=sim-label@para,sim-label@ordinal,sim-label@first,sim-rule@para,sim-rule@direct,sim-rule@first
 
 # k=4 first: attribution and DVS use it, so it is available earliest
 K_BFCL=4,1,2,8,16
@@ -502,6 +507,15 @@ EOF
     # (c) the probe at s=2 (s = 1, 4, 8 are in length_prior_s1 / length_prior / length_prior_s8)
     $PY_LLADA2 scripts/length_prior.py --model $LLADA2 --data $BFCL --surplus 2 --block-length 32 \
         --out results/llada2/length_prior_s2.jsonl | tee results/llada2/length_prior_s2.txt
+    ;;
+  wording_ar|wording_dream)
+    # experiment F: simultaneous agents whose number, or number and rule, is worded in other ways
+    # (new files; the original wordings are in agents_c1.jsonl, agents.jsonl and agents_rule.jsonl)
+    if [ "$1" = wording_ar ]; then t=qwen; m=$QWEN; b=ar; else t=dream; m=$DREAM; b=dllm; fi
+    choose_data
+    mkdir -p results/$t
+    $PY_DREAM scripts/run_agents_bfcl.py --model $m --backend $b --subset sym --protocols $WORDINGS         --out results/$t/agents_f1.jsonl
+    $PY_DREAM scripts/run_agents.py --model $m --backend $b --data probe:data/choose.jsonl --variant list         --protocols $WORDINGS --out results/$t/agents_f_choose.jsonl
     ;;
   *)
     sed -n '2,20p' "$0"; exit 1 ;;
